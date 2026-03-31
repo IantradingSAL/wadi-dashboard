@@ -958,23 +958,19 @@ async function citLogin(){
   const email=document.getElementById('cit-em').value.trim();
   const pw=document.getElementById('cit-pw').value;
   const err=document.getElementById('cit-err');
+  const btn=event.currentTarget||document.querySelector('[onclick="citLogin()"]');
   err.textContent='';
   if(!email||!pw){err.textContent='يرجى إدخال البريد وكلمة المرور';return;}
   if(!dbR){err.textContent='⚠️ Supabase غير مُعد';return;}
   try{
     const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
     if(error)throw error;
-    // Check it's a citizen (not staff)
-    const role=data.user?.user_metadata?.role;
-    if(['mayor','admin','approver','officer'].includes(role)){
-      // Staff trying to login via citizen portal — redirect to staff
-      await sb.auth.signOut();
-      err.textContent='هذا حساب موظف — استخدم دخول الموظفين';
-      return;
-    }
     citUser=data.user;
     setupCitDashboard();
-  }catch(e){err.textContent='البريد أو كلمة المرور غير صحيحة ❌';}
+  }catch(e){
+    console.error('Login error:',e);
+    err.textContent='البريد أو كلمة المرور غير صحيحة ❌';
+  }
 }
 
 async function citRegister(){
@@ -1068,7 +1064,13 @@ async function submitCitCase(){
   const btn=document.getElementById('cit-submit-btn');
   err.textContent='';
   if(!desc){err.textContent='يرجى كتابة وصف الطلب';return;}
-  if(!dbR||!citUser){err.textContent='يرجى تسجيل الدخول أولاً';return;}
+  if(!dbR){err.textContent='⚠️ Supabase غير مُعد';return;}
+  if(!citUser){err.textContent='يرجى تسجيل الدخول أولاً';return;}
+  // Re-check session
+  try{
+    const{data:{session}}=await sb.auth.getSession();
+    if(!session){err.textContent='انتهت جلستك — يرجى تسجيل الدخول مجدداً';return;}
+  }catch(e){err.textContent='خطأ في الاتصال: '+e.message;return;}
   const name=citUser?.user_metadata?.name||'مواطن';
   const phone=citUser?.user_metadata?.phone||'';
   const email=citUser?.email||'';
@@ -1120,7 +1122,11 @@ async function submitCitCase(){
     renderCitFileList();
     showCitDashboard();
     toast('✅ تم إرسال طلبك بنجاح!');
-  }catch(e){err.textContent='خطأ: '+e.message;}
+  }catch(e){
+    console.error('Submit error:',e);
+    err.textContent='خطأ: '+(e.message||'حدث خطأ غير متوقع');
+    err.style.color='var(--danger)';
+  }
   finally{btn.disabled=false;btn.textContent='📤 إرسال الطلب';}
 }
 
