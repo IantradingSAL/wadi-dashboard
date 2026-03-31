@@ -289,7 +289,11 @@ select.fi{cursor:pointer;appearance:none;-webkit-appearance:none;}
   </div>
 </div>
 
-<script src="config.js"></script>
+<script>
+// ── مفاتيح Supabase — تم دمجها مباشرة في الملف ──
+const SUPABASE_URL      = 'https://onjbwhkmmtqnymhjnplw.supabase.co';
+const SUPABASE_ANON_KEY = 'ANON_KEY_PLACEHOLDER';
+</script>
 <script>
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const TL={complaint:'شكوى',welfare:'رعاية اجتماعية',permit:'ترخيص',inquiry:'استفسار'};
@@ -989,9 +993,15 @@ async function citRegister(){
       options:{data:{name,phone,role:'citizen'}}
     });
     if(error)throw error;
-    citUser=data.user;
+    // After signup, immediately sign in to get a valid session
+    const{data:loginData,error:loginError}=await sb.auth.signInWithPassword({email,password:pw});
+    if(loginError)throw loginError;
+    citUser=loginData.user;
     setupCitDashboard();
-  }catch(e){err.textContent='خطأ: '+e.message;}
+  }catch(e){
+    console.error('Register error:',e);
+    err.textContent='خطأ: '+e.message;
+  }
 }
 
 function setupCitDashboard(){
@@ -1066,11 +1076,14 @@ async function submitCitCase(){
   if(!desc){err.textContent='يرجى كتابة وصف الطلب';return;}
   if(!dbR){err.textContent='⚠️ Supabase غير مُعد';return;}
   if(!citUser){err.textContent='يرجى تسجيل الدخول أولاً';return;}
-  // Re-check session
-  try{
-    const{data:{session}}=await sb.auth.getSession();
-    if(!session){err.textContent='انتهت جلستك — يرجى تسجيل الدخول مجدداً';return;}
-  }catch(e){err.textContent='خطأ في الاتصال: '+e.message;return;}
+  // Re-check session if citUser is null
+  if(!citUser){
+    try{
+      const{data:{session}}=await sb.auth.getSession();
+      if(session&&session.user){citUser=session.user;}
+      else{err.textContent='يرجى تسجيل الدخول أولاً';return;}
+    }catch(e){err.textContent='خطأ في الاتصال: '+e.message;return;}
+  }
   const name=citUser?.user_metadata?.name||'مواطن';
   const phone=citUser?.user_metadata?.phone||'';
   const email=citUser?.email||'';
