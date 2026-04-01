@@ -317,17 +317,11 @@ const ROLE_CFG={
 
 // ── SUPABASE ──────────────────────────────────────────────────────────────────
 let sb=null,dbR=false;
-function initSB(){
-  const url=localStorage.getItem('sb_url')||SUPABASE_URL;
-  const key=localStorage.getItem('sb_key')||SUPABASE_ANON_KEY;
-  try{
-    if(url&&key&&url.startsWith('https://')&&key.startsWith('eyJ')){
-      sb=window.supabase.createClient(url,key);
-      dbR=true;
-    }
-  }catch(e){console.error('Supabase init error:',e);}
-}
-initSB();
+try{
+  sb=window.supabase.createClient('https://onjbwhkmmtqnymhjnplw.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4');
+  dbR=true;
+}catch(e){console.error('Supabase init error:',e);}
+
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let currentUser=null,userRole=null,cases=[],stF='all',tyF='all',srcF='all',sortM='date-desc',qF='',page=1;
@@ -601,10 +595,10 @@ function openDetail(id){
     </div>
     ${na?`<div class="fg"><div class="fl">حالة الموافقة</div><div style="display:flex;align-items:center;gap:9px">${aH(c)}${c.approval_by?`<span style="font-size:12px;color:var(--text3)">· ${c.approval_by} · <span class="ltr">${c.approval_date||''}</span></span>`:''}</div></div>`:''}
     <div class="fg"><div class="fl">تحديث الحالة</div>
-      <select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','status',this.value,\`${userName}\`)">${STATUSES.map(s=>`<option value="${s}"${s===c.status?' selected':''}>${SL[s]}</option>`).join('')}</select></div>
+      <select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','status',this.value,'${userName}')">${STATUSES.map(s=>`<option value="${s}"${s===c.status?' selected':''}>${SL[s]}</option>`).join('')}</select></div>
     <div class="g2">
-      <div class="fg"><div class="fl">المسؤول</div><select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','assigned',this.value,\`${userName}\`)">${OFFICERS.map(o=>`<option${o===c.assigned?' selected':''}>${o}</option>`).join('')}</select></div>
-      <div class="fg"><div class="fl">الأولوية</div><select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','priority',this.value,\`${userName}\`)">${PRIOS.map(p=>`<option value="${p}"${p===c.priority?' selected':''}>${PL[p]}</option>`).join('')}</select></div>
+      <div class="fg"><div class="fl">المسؤول</div><select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','assigned',this.value,'${userName}')">${OFFICERS.map(o=>`<option${o===c.assigned?' selected':''}>${o}</option>`).join('')}</select></div>
+      <div class="fg"><div class="fl">الأولوية</div><select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','priority',this.value,'${userName}')">${PRIOS.map(p=>`<option value="${p}"${p===c.priority?' selected':''}>${PL[p]}</option>`).join('')}</select></div>
     </div>
     
     <div class="dv"></div>
