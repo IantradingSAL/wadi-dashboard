@@ -613,11 +613,11 @@ function openDetail(id){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:16px">
       <div>
         <div class="fl" style="display:flex;align-items:center;gap:5px">🔒 ملاحظات داخلية <span style="font-size:10px;background:#fff4e0;color:var(--warn);padding:1px 6px;border-radius:4px">للموظفين فقط</span></div>
-        <textarea class="fi" ${R.edit?'':'disabled'} onblur="uf('${id}','notes',this.value,'${by}')" placeholder="لا يراها المواطن…" style="min-height:80px">${c.notes||''}</textarea>
+        <textarea class="fi" ${R.edit?'':'disabled'} onblur="uf('${id}','notes',this.value,\`${by}\`)" placeholder="لا يراها المواطن…" style="min-height:80px">${c.notes||''}</textarea>
       </div>
       <div>
         <div class="fl" style="display:flex;align-items:center;gap:5px">📢 رسالة للمواطن <span style="font-size:10px;background:var(--green3);color:var(--green2);padding:1px 6px;border-radius:4px">تظهر للمواطن</span></div>
-        <textarea class="fi" ${R.edit?'':'disabled'} onblur="uf('${id}','public_note',this.value,'${by}')" placeholder="رسالة للمواطن عند متابعة طلبه…" style="min-height:80px">${c.public_note||''}</textarea>
+        <textarea class="fi" ${R.edit?'':'disabled'} onblur="uf('${id}','public_note',this.value,\`${by}\`)" placeholder="رسالة للمواطن عند متابعة طلبه…" style="min-height:80px">${c.public_note||''}</textarea>
       </div>
     </div>
     <div class="dv"></div>
@@ -697,93 +697,34 @@ async function subAdd(){
 
 // ── USER MANAGEMENT (Admin only) ──────────────────────────────────────────────
 function openUsers(){
-  document.getElementById('MT').textContent='إدارة الموظفين';
+  document.getElementById('MT').textContent='إدارة المستخدمين';
   document.getElementById('MB').innerHTML=`
     <div class="admin-section">
       <div class="admin-header">➕ إضافة موظف جديد</div>
-      <div class="g2">
-        <div class="fg"><div class="fl">الاسم الكامل *</div><input type="text" class="fi" id="nu-name" placeholder="اسم الموظف"></div>
-        <div class="fg"><div class="fl">البريد الإلكتروني *</div><input type="email" class="fi" id="nu-email" placeholder="email@gmail.com" style="direction:ltr"></div>
-      </div>
-      <div class="g2">
-        <div class="fg"><div class="fl">كلمة المرور *</div><input type="password" class="fi" id="nu-pw" placeholder="8 أحرف على الأقل" style="direction:ltr"></div>
-        <div class="fg"><div class="fl">الدور</div>
-          <select class="fi" id="nu-role">
-            <option value="officer">👤 موظف المتابعة</option>
-            <option value="approver">✅ مسؤول الموافقات</option>
-            <option value="admin">⚙️ المدير</option>
-            <option value="mayor">👑 رئيس البلدية</option>
-          </select>
-        </div>
+      <div class="fg"><div class="fl">الاسم الكامل *</div><input type="text" class="fi" id="nu-name" placeholder="اسم الموظف"></div>
+      <div class="fg"><div class="fl">البريد الإلكتروني *</div><input type="email" class="fi" id="nu-email" placeholder="employee@municipality.lb" style="direction:ltr"></div>
+      <div class="fg"><div class="fl">كلمة المرور *</div><input type="password" class="fi" id="nu-pw" placeholder="8 أحرف على الأقل" style="direction:ltr"></div>
+      <div class="fg"><div class="fl">الدور / الصلاحية</div>
+        <select class="fi" id="nu-role">
+          <option value="officer">👤 موظف المتابعة</option>
+          <option value="approver">✅ مسؤول الموافقات</option>
+          <option value="admin">⚙️ المدير</option>
+          <option value="mayor">👑 رئيس البلدية</option>
+        </select>
       </div>
       <button class="btn bp" style="width:100%;justify-content:center" onclick="createUser()">✓ إنشاء الحساب</button>
       <div id="cu-msg" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px"></div>
     </div>
     <div class="admin-section">
-      <div class="admin-header">👥 الموظفون الحاليون — تعديل الصلاحيات</div>
-      <div id="emp-list"><div style="text-align:center;padding:20px;color:var(--text3)">⏳ جاري التحميل…</div></div>
-    </div>
-    <div class="admin-section">
-      <div class="admin-header">🔑 تغيير كلمة مرور موظف</div>
-      <div style="font-size:13px;color:var(--text2);line-height:2">
-        Supabase → <strong>Authentication → Users</strong> → ابحث عن الموظف → <strong>...</strong> → <strong>Send password recovery</strong> ✅
+      <div class="admin-header">📋 تعليمات مهمة</div>
+      <div style="font-size:13.5px;color:var(--text2);line-height:2">
+        ✅ بعد إنشاء الحساب، يصل الموظف رابط تفعيل على بريده<br>
+        ✅ يدخل الموظف بالبريد الإلكتروني وكلمة المرور التي اخترتها<br>
+        ✅ يمكن تغيير كلمة المرور لاحقاً من "نسيت كلمة المرور"<br>
+        ✅ رابط لوحة التحكم: <strong>iantradingsal.github.io/wadi-dashboard/</strong>
       </div>
     </div>`;
   document.getElementById('OV').classList.add('open');
-  loadEmployees();
-}
-
-async function loadEmployees(){
-  const el=document.getElementById('emp-list');
-  if(!el||!dbR)return;
-  const SB_URL='https://onjbwhkmmtqnymhjnplw.supabase.co';
-  const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
-  try{
-    const resp=await fetch(SB_URL+'/auth/v1/admin/users?per_page=50',{
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
-    });
-    const json=await resp.json();
-    const users=(json.users||[]).filter(u=>['mayor','admin','approver','officer'].includes(u.user_metadata?.role));
-    if(!users.length){el.innerHTML='<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">لا يوجد موظفون بعد</div>';return;}
-    const roleL={mayor:'👑 رئيس البلدية',admin:'⚙️ المدير',approver:'✅ مسؤول الموافقات',officer:'👤 موظف المتابعة'};
-    const CLR=[['#1a6eb5','#d6e9f8'],['#8a6200','#f5edca'],['#bf2424','#fdeaea'],['#6535a8','#ede8f8'],['#1e5429','#d4edda']];
-    function gc(n){if(!n)return CLR[0];let h=0;for(let c of n)h=(h*31+c.charCodeAt(0))&0xffff;return CLR[h%CLR.length];}
-    function gi(n){if(!n)return'?';return n.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('');}
-    el.innerHTML=users.map(u=>{
-      const nm=u.user_metadata?.name||u.email.split('@')[0];
-      const rl=u.user_metadata?.role||'officer';
-      const[fc,bc]=gc(nm);
-      const uid=u.id;
-      const safeNm=nm.replace(/'/g,'');
-      return '<div style="display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid var(--border)">'
-        +'<div style="width:40px;height:40px;border-radius:50%;background:'+bc+';color:'+fc+';display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0">'+gi(nm)+'</div>'
-        +'<div style="flex:1"><div style="font-weight:700;font-size:14px">'+nm+'</div><div style="font-size:12px;color:var(--text3)">'+u.email+'</div></div>'
-        +'<select onchange="changeRole(''+uid+'',this.value,''+safeNm+'')" style="padding:6px 11px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;cursor:pointer;outline:none;background:#fff">'
-        +['officer','approver','admin','mayor'].map(r=>'<option value="'+r+'"'+(r===rl?' selected':'')+'>'+roleL[r]+'</option>').join('')
-        +'</select></div>';
-    }).join('');
-  }catch(e){
-    el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:12px">⚠️ لا يمكن تحميل القائمة تلقائياً<br><small>يمكن إدارة الصلاحيات من Supabase → Authentication → Users</small></div>';
-  }
-}
-
-async function changeRole(userId,newRole,name){
-  if(!dbR)return;
-  const SB_URL='https://onjbwhkmmtqnymhjnplw.supabase.co';
-  const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
-  try{
-    const resp=await fetch(SB_URL+'/auth/v1/admin/users/'+userId,{
-      method:'PUT',
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify({user_metadata:{role:newRole}})
-    });
-    const data=await resp.json();
-    if(data.error)throw new Error(data.msg||data.error);
-    toast('✅ تم تغيير صلاحية '+name);
-    setTimeout(loadEmployees,800);
-  }catch(e){
-    toast('⚠️ يجب تغيير الدور من Supabase مباشرة','err');
-  }
 }
 
 async function createUser(){
