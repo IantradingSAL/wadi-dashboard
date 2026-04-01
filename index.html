@@ -291,9 +291,8 @@ select.fi{cursor:pointer;appearance:none;-webkit-appearance:none;}
 </div>
 
 <script>
-// المفاتيح تُقرأ من إعدادات المتصفح المحفوظة
-const SUPABASE_URL      = 'https://onjbwhkmmtqnymhjnplw.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
+const SUPABASE_URL='https://onjbwhkmmtqnymhjnplw.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
 </script>
 <script>
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
@@ -317,11 +316,7 @@ const ROLE_CFG={
 
 // ── SUPABASE ──────────────────────────────────────────────────────────────────
 let sb=null,dbR=false;
-try{
-  sb=window.supabase.createClient('https://onjbwhkmmtqnymhjnplw.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4');
-  dbR=true;
-}catch(e){console.error('Supabase init error:',e);}
-
+try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);dbR=true;}catch(e){console.error(e);}
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let currentUser=null,userRole=null,cases=[],stF='all',tyF='all',srcF='all',sortM='date-desc',qF='',page=1;
@@ -595,10 +590,10 @@ function openDetail(id){
     </div>
     ${na?`<div class="fg"><div class="fl">حالة الموافقة</div><div style="display:flex;align-items:center;gap:9px">${aH(c)}${c.approval_by?`<span style="font-size:12px;color:var(--text3)">· ${c.approval_by} · <span class="ltr">${c.approval_date||''}</span></span>`:''}</div></div>`:''}
     <div class="fg"><div class="fl">تحديث الحالة</div>
-      <select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','status',this.value,'${userName}')">${STATUSES.map(s=>`<option value="${s}"${s===c.status?' selected':''}>${SL[s]}</option>`).join('')}</select></div>
+      <select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','status',this.value,(currentUser?.user_metadata?.name||currentUser?.email||'موظف'))">${STATUSES.map(s=>`<option value="${s}"${s===c.status?' selected':''}>${SL[s]}</option>`).join('')}</select></div>
     <div class="g2">
-      <div class="fg"><div class="fl">المسؤول</div><select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','assigned',this.value,'${userName}')">${OFFICERS.map(o=>`<option${o===c.assigned?' selected':''}>${o}</option>`).join('')}</select></div>
-      <div class="fg"><div class="fl">الأولوية</div><select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','priority',this.value,'${userName}')">${PRIOS.map(p=>`<option value="${p}"${p===c.priority?' selected':''}>${PL[p]}</option>`).join('')}</select></div>
+      <div class="fg"><div class="fl">المسؤول</div><select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','assigned',this.value,(currentUser?.user_metadata?.name||currentUser?.email||'موظف'))">${OFFICERS.map(o=>`<option${o===c.assigned?' selected':''}>${o}</option>`).join('')}</select></div>
+      <div class="fg"><div class="fl">الأولوية</div><select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','priority',this.value,(currentUser?.user_metadata?.name||currentUser?.email||'موظف'))">${PRIOS.map(p=>`<option value="${p}"${p===c.priority?' selected':''}>${PL[p]}</option>`).join('')}</select></div>
     </div>
     
     <div class="dv"></div>
@@ -607,11 +602,11 @@ function openDetail(id){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:16px">
       <div>
         <div class="fl" style="display:flex;align-items:center;gap:5px">🔒 ملاحظات داخلية <span style="font-size:10px;background:#fff4e0;color:var(--warn);padding:1px 6px;border-radius:4px">للموظفين فقط</span></div>
-        <textarea class="fi" ${R.edit?'':'disabled'} onblur="uf('${id}','notes',this.value,\`${by}\`)" placeholder="لا يراها المواطن…" style="min-height:80px">${c.notes||''}</textarea>
+        <textarea class="fi" ${R.edit?'':'disabled'} onblur="uf('${id}','notes',this.value,''+(currentUser?.user_metadata?.name||currentUser?.email||'موظف'))" placeholder="لا يراها المواطن…" style="min-height:80px">${c.notes||''}</textarea>
       </div>
       <div>
         <div class="fl" style="display:flex;align-items:center;gap:5px">📢 رسالة للمواطن <span style="font-size:10px;background:var(--green3);color:var(--green2);padding:1px 6px;border-radius:4px">تظهر للمواطن</span></div>
-        <textarea class="fi" ${R.edit?'':'disabled'} onblur="uf('${id}','public_note',this.value,\`${by}\`)" placeholder="رسالة للمواطن عند متابعة طلبه…" style="min-height:80px">${c.public_note||''}</textarea>
+        <textarea class="fi" ${R.edit?'':'disabled'} onblur="uf('${id}','public_note',this.value,''+(currentUser?.user_metadata?.name||currentUser?.email||'موظف'))" placeholder="رسالة للمواطن عند متابعة طلبه…" style="min-height:80px">${c.public_note||''}</textarea>
       </div>
     </div>
     <div class="dv"></div>
@@ -862,17 +857,14 @@ function exportCSV(){
 }
 
 
-// ── SESSION CHECK ON LOAD ─────────────────────────────────────────────────────
 window.addEventListener('load',async()=>{
   localStorage.removeItem('sb_url');
   localStorage.removeItem('sb_key');
   if(!dbR)return;
   try{
     const{data:{session}}=await sb.auth.getSession();
-    if(session&&session.user){
-      await setupUser(session.user);
-    }
-  }catch(e){console.error('Session error:',e);}
+    if(session&&session.user)await setupUser(session.user);
+  }catch(e){console.error(e);}
 });
 
 function closeM(){document.getElementById('OV').classList.remove('open');}
