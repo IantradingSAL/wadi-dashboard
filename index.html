@@ -40,7 +40,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .sb{width:248px;flex-shrink:0;background:var(--blue2);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
 .sb-top{padding:15px 15px 13px;border-bottom:1px solid rgba(255,255,255,0.1);}
 .sb-lr{display:flex;align-items:center;gap:9px;margin-bottom:10px;}
-.sb-logo{height:44px;}
+.sb-logo{height:44px;mix-blend-mode:screen;filter:brightness(0) invert(1);}
 .sb-m{font-size:15px;font-weight:800;line-height:1.2;}
 .sb-s{font-size:10px;opacity:0.5;}
 .sb-user{background:rgba(255,255,255,0.12);border-radius:10px;padding:9px 12px;margin-top:2px;}
@@ -420,7 +420,7 @@ async function saveC(c){
     const{error}=await sb.from('cases').upsert({
       id:c.id,name:c.name,phone:c.phone||'',email:c.email||'',address:c.address||'',
       type:c.type,description:c.description,assigned:c.assigned,status:c.status,
-      priority:c.priority,notes:c.notes||'',approval_state:c.approval_state||null,
+      priority:c.priority,notes:c.notes||'',public_note:c.public_note||null,approval_state:c.approval_state||null,
       approval_by:c.approval_by||null,approval_date:c.approval_date||null,
       timeline:c.timeline||[],documents:c.documents||[],source:c.source||'staff'
     });
@@ -742,7 +742,7 @@ async function loadEmp(){
     });
     const j=await r.json();
     const users=(j.users||[]).filter(u=>['mayor','admin','approver','officer'].includes(u.user_metadata?.role));
-    if(!users.length){el.innerHTML='<div style="text-align:center;padding:14px;color:var(--text3)">لا يوجد موظفون مسجلون بعد</div>';return;}
+    if(!users.length){el.innerHTML='<div style="text-align:center;padding:14px;color:var(--text3)">لا يوجد موظفون بعد</div>';return;}
     const RL={mayor:'👑 رئيس البلدية',admin:'⚙️ المدير',approver:'✅ مسؤول الموافقات',officer:'👤 موظف المتابعة'};
     const CL=[['#1a6eb5','#d6e9f8'],['#8a6200','#f5edca'],['#bf2424','#fdeaea'],['#6535a8','#ede8f8'],['#1e5429','#d4edda']];
     function gc(n){if(!n)return CL[0];let h=0;for(let c of n)h=(h*31+c.charCodeAt(0))&0xffff;return CL[h%CL.length];}
@@ -751,8 +751,7 @@ async function loadEmp(){
       const nm=u.user_metadata?.name||u.email.split('@')[0];
       const rl=u.user_metadata?.role||'officer';
       const[fc,bc]=gc(nm);
-      const uid=u.id;
-      const sn=nm.replace(/'/g,'');
+      const uid=u.id;const sn=nm.replace(/'/g,'');
       return '<div style="border:1px solid var(--border);border-radius:12px;padding:13px 14px;margin-bottom:9px">'
         +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
         +'<div style="width:40px;height:40px;border-radius:50%;background:'+bc+';color:'+fc+';display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0">'+gi(nm)+'</div>'
@@ -762,8 +761,8 @@ async function loadEmp(){
         +'<select onchange="chRole(''+uid+'',this.value,''+sn+'')" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;cursor:pointer;outline:none;background:#fff">'
         +['officer','approver','admin','mayor'].map(r=>'<option value="'+r+'"'+(r===rl?' selected':'')+'>'+RL[r]+'</option>').join('')
         +'</select>'
-        +'<button onclick="editEmp(''+uid+'',''+sn+'',''+rl+'')" style="padding:7px 13px;background:var(--blue3);color:var(--blue);border:1px solid var(--blue);border-radius:8px;cursor:pointer;font-family:var(--font);font-size:13px;font-weight:700;white-space:nowrap">✏️ تعديل</button>'
-        +'<button onclick="delEmp(''+uid+'',''+sn+'')" style="padding:7px 13px;background:var(--danger-bg);color:var(--danger);border:1px solid #f2bcbc;border-radius:8px;cursor:pointer;font-family:var(--font);font-size:13px;font-weight:700;white-space:nowrap">🗑 حذف</button>'
+        +'<button onclick="editEmp(''+uid+'',''+sn+'',''+rl+'')" style="padding:7px 13px;background:var(--blue3);color:var(--blue);border:1px solid var(--blue);border-radius:8px;cursor:pointer;font-family:var(--font);font-size:13px;font-weight:700">✏️ تعديل</button>'
+        +'<button onclick="delEmp(''+uid+'',''+sn+'')" style="padding:7px 13px;background:var(--danger-bg);color:var(--danger);border:1px solid #f2bcbc;border-radius:8px;cursor:pointer;font-family:var(--font);font-size:13px;font-weight:700">🗑 حذف</button>'
         +'</div></div>';
     }).join('');
   }catch(e){el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:12px">⚠️ يمكن إدارة الموظفين من Supabase مباشرة</div>';}
@@ -777,15 +776,13 @@ async function chRole(uid,role,name){
     });
     const d=await r.json();
     if(d.error)throw new Error(d.msg||JSON.stringify(d.error));
-    toast('✅ تم تغيير دور '+name);
-    setTimeout(loadEmp,700);
+    toast('✅ تم تغيير دور '+name);setTimeout(loadEmp,700);
   }catch(e){toast('⚠️ '+e.message,'err');}
 }
 
 function editEmp(uid,name,role){
   const RL={mayor:'👑 رئيس البلدية',admin:'⚙️ المدير',approver:'✅ مسؤول الموافقات',officer:'👤 موظف المتابعة'};
-  const old=document.getElementById('edit-emp-form');
-  if(old)old.remove();
+  const old=document.getElementById('edit-emp-form');if(old)old.remove();
   document.getElementById('emp-list').insertAdjacentHTML('afterbegin',
     '<div id="edit-emp-form" style="background:var(--blue3);border:1.5px solid var(--blue);border-radius:12px;padding:16px;margin-bottom:14px">'
     +'<div style="font-size:14px;font-weight:700;color:var(--blue2);margin-bottom:12px">✏️ تعديل: '+name+'</div>'
@@ -794,7 +791,7 @@ function editEmp(uid,name,role){
     +['officer','approver','admin','mayor'].map(r=>'<option value="'+r+'"'+(r===role?' selected':'')+'>'+RL[r]+'</option>').join('')
     +'</select></div>'
     +'<div style="display:flex;gap:8px">'
-    +'<button onclick="saveEmp(''+uid+'')" class="btn bp" style="flex:2;justify-content:center">✓ حفظ التعديلات</button>'
+    +'<button onclick="saveEmp(''+uid+'')" class="btn bp" style="flex:2;justify-content:center">✓ حفظ</button>'
     +'<button onclick="document.getElementById('edit-emp-form').remove()" class="btn bg" style="flex:1;justify-content:center">إلغاء</button>'
     +'</div></div>');
 }
@@ -808,26 +805,19 @@ async function saveEmp(uid){
       headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Content-Type':'application/json'},
       body:JSON.stringify({user_metadata:{name:nm,role:rl}})
     });
-    const d=await r.json();
-    if(d.error)throw new Error(d.msg||JSON.stringify(d.error));
-    toast('✅ تم حفظ التعديلات');
-    setTimeout(loadEmp,700);
+    const d=await r.json();if(d.error)throw new Error(d.msg||JSON.stringify(d.error));
+    toast('✅ تم حفظ التعديلات');setTimeout(loadEmp,700);
   }catch(e){toast('⚠️ '+e.message,'err');}
 }
 
 async function delEmp(uid,name){
-  if(!confirm('حذف حساب '+name+' نهائياً؟ لا يمكن التراجع عن هذا الإجراء.'))return;
+  if(!confirm('حذف حساب '+name+' نهائياً؟'))return;
   try{
     const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/'+uid,{method:'DELETE',
       headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4'}
     });
-    if(r.status===200||r.status===204){
-      toast('🗑 تم حذف حساب '+name);
-      setTimeout(loadEmp,700);
-    }else{
-      const d=await r.json();
-      throw new Error(d.msg||'فشل الحذف - status: '+r.status);
-    }
+    if(r.status===200||r.status===204){toast('🗑 تم حذف '+name);setTimeout(loadEmp,700);}
+    else{const d=await r.json();throw new Error(d.msg||'فشل الحذف');}
   }catch(e){toast('⚠️ '+e.message,'err');}
 }
 
