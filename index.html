@@ -40,7 +40,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .sb{width:248px;flex-shrink:0;background:var(--blue2);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
 .sb-top{padding:15px 15px 13px;border-bottom:1px solid rgba(255,255,255,0.1);}
 .sb-lr{display:flex;align-items:center;gap:9px;margin-bottom:10px;}
-.sb-logo{height:44px;}
+.sb-logo{height:44px;mix-blend-mode:screen;filter:brightness(0) invert(1);}
 .sb-m{font-size:15px;font-weight:800;line-height:1.2;}
 .sb-s{font-size:10px;opacity:0.5;}
 .sb-user{background:rgba(255,255,255,0.12);border-radius:10px;padding:9px 12px;margin-top:2px;}
@@ -291,9 +291,8 @@ select.fi{cursor:pointer;appearance:none;-webkit-appearance:none;}
 </div>
 
 <script>
-// المفاتيح تُقرأ من إعدادات المتصفح المحفوظة
-const SUPABASE_URL      = 'https://onjbwhkmmtqnymhjnplw.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
+const SUPABASE_URL='https://onjbwhkmmtqnymhjnplw.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
 </script>
 <script>
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
@@ -317,17 +316,7 @@ const ROLE_CFG={
 
 // ── SUPABASE ──────────────────────────────────────────────────────────────────
 let sb=null,dbR=false;
-function initSB(){
-  const url=localStorage.getItem('sb_url')||SUPABASE_URL;
-  const key=localStorage.getItem('sb_key')||SUPABASE_ANON_KEY;
-  try{
-    if(url&&key&&url.startsWith('https://')&&key.startsWith('eyJ')){
-      sb=window.supabase.createClient(url,key);
-      dbR=true;
-    }
-  }catch(e){console.error('Supabase init error:',e);}
-}
-initSB();
+try{sb=window.supabase.createClient('https://onjbwhkmmtqnymhjnplw.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4');dbR=true;}catch(e){console.error(e);}
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let currentUser=null,userRole=null,cases=[],stF='all',tyF='all',srcF='all',sortM='date-desc',qF='',page=1;
@@ -420,7 +409,7 @@ async function saveC(c){
     const{error}=await sb.from('cases').upsert({
       id:c.id,name:c.name,phone:c.phone||'',email:c.email||'',address:c.address||'',
       type:c.type,description:c.description,assigned:c.assigned,status:c.status,
-      priority:c.priority,notes:c.notes||'',approval_state:c.approval_state||null,
+      priority:c.priority,notes:c.notes||'',public_note:c.public_note||null,approval_state:c.approval_state||null,
       approval_by:c.approval_by||null,approval_date:c.approval_date||null,
       timeline:c.timeline||[],documents:c.documents||[],source:c.source||'staff'
     });
@@ -751,6 +740,106 @@ function exportCSV(){
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));a.download='بلدية_وادي_الست.csv';a.click();
 }
 
+
+async function loadEmp(){
+  const el=document.getElementById('emp-list');if(!el||!dbR)return;
+  try{
+    const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users?per_page=50',{headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4'}});
+    const j=await r.json();
+    const users=(j.users||[]).filter(u=>['mayor','admin','approver','officer'].includes(u.user_metadata?.role));
+    if(!users.length){el.innerHTML='<div style="text-align:center;padding:14px;color:var(--text3)">لا يوجد موظفون بعد</div>';return;}
+    const RL={mayor:'👑 رئيس البلدية',admin:'⚙️ المدير',approver:'✅ مسؤول الموافقات',officer:'👤 موظف المتابعة'};
+    const CL=[['#1a6eb5','#d6e9f8'],['#8a6200','#f5edca'],['#bf2424','#fdeaea'],['#6535a8','#ede8f8'],['#1e5429','#d4edda']];
+    function gc(n){if(!n)return CL[0];let h=0;for(let c of n)h=(h*31+c.charCodeAt(0))&0xffff;return CL[h%CL.length];}
+    function gi(n){if(!n)return'?';return n.trim().split(/ +/).slice(0,2).map(w=>w[0]).join('');}
+    el.innerHTML=users.map(u=>{
+      const nm=u.user_metadata?.name||u.email.split('@')[0];const rl=u.user_metadata?.role||'officer';
+      const[fc,bc]=gc(nm);const uid=u.id;const sn=nm.replace(/'/g,'');
+      return '<div style="border:1px solid var(--border);border-radius:12px;padding:13px;margin-bottom:9px">'
+        +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+        +'<div style="width:38px;height:38px;border-radius:50%;background:'+bc+';color:'+fc+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">'+gi(nm)+'</div>'
+        +'<div style="flex:1"><div style="font-weight:700;font-size:14px">'+nm+'</div><div style="font-size:11px;color:var(--text3)">'+u.email+'</div></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px">'
+        +'<select onchange="chRole(''+uid+'',this.value,''+sn+'')" style="padding:7px;border:1px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;cursor:pointer;background:#fff">'
+        +['officer','approver','admin','mayor'].map(r=>'<option value="'+r+'"'+(r===rl?' selected':'')+'>'+RL[r]+'</option>').join('')
+        +'</select>'
+        +'<button onclick="editEmp(''+uid+'',''+sn+'',''+rl+'')" style="padding:7px 12px;background:var(--blue3);color:var(--blue);border:1px solid var(--blue);border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">✏️ تعديل</button>'
+        +'<button onclick="delEmp(''+uid+'',''+sn+'')" style="padding:7px 12px;background:var(--danger-bg);color:var(--danger);border:1px solid #f2bcbc;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">🗑 حذف</button>'
+        +'</div></div>';
+    }).join('');
+  }catch(e){el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:12px">⚠️ يمكن إدارة الموظفين من Supabase مباشرة</div>';}
+}
+async function chRole(uid,role,name){
+  try{const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/'+uid,{method:'PUT',headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Content-Type':'application/json'},body:JSON.stringify({user_metadata:{role}})});
+    const d=await r.json();if(d.error)throw new Error(d.msg||JSON.stringify(d.error));
+    toast('✅ تم تغيير دور '+name);setTimeout(loadEmp,700);
+  }catch(e){toast('⚠️ '+e.message,'err');}
+}
+function editEmp(uid,name,role){
+  const RL={mayor:'👑 رئيس البلدية',admin:'⚙️ المدير',approver:'✅ مسؤول الموافقات',officer:'👤 موظف المتابعة'};
+  const old=document.getElementById('edit-emp-form');if(old)old.remove();
+  document.getElementById('emp-list').insertAdjacentHTML('afterbegin',
+    '<div id="edit-emp-form" style="background:var(--blue3);border:1.5px solid var(--blue);border-radius:12px;padding:16px;margin-bottom:14px">'
+    +'<div style="font-size:14px;font-weight:700;color:var(--blue2);margin-bottom:12px">✏️ تعديل: '+name+'</div>'
+    +'<div class="fg"><div class="fl">الاسم</div><input type="text" id="edit-nm" class="fi" value="'+name+'"></div>'
+    +'<div class="fg"><div class="fl">الدور</div><select id="edit-rl" class="fi">'
+    +['officer','approver','admin','mayor'].map(r=>'<option value="'+r+'"'+(r===role?' selected':'')+'>'+RL[r]+'</option>').join('')
+    +'</select></div><div style="display:flex;gap:8px">'
+    +'<button onclick="saveEmp(''+uid+'')" class="btn bp" style="flex:2;justify-content:center">✓ حفظ</button>'
+    +'<button onclick="document.getElementById('edit-emp-form').remove()" class="btn bg" style="flex:1;justify-content:center">إلغاء</button>'
+    +'</div></div>');
+}
+async function saveEmp(uid){
+  const nm=document.getElementById('edit-nm').value.trim();const rl=document.getElementById('edit-rl').value;
+  if(!nm){toast('يرجى إدخال الاسم','err');return;}
+  try{const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/'+uid,{method:'PUT',headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Content-Type':'application/json'},body:JSON.stringify({user_metadata:{name:nm,role:rl}})});
+    const d=await r.json();if(d.error)throw new Error(d.msg||JSON.stringify(d.error));
+    toast('✅ تم حفظ التعديلات');setTimeout(loadEmp,700);
+  }catch(e){toast('⚠️ '+e.message,'err');}
+}
+async function delEmp(uid,name){
+  if(!confirm('حذف '+name+'؟'))return;
+  try{const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/'+uid,{method:'DELETE',headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4'}});
+    if(r.status===200||r.status===204){toast('🗑 تم حذف '+name);setTimeout(loadEmp,700);}
+    else{throw new Error('فشل الحذف');}
+  }catch(e){toast('⚠️ '+e.message,'err');}
+}
+
+
+async function doTrack(){
+  const ref=document.getElementById('track-num').value.toString().trim();
+  const el=document.getElementById('track-res');
+  if(!ref){el.innerHTML='<div style="color:var(--danger);font-size:13px;text-align:center">يرجى إدخال رقم الطلب</div>';return;}
+  el.innerHTML='<div style="text-align:center;padding:12px;color:var(--text3)">⏳ جاري البحث…</div>';
+  if(!dbR){el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center">الخدمة غير متاحة</div>';return;}
+  try{
+    const{data,error}=await sb.from('cases')
+      .select('id,type,status,description,created_at,timeline,documents,public_note')
+      .eq('id',ref).single();
+    if(error||!data){el.innerHTML='<div style="background:var(--danger-bg);border:1px solid #f2bcbc;border-radius:10px;padding:14px;text-align:center;color:var(--danger)">❌ لم يتم العثور على طلب بهذا الرقم</div>';return;}
+    const TL2={complaint:'شكوى',welfare:'رعاية اجتماعية',permit:'ترخيص',inquiry:'استفسار'};
+    const SL2={new:'جديد','in-progress':'قيد المعالجة',review:'مراجعة','pending-approval':'ينتظر الموافقة',resolved:'منجز ✅',closed:'مغلق'};
+    const SBG={new:'#e6f0fa','in-progress':'#fff4e0',review:'#ede8f8','pending-approval':'#fff8e6',resolved:'#d4edda',closed:'#eef0f6'};
+    const STC={new:'#1a6eb5','in-progress':'#c47800',review:'#6535a8','pending-approval':'#b87500',resolved:'#1e5429',closed:'#8d93a6'};
+    const pMap={new:25,'in-progress':50,review:75,'pending-approval':75,resolved:100,closed:100};
+    const pct=pMap[data.status]||25;
+    const tl=Array.isArray(data.timeline)?data.timeline:[];
+    const docs=Array.isArray(data.documents)?data.documents:[];
+    el.innerHTML='<div style="background:#f8fbff;border:1.5px solid var(--blue3);border-radius:14px;padding:18px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">'
+      +'<div style="font-size:14px;font-weight:700;color:var(--text2)">طلب #'+data.id+' · '+(TL2[data.type]||data.type)+'</div>'
+      +'<span style="padding:5px 14px;border-radius:20px;font-size:13px;font-weight:700;background:'+(SBG[data.status]||'#eef0f6')+';color:'+(STC[data.status]||'#8d93a6')+'">'+(SL2[data.status]||data.status)+'</span></div>'
+      +'<div style="margin-bottom:14px"><div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:600">تقدم الطلب</div>'
+      +'<div style="height:10px;background:var(--border);border-radius:10px;overflow:hidden">'
+      +'<div style="height:100%;background:'+(data.status==='resolved'?'var(--green)':data.status==='closed'?'var(--danger)':'var(--blue)')+';border-radius:10px;width:'+pct+'%"></div></div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:4px"><span>مقدَّم</span><span>قيد المعالجة</span><span>مراجعة</span><span>منجز</span></div></div>'
+      +(data.public_note?'<div style="background:#f0f8ea;border:1.5px solid #a8d9b4;border-radius:10px;padding:12px 14px;margin-bottom:14px"><div style="font-size:12px;font-weight:700;color:var(--green2);margin-bottom:5px">📢 رسالة من البلدية</div><div style="font-size:14px;color:var(--green2)">'+data.public_note+'</div></div>':'')
+      +(docs.length?'<div style="margin-bottom:14px"><div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:700">📎 المرفقات ('+docs.length+')</div><div style="display:flex;flex-wrap:wrap;gap:8px">'+docs.map(d=>'<a href="'+d.url+'" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;background:var(--blue3);border:1px solid var(--blue);border-radius:9px;color:var(--blue);font-size:13px;font-weight:600;text-decoration:none">'+(d.type&&['jpg','jpeg','png','gif','webp'].includes(d.type.toLowerCase())?'🖼️':'📄')+' '+d.name+' ⬇️</a>').join('')+'</div></div>':'')
+      +(tl.length?'<div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:700">سجل النشاط</div><div style="display:flex;flex-direction:column;gap:10px">'+tl.slice().reverse().slice(0,6).map(t=>'<div style="display:flex;gap:10px"><div style="width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:5px"></div><div><div style="font-size:13.5px;font-weight:600">'+t.a+'</div><div style="font-size:11.5px;color:var(--text3)">'+t.d+'</div></div></div>').join('')+'</div>':'<div style="color:var(--text3);font-size:13px">لا يوجد نشاط بعد</div>')
+      +'</div>';
+  }catch(e){el.innerHTML='<div style="color:var(--danger);font-size:13px;text-align:center">خطأ: '+e.message+'</div>';}
+}
+
 function closeM(){document.getElementById('OV').classList.remove('open');}
 function mc(e){if(e.target===document.getElementById('OV'))closeM();}
 </script>
@@ -872,473 +961,7 @@ function mc(e){if(e.target===document.getElementById('OV'))closeM();}
     </div>
   </div>
 </div>
-<script>
 
-// ── SETUP FUNCTIONS ───────────────────────────────────────────────────────────
-function checkSetup(){
-  const url=localStorage.getItem('sb_url');
-  const key=localStorage.getItem('sb_key');
-  if(!url||!key||url.includes('YOUR_')){
-    document.getElementById('SETUP').style.display='flex';
-    return false;
-  }
-  return true;
-}
-
-function saveSetup(){
-  const url=document.getElementById('setup-url').value.trim();
-  const key=document.getElementById('setup-key').value.trim();
-  const err=document.getElementById('setup-err');
-  err.textContent='';
-  if(!url||!url.startsWith('https://')){err.textContent='يرجى إدخال Project URL صحيح يبدأ بـ https://';return;}
-  if(!key||!key.startsWith('eyJ')){err.textContent='يرجى إدخال anon key صحيح يبدأ بـ eyJ';return;}
-  localStorage.setItem('sb_url', url);
-  localStorage.setItem('sb_key', key);
-  // Reload page to apply new keys
-  location.reload();
-}
-
-function openSettings(){
-  const url=localStorage.getItem('sb_url')||'';
-  const key=localStorage.getItem('sb_key')||'';
-  document.getElementById('setup-url').value=url;
-  document.getElementById('setup-key').value=key;
-  document.getElementById('SETUP').style.display='flex';
-}
-
-// ── CITIZEN PORTAL ────────────────────────────────────────────────────────────
-let citUser = null;
-
-function showLanding(){
-  document.getElementById('LANDING').style.display='flex';
-  document.getElementById('LS').style.display='none';
-  document.getElementById('CP').style.display='none';
-  document.getElementById('APP').style.display='none';
-}
-function showCitizenPortal(){
-  document.getElementById('LANDING').style.display='none';
-  document.getElementById('CP').style.display='block';
-  document.getElementById('LS').style.display='none';
-  showCitizenHero();
-}
-function showStaffLogin(){
-  document.getElementById('LANDING').style.display='none';
-  document.getElementById('CP').style.display='none';
-  document.getElementById('LS').style.display='flex';
-}
-function showCitizenHero(){
-  document.getElementById('cit-hero').style.display='block';
-  document.getElementById('cit-login-form').style.display='none';
-  document.getElementById('cit-reg-form').style.display='none';
-  document.getElementById('cit-dashboard').style.display='none';
-  document.getElementById('cit-add-form').style.display='none';
-}
-function showCitizenLogin(){
-  document.getElementById('cit-hero').style.display='none';
-  document.getElementById('cit-login-form').style.display='block';
-  document.getElementById('cit-reg-form').style.display='none';
-  document.getElementById('cit-dashboard').style.display='none';
-  document.getElementById('cit-add-form').style.display='none';
-}
-function showCitizenRegister(){
-  document.getElementById('cit-hero').style.display='none';
-  document.getElementById('cit-login-form').style.display='none';
-  document.getElementById('cit-reg-form').style.display='block';
-  document.getElementById('cit-dashboard').style.display='none';
-  document.getElementById('cit-add-form').style.display='none';
-}
-function showCitDashboard(){
-  document.getElementById('cit-hero').style.display='none';
-  document.getElementById('cit-login-form').style.display='none';
-  document.getElementById('cit-reg-form').style.display='none';
-  document.getElementById('cit-dashboard').style.display='block';
-  document.getElementById('cit-add-form').style.display='none';
-  loadCitCases();
-}
-function openCitAdd(){
-  document.getElementById('cit-dashboard').style.display='none';
-  document.getElementById('cit-add-form').style.display='block';
-}
-
-
-// ── CITIZEN FUNCTIONS ─────────────────────────────────────────────────────────
-function showCitizenPortal(){
-  document.getElementById('LANDING').style.display='none';
-  document.getElementById('CP').style.display='block';
-  document.getElementById('LS').style.display='none';
-  document.getElementById('APP').style.display='none';
-}
-
-async function doTrack(){
-  const ref=document.getElementById('track-num').value.toString().trim();
-  const el=document.getElementById('track-res');
-  if(!ref){el.innerHTML='<div style="color:var(--danger);font-size:13px;text-align:center">يرجى إدخال رقم الطلب</div>';return;}
-  el.innerHTML='<div style="text-align:center;padding:12px;color:var(--text3)">⏳ جاري البحث…</div>';
-  if(!dbR){el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center">الخدمة غير متاحة</div>';return;}
-  try{
-    const{data,error}=await sb.from('cases').select('id,type,status,description,created_at,timeline,documents,public_note').eq('id',ref).single();
-    if(error||!data){el.innerHTML='<div style="background:var(--danger-bg);border:1px solid #f2bcbc;border-radius:10px;padding:14px;text-align:center;color:var(--danger)">❌ لم يتم العثور على طلب بهذا الرقم</div>';return;}
-    const typeL={complaint:'شكوى',welfare:'رعاية اجتماعية',permit:'ترخيص',inquiry:'استفسار'};
-    const SL2={new:'جديد ✓','in-progress':'قيد المعالجة ⚙️',review:'مراجعة 🔍','pending-approval':'ينتظر الموافقة ⏳',resolved:'منجز ✅',closed:'مغلق'};
-    const SLC={new:'#e6f0fa','in-progress':'#fff4e0',review:'#ede8f8','pending-approval':'#fff8e6',resolved:'#d4edda',closed:'#eef0f6'};
-    const SCC={new:'#1a6eb5','in-progress':'#c47800',review:'#6535a8','pending-approval':'#b87500',resolved:'#1e5429',closed:'#8d93a6'};
-    const pMap={new:25,'in-progress':50,review:75,'pending-approval':75,resolved:100,closed:100};
-    const pct=pMap[data.status]||25;
-    const tl=Array.isArray(data.timeline)?data.timeline:[];
-    const docs2=Array.isArray(data.documents)?data.documents:[];
-    el.innerHTML=`
-      <div style="background:#f8fbff;border:1.5px solid var(--blue3);border-radius:14px;padding:18px;margin-top:4px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:14px;font-weight:700;color:var(--text2)">طلب رقم #${data.id} · ${typeL[data.type]||data.type}</div>
-          <span style="padding:5px 14px;border-radius:20px;font-size:13px;font-weight:700;background:${SLC[data.status]||'#eef0f6'};color:${SCC[data.status]||'#8d93a6'}">${SL2[data.status]||data.status}</span>
-        </div>
-        <div style="margin-bottom:14px">
-          <div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:600">تقدم الطلب</div>
-          <div style="height:10px;background:var(--border);border-radius:10px;overflow:hidden">
-            <div style="height:100%;background:${data.status==='resolved'?'var(--green)':data.status==='closed'?'var(--danger)':'var(--blue)'};border-radius:10px;width:${pct}%"></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:4px">
-            <span>مقدَّم</span><span>قيد المعالجة</span><span>مراجعة</span><span>منجز</span>
-          </div>
-        </div>
-        ${data.public_note?`<div style="background:#f0f8ea;border:1.5px solid #a8d9b4;border-radius:10px;padding:12px 14px;margin-bottom:14px">
-          <div style="font-size:12px;font-weight:700;color:var(--green2);margin-bottom:5px">📢 رسالة من البلدية</div>
-          <div style="font-size:14px;color:var(--green2)">${data.public_note}</div>
-        </div>`:''}
-        ${docs2.length?`<div style="margin-bottom:14px">
-          <div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:700">📎 المرفقات (${docs2.length})</div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px">${docs2.map(d=>`
-            <a href="${d.url}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;background:var(--blue3);border:1px solid var(--blue);border-radius:9px;color:var(--blue);font-size:13px;font-weight:600;text-decoration:none">
-              ${['jpg','jpeg','png','gif','webp'].includes((d.type||'').toLowerCase())?'🖼️':'📄'} ${d.name} ⬇️
-            </a>`).join('')}
-          </div>
-        </div>`:''}
-        ${tl.length?`<div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">سجل النشاط</div>
-        <div style="display:flex;flex-direction:column;gap:10px">${tl.slice().reverse().map(t=>`
-          <div style="display:flex;gap:10px;align-items:flex-start">
-            <div style="width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:5px"></div>
-            <div><div style="font-size:13.5px;font-weight:600">${t.a}</div><div style="font-size:11.5px;color:var(--text3)">${t.by||''} · ${t.d||''}</div></div>
-          </div>`).join('')}</div>`:'<div style="color:var(--text3);font-size:13px">لا يوجد نشاط بعد</div>'}
-      </div>`;
-  }catch(e){el.innerHTML='<div style="color:var(--danger);font-size:13px;text-align:center">خطأ: '+e.message+'</div>';}
-}
-
-// ── CITIZEN FILE UPLOAD ──────────────────────────────────────────────────────
-let citFiles = [];
-
-function addCitFiles(files){
-  Array.from(files).forEach(f=>{
-    if(f.size>10*1024*1024){alert('الملف '+f.name+' أكبر من 10MB');return;}
-    if(!citFiles.find(x=>x.name===f.name&&x.size===f.size)) citFiles.push(f);
-  });
-  renderCitFiles();
-}
-
-function removeCitFile(i){
-  citFiles.splice(i,1);
-  renderCitFiles();
-}
-
-function renderCitFiles(){
-  const fmt=b=>b>1024*1024?`${(b/1024/1024).toFixed(1)}MB`:`${Math.round(b/1024)}KB`;
-  const icon=f=>['jpg','jpeg','png','gif','webp'].some(e=>f.name.toLowerCase().endsWith('.'+e))?'🖼️':'📄';
-  document.getElementById('c-files-list').innerHTML=citFiles.map((f,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:7px 11px;background:var(--blue3);border-radius:8px;font-size:13px">
-      <span style="font-size:16px">${icon(f)}</span>
-      <span style="flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</span>
-      <span style="font-size:11px;color:var(--text3)">${fmt(f.size)}</span>
-      <button onclick="removeCitFile(${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;padding:2px" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text3)'">✕</button>
-    </div>`).join('');
-}
-
-async function doSubmitCit(){
-  const name=document.getElementById('c-name').value.trim();
-  const phone=document.getElementById('c-phone').value.trim();
-  const email=document.getElementById('c-email').value.trim();
-  const type=document.getElementById('c-type').value;
-  const addr=document.getElementById('c-addr').value.trim();
-  const desc=document.getElementById('c-desc').value.trim();
-  const err=document.getElementById('c-err');
-  const btn=document.getElementById('c-btn');
-  err.textContent='';
-  if(!name){err.textContent='يرجى إدخال اسمك الكامل';return;}
-  if(!phone){err.textContent='يرجى إدخال رقم هاتفك';return;}
-  if(!desc){err.textContent='يرجى وصف طلبك';return;}
-  if(!dbR){err.textContent='⚠️ الخدمة غير متاحة حالياً';return;}
-  btn.disabled=true;btn.textContent='⏳ جاري الإرسال…';
-  const today=new Date().toISOString().slice(0,10);
-  const na=['permit','welfare'].includes(type);
-  const nc={name,phone,email,address:addr,type,description:desc,priority:'medium',
-    assigned:'م. مقصود',status:na?'pending-approval':'new',
-    approval_state:na?'pending':null,approval_by:null,approval_date:null,
-    timeline:[{a:'تم تقديم الطلب عبر الموقع الإلكتروني',by:name,d:today,cls:''}],
-    documents:[],source:'website'};
-  try{
-    const{data,error}=await sb.from('cases').insert([nc]).select().single();
-    if(error)throw error;
-    const caseId=data.id;
-    // Upload files if any
-    if(citFiles.length>0&&dbR){
-      const prog=document.getElementById('c-upload-prog');
-      const bar=document.getElementById('c-prog-bar');
-      const lbl=document.getElementById('c-prog-label');
-      prog.style.display='block';
-      const docs=[];
-      for(let i=0;i<citFiles.length;i++){
-        const f=citFiles[i];
-        bar.style.width=Math.round((i/citFiles.length)*90)+'%';
-        lbl.textContent=`رفع الملف ${i+1} من ${citFiles.length}: ${f.name}`;
-        const ext=f.name.split('.').pop().toLowerCase();
-        const path=`${caseId}/${Date.now()}_${i}.${ext}`;
-        const{error:ue}=await sb.storage.from('case-documents').upload(path,f);
-        if(!ue){
-          const{data:pd}=sb.storage.from('case-documents').getPublicUrl(path);
-          docs.push({name:f.name,path,url:pd.publicUrl,type:ext,size:f.size});
-        }
-      }
-      if(docs.length>0){
-        const tl=[...nc.timeline,{a:`تم إرفاق ${docs.length} مستند`,by:name,d:today,cls:''}];
-        await sb.from('cases').update({documents:docs,timeline:tl}).eq('id',caseId);
-      }
-      bar.style.width='100%';lbl.textContent='تم!';
-      setTimeout(()=>{prog.style.display='none';bar.style.width='0%';},1000);
-    }
-    document.getElementById('c-ref').textContent=caseId;
-    document.getElementById('submit-form-wrap').style.display='none';
-    document.getElementById('c-success').style.display='block';
-    document.getElementById('c-success').scrollIntoView({behavior:'smooth'});
-  }catch(e){err.textContent='خطأ: '+e.message;btn.disabled=false;btn.textContent='📤 إرسال الطلب';}
-}
-
-function resetCit(){
-  ['c-name','c-phone','c-email','c-addr','c-desc'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('c-err').textContent='';
-  document.getElementById('c-success').style.display='none';
-  document.getElementById('submit-form-wrap').style.display='block';
-  document.getElementById('c-btn').disabled=false;
-  document.getElementById('c-btn').textContent='📤 إرسال الطلب';
-  citFiles=[];
-  renderCitFiles();
-}
-
-async function citLogin(){
-  const email=document.getElementById('cit-em').value.trim();
-  const pw=document.getElementById('cit-pw').value;
-  const err=document.getElementById('cit-err');
-  const btn=event.currentTarget||document.querySelector('[onclick="citLogin()"]');
-  err.textContent='';
-  if(!email||!pw){err.textContent='يرجى إدخال البريد وكلمة المرور';return;}
-  if(!dbR){err.textContent='⚠️ Supabase غير مُعد';return;}
-  try{
-    const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
-    if(error)throw error;
-    citUser=data.user;
-    setupCitDashboard();
-  }catch(e){
-    console.error('Login error:',e);
-    err.textContent='البريد أو كلمة المرور غير صحيحة ❌';
-  }
-}
-
-async function citRegister(){
-  const name=document.getElementById('cit-name').value.trim();
-  const phone=document.getElementById('cit-phone').value.trim();
-  const email=document.getElementById('cit-rem').value.trim();
-  const pw=document.getElementById('cit-rpw').value;
-  const err=document.getElementById('cit-rerr');
-  err.textContent='';
-  if(!name||!email||!pw){err.textContent='يرجى ملء جميع الحقول الإلزامية';return;}
-  if(pw.length<8){err.textContent='كلمة المرور يجب أن تكون 8 أحرف على الأقل';return;}
-  if(!dbR){err.textContent='⚠️ Supabase غير مُعد';return;}
-  try{
-    const{data,error}=await sb.auth.signUp({
-      email,password:pw,
-      options:{data:{name,phone,role:'citizen'}}
-    });
-    if(error)throw error;
-    // After signup, immediately sign in to get a valid session
-    const{data:loginData,error:loginError}=await sb.auth.signInWithPassword({email,password:pw});
-    if(loginError)throw loginError;
-    citUser=loginData.user;
-    setupCitDashboard();
-  }catch(e){
-    console.error('Register error:',e);
-    err.textContent='خطأ: '+e.message;
-  }
-}
-
-function setupCitDashboard(){
-  const name=citUser?.user_metadata?.name||citUser?.email?.split('@')[0]||'مواطن';
-  const ini2=name.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('');
-  document.getElementById('cit-av').textContent=ini2;
-  document.getElementById('cit-welcome').textContent='مرحباً، '+name;
-  document.getElementById('cit-uemail').textContent=citUser?.email||'';
-  showCitDashboard();
-}
-
-async function loadCitCases(){
-  const el=document.getElementById('cit-cases');
-  if(!dbR||!citUser){el.innerHTML='<div class="em">لا توجد طلبات بعد</div>';return;}
-  el.innerHTML='<div class="em"><div style="font-size:28px">⏳</div></div>';
-  try{
-    const{data,error}=await sb.from('cases').select('id,name,type,status,description,created_at,approval_state,documents').eq('email',citUser.email).order('created_at',{ascending:false});
-    if(error)throw error;
-    if(!data||!data.length){el.innerHTML='<div class="em" style="padding:30px"><div style="font-size:32px;margin-bottom:10px">📭</div><div style="font-size:14px">لا توجد طلبات بعد</div></div>';return;}
-    const SLC2={new:'bn','in-progress':'bip',review:'br2','pending-approval':'bpa',resolved:'bdo',closed:'bc'};
-    el.innerHTML=data.map(c=>`
-      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div style="font-size:12px;color:var(--text3);direction:ltr">#${String(c.id).slice(-4)} · ${(c.created_at||'').slice(0,10)}</div>
-          <span class="badge ${SLC2[c.status]||'bc'}"><span class="bd"></span>${SL[c.status]||c.status}</span>
-        </div>
-        <div style="font-size:13px;font-weight:700;margin-bottom:4px">${TL[c.type]||c.type}</div>
-        <div style="font-size:13px;color:var(--text2)">${(c.description||'').slice(0,80)}${(c.description||'').length>80?'…':''}</div>
-        ${(c.documents||[]).length>0?`<div style="margin-top:6px"><span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:6px;background:var(--blue3);color:var(--blue);font-size:11.5px;font-weight:600">📎 ${(c.documents||[]).length} مستند</span></div>`:''}
-      </div>`).join('');
-  }catch(e){el.innerHTML='<div class="em">خطأ في التحميل</div>';}
-}
-
-// Citizen file management
-let citPendingFiles = [];
-
-function handleCitFiles(files){
-  Array.from(files).forEach(f=>{
-    if(f.size>10*1024*1024){toast('الملف '+f.name+' أكبر من 10MB','err');return;}
-    if(!citPendingFiles.find(x=>x.name===f.name&&x.size===f.size)) citPendingFiles.push(f);
-  });
-  renderCitFileList();
-}
-function handleCitDrop(e){
-  e.preventDefault();
-  e.currentTarget.classList.remove('drag');
-  handleCitFiles(e.dataTransfer.files);
-}
-function removeCitFile(i){
-  citPendingFiles.splice(i,1);
-  renderCitFileList();
-}
-function renderCitFileList(){
-  const fmt=b=>b>1024*1024?`${(b/1024/1024).toFixed(1)}MB`:`${Math.round(b/1024)}KB`;
-  const icon=f=>f.name.toLowerCase().endsWith('.pdf')?'📄':'🖼️';
-  document.getElementById('cit-files-list').innerHTML=citPendingFiles.map((f,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:7px 11px;background:var(--blue3);border-radius:8px;font-size:13px">
-      <span style="font-size:17px">${icon(f)}</span>
-      <span style="flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</span>
-      <span style="font-size:11px;color:var(--text3);white-space:nowrap">${fmt(f.size)}</span>
-      <button onclick="removeCitFile(${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text3)'">✕</button>
-    </div>`).join('');
-}
-
-async function submitCitCase(){
-  const type=document.getElementById('cit-type').value;
-  const desc=document.getElementById('cit-desc').value.trim();
-  const addr=document.getElementById('cit-addr').value.trim();
-  const err=document.getElementById('cit-add-err');
-  const btn=document.getElementById('cit-submit-btn');
-  err.textContent='';
-  if(!desc){err.textContent='يرجى كتابة وصف الطلب';return;}
-  if(!dbR){err.textContent='⚠️ Supabase غير مُعد';return;}
-  if(!citUser){err.textContent='يرجى تسجيل الدخول أولاً';return;}
-  // Re-check session if citUser is null
-  if(!citUser){
-    try{
-      const{data:{session}}=await sb.auth.getSession();
-      if(session&&session.user){citUser=session.user;}
-      else{err.textContent='يرجى تسجيل الدخول أولاً';return;}
-    }catch(e){err.textContent='خطأ في الاتصال: '+e.message;return;}
-  }
-  const name=citUser?.user_metadata?.name||'مواطن';
-  const phone=citUser?.user_metadata?.phone||'';
-  const email=citUser?.email||'';
-  const today=new Date().toISOString().slice(0,10);
-  const na=NA.includes(type);
-  btn.disabled=true;btn.textContent='⏳ جاري الإرسال…';
-  try{
-    // 1. Insert case first
-    const nc={name,phone,email,address:addr,type,description:desc,priority:'medium',
-      assigned:'م. مقصود',status:na?'pending-approval':'new',
-      approval_state:na?'pending':null,approval_by:null,approval_date:null,
-      timeline:[{a:'تم تقديم الطلب عبر بوابة المواطن',by:name,d:today,cls:''}],
-      documents:[],source:'citizen-portal'};
-    const{data,error}=await sb.from('cases').insert([nc]).select().single();
-    if(error)throw error;
-    const caseId=data.id;
-    // 2. Upload files if any
-    if(citPendingFiles.length>0){
-      const progWrap=document.getElementById('cit-upload-progress');
-      const progBar=document.getElementById('cit-prog-bar');
-      const progLabel=document.getElementById('cit-prog-label');
-      progWrap.style.display='block';
-      const docs=[];
-      for(let i=0;i<citPendingFiles.length;i++){
-        const f=citPendingFiles[i];
-        const pct=Math.round(((i)/citPendingFiles.length)*90);
-        progBar.style.width=pct+'%';
-        progLabel.textContent=`رفع الملف ${i+1} من ${citPendingFiles.length}: ${f.name}`;
-        const ext=f.name.split('.').pop().toLowerCase();
-        const path=`${caseId}/${Date.now()}_${i}.${ext}`;
-        const{error:ue}=await sb.storage.from('case-documents').upload(path,f);
-        if(!ue){
-          const{data:pd}=sb.storage.from('case-documents').getPublicUrl(path);
-          docs.push({name:f.name,path,url:pd.publicUrl,type:ext,size:f.size});
-        }
-      }
-      if(docs.length>0){
-        const tl=[...nc.timeline,{a:`تم إرفاق ${docs.length} مستند`,by:name,d:today,cls:''}];
-        await sb.from('cases').update({documents:docs,timeline:tl}).eq('id',caseId);
-      }
-      progBar.style.width='100%';
-      progLabel.textContent='تم الرفع!';
-      setTimeout(()=>{progWrap.style.display='none';progBar.style.width='0%';},1000);
-    }
-    // Reset form
-    document.getElementById('cit-desc').value='';
-    document.getElementById('cit-addr').value='';
-    citPendingFiles=[];
-    renderCitFileList();
-    showCitDashboard();
-    toast('✅ تم إرسال طلبك بنجاح!');
-  }catch(e){
-    console.error('Submit error:',e);
-    err.textContent='خطأ: '+(e.message||'حدث خطأ غير متوقع');
-    err.style.color='var(--danger)';
-  }
-  finally{btn.disabled=false;btn.textContent='📤 إرسال الطلب';}
-}
-
-async function citLogout(){
-  if(dbR)await sb.auth.signOut();
-  citUser=null;
-  showLanding();
-}
-
-// Override window load to show landing
-window.addEventListener('load',async()=>{
-  // Clear any old setup screen data from previous versions
-  localStorage.removeItem('sb_url');
-  localStorage.removeItem('sb_key');
-  document.getElementById('APP').style.display='none';
-  document.getElementById('LS').style.display='none';
-  if(typeof document.getElementById('CP')!=='undefined' && document.getElementById('CP'))
-    document.getElementById('CP').style.display='none';
-  if(!dbR){
-    document.getElementById('LANDING').style.display='flex';
-    return;
-  }
-  try{
-    const{data:{session}}=await sb.auth.getSession();
-    if(session&&session.user){
-      const role=session.user?.user_metadata?.role||'';
-      if(['mayor','admin','approver','officer'].includes(role)){
-        document.getElementById('LANDING').style.display='none';
-        await setupUser(session.user);
-        return;
-      }
-    }
-  }catch(e){console.error('Session check error:',e);}
-  document.getElementById('LANDING').style.display='flex';
-});
-</script>
 <div style="background:rgba(0,0,0,0.2);color:rgba(255,255,255,0.5);text-align:center;padding:10px;font-size:12px;position:fixed;bottom:0;width:100%;z-index:50">Powered by <strong style="color:rgba(255,255,255,0.75)">IanTrading SAL</strong> &nbsp;·&nbsp; All rights reserved © 2026</div>
 </body>
 </html<div class=\"fg\" style=\"grid-column:1/-1\">
@@ -1497,8 +1120,118 @@ function exportCSV(){
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));a.download='بلدية_وادي_الست.csv';a.click();
 }
 
+
+async function loadEmp(){
+  const el=document.getElementById('emp-list');if(!el||!dbR)return;
+  try{
+    const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users?per_page=50',{headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4'}});
+    const j=await r.json();
+    const users=(j.users||[]).filter(u=>['mayor','admin','approver','officer'].includes(u.user_metadata?.role));
+    if(!users.length){el.innerHTML='<div style="text-align:center;padding:14px;color:var(--text3)">لا يوجد موظفون بعد</div>';return;}
+    const RL={mayor:'👑 رئيس البلدية',admin:'⚙️ المدير',approver:'✅ مسؤول الموافقات',officer:'👤 موظف المتابعة'};
+    const CL=[['#1a6eb5','#d6e9f8'],['#8a6200','#f5edca'],['#bf2424','#fdeaea'],['#6535a8','#ede8f8'],['#1e5429','#d4edda']];
+    function gc(n){if(!n)return CL[0];let h=0;for(let c of n)h=(h*31+c.charCodeAt(0))&0xffff;return CL[h%CL.length];}
+    function gi(n){if(!n)return'?';return n.trim().split(/ +/).slice(0,2).map(w=>w[0]).join('');}
+    el.innerHTML=users.map(u=>{
+      const nm=u.user_metadata?.name||u.email.split('@')[0];const rl=u.user_metadata?.role||'officer';
+      const[fc,bc]=gc(nm);const uid=u.id;const sn=nm.replace(/'/g,'');
+      return '<div style="border:1px solid var(--border);border-radius:12px;padding:13px;margin-bottom:9px">'
+        +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+        +'<div style="width:38px;height:38px;border-radius:50%;background:'+bc+';color:'+fc+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">'+gi(nm)+'</div>'
+        +'<div style="flex:1"><div style="font-weight:700;font-size:14px">'+nm+'</div><div style="font-size:11px;color:var(--text3)">'+u.email+'</div></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px">'
+        +'<select onchange="chRole(''+uid+'',this.value,''+sn+'')" style="padding:7px;border:1px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;cursor:pointer;background:#fff">'
+        +['officer','approver','admin','mayor'].map(r=>'<option value="'+r+'"'+(r===rl?' selected':'')+'>'+RL[r]+'</option>').join('')
+        +'</select>'
+        +'<button onclick="editEmp(''+uid+'',''+sn+'',''+rl+'')" style="padding:7px 12px;background:var(--blue3);color:var(--blue);border:1px solid var(--blue);border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">✏️ تعديل</button>'
+        +'<button onclick="delEmp(''+uid+'',''+sn+'')" style="padding:7px 12px;background:var(--danger-bg);color:var(--danger);border:1px solid #f2bcbc;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">🗑 حذف</button>'
+        +'</div></div>';
+    }).join('');
+  }catch(e){el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:12px">⚠️ يمكن إدارة الموظفين من Supabase مباشرة</div>';}
+}
+async function chRole(uid,role,name){
+  try{const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/'+uid,{method:'PUT',headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Content-Type':'application/json'},body:JSON.stringify({user_metadata:{role}})});
+    const d=await r.json();if(d.error)throw new Error(d.msg||JSON.stringify(d.error));
+    toast('✅ تم تغيير دور '+name);setTimeout(loadEmp,700);
+  }catch(e){toast('⚠️ '+e.message,'err');}
+}
+function editEmp(uid,name,role){
+  const RL={mayor:'👑 رئيس البلدية',admin:'⚙️ المدير',approver:'✅ مسؤول الموافقات',officer:'👤 موظف المتابعة'};
+  const old=document.getElementById('edit-emp-form');if(old)old.remove();
+  document.getElementById('emp-list').insertAdjacentHTML('afterbegin',
+    '<div id="edit-emp-form" style="background:var(--blue3);border:1.5px solid var(--blue);border-radius:12px;padding:16px;margin-bottom:14px">'
+    +'<div style="font-size:14px;font-weight:700;color:var(--blue2);margin-bottom:12px">✏️ تعديل: '+name+'</div>'
+    +'<div class="fg"><div class="fl">الاسم</div><input type="text" id="edit-nm" class="fi" value="'+name+'"></div>'
+    +'<div class="fg"><div class="fl">الدور</div><select id="edit-rl" class="fi">'
+    +['officer','approver','admin','mayor'].map(r=>'<option value="'+r+'"'+(r===role?' selected':'')+'>'+RL[r]+'</option>').join('')
+    +'</select></div><div style="display:flex;gap:8px">'
+    +'<button onclick="saveEmp(''+uid+'')" class="btn bp" style="flex:2;justify-content:center">✓ حفظ</button>'
+    +'<button onclick="document.getElementById('edit-emp-form').remove()" class="btn bg" style="flex:1;justify-content:center">إلغاء</button>'
+    +'</div></div>');
+}
+async function saveEmp(uid){
+  const nm=document.getElementById('edit-nm').value.trim();const rl=document.getElementById('edit-rl').value;
+  if(!nm){toast('يرجى إدخال الاسم','err');return;}
+  try{const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/'+uid,{method:'PUT',headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Content-Type':'application/json'},body:JSON.stringify({user_metadata:{name:nm,role:rl}})});
+    const d=await r.json();if(d.error)throw new Error(d.msg||JSON.stringify(d.error));
+    toast('✅ تم حفظ التعديلات');setTimeout(loadEmp,700);
+  }catch(e){toast('⚠️ '+e.message,'err');}
+}
+async function delEmp(uid,name){
+  if(!confirm('حذف '+name+'؟'))return;
+  try{const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/'+uid,{method:'DELETE',headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4'}});
+    if(r.status===200||r.status===204){toast('🗑 تم حذف '+name);setTimeout(loadEmp,700);}
+    else{throw new Error('فشل الحذف');}
+  }catch(e){toast('⚠️ '+e.message,'err');}
+}
+
+
+async function doTrack(){
+  const ref=document.getElementById('track-num').value.toString().trim();
+  const el=document.getElementById('track-res');
+  if(!ref){el.innerHTML='<div style="color:var(--danger);font-size:13px;text-align:center">يرجى إدخال رقم الطلب</div>';return;}
+  el.innerHTML='<div style="text-align:center;padding:12px;color:var(--text3)">⏳ جاري البحث…</div>';
+  if(!dbR){el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center">الخدمة غير متاحة</div>';return;}
+  try{
+    const{data,error}=await sb.from('cases')
+      .select('id,type,status,description,created_at,timeline,documents,public_note')
+      .eq('id',ref).single();
+    if(error||!data){el.innerHTML='<div style="background:var(--danger-bg);border:1px solid #f2bcbc;border-radius:10px;padding:14px;text-align:center;color:var(--danger)">❌ لم يتم العثور على طلب بهذا الرقم</div>';return;}
+    const TL2={complaint:'شكوى',welfare:'رعاية اجتماعية',permit:'ترخيص',inquiry:'استفسار'};
+    const SL2={new:'جديد','in-progress':'قيد المعالجة',review:'مراجعة','pending-approval':'ينتظر الموافقة',resolved:'منجز ✅',closed:'مغلق'};
+    const SBG={new:'#e6f0fa','in-progress':'#fff4e0',review:'#ede8f8','pending-approval':'#fff8e6',resolved:'#d4edda',closed:'#eef0f6'};
+    const STC={new:'#1a6eb5','in-progress':'#c47800',review:'#6535a8','pending-approval':'#b87500',resolved:'#1e5429',closed:'#8d93a6'};
+    const pMap={new:25,'in-progress':50,review:75,'pending-approval':75,resolved:100,closed:100};
+    const pct=pMap[data.status]||25;
+    const tl=Array.isArray(data.timeline)?data.timeline:[];
+    const docs=Array.isArray(data.documents)?data.documents:[];
+    el.innerHTML='<div style="background:#f8fbff;border:1.5px solid var(--blue3);border-radius:14px;padding:18px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">'
+      +'<div style="font-size:14px;font-weight:700;color:var(--text2)">طلب #'+data.id+' · '+(TL2[data.type]||data.type)+'</div>'
+      +'<span style="padding:5px 14px;border-radius:20px;font-size:13px;font-weight:700;background:'+(SBG[data.status]||'#eef0f6')+';color:'+(STC[data.status]||'#8d93a6')+'">'+(SL2[data.status]||data.status)+'</span></div>'
+      +'<div style="margin-bottom:14px"><div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:600">تقدم الطلب</div>'
+      +'<div style="height:10px;background:var(--border);border-radius:10px;overflow:hidden">'
+      +'<div style="height:100%;background:'+(data.status==='resolved'?'var(--green)':data.status==='closed'?'var(--danger)':'var(--blue)')+';border-radius:10px;width:'+pct+'%"></div></div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:4px"><span>مقدَّم</span><span>قيد المعالجة</span><span>مراجعة</span><span>منجز</span></div></div>'
+      +(data.public_note?'<div style="background:#f0f8ea;border:1.5px solid #a8d9b4;border-radius:10px;padding:12px 14px;margin-bottom:14px"><div style="font-size:12px;font-weight:700;color:var(--green2);margin-bottom:5px">📢 رسالة من البلدية</div><div style="font-size:14px;color:var(--green2)">'+data.public_note+'</div></div>':'')
+      +(docs.length?'<div style="margin-bottom:14px"><div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:700">📎 المرفقات ('+docs.length+')</div><div style="display:flex;flex-wrap:wrap;gap:8px">'+docs.map(d=>'<a href="'+d.url+'" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;background:var(--blue3);border:1px solid var(--blue);border-radius:9px;color:var(--blue);font-size:13px;font-weight:600;text-decoration:none">'+(d.type&&['jpg','jpeg','png','gif','webp'].includes(d.type.toLowerCase())?'🖼️':'📄')+' '+d.name+' ⬇️</a>').join('')+'</div></div>':'')
+      +(tl.length?'<div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:700">سجل النشاط</div><div style="display:flex;flex-direction:column;gap:10px">'+tl.slice().reverse().slice(0,6).map(t=>'<div style="display:flex;gap:10px"><div style="width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:5px"></div><div><div style="font-size:13.5px;font-weight:600">'+t.a+'</div><div style="font-size:11.5px;color:var(--text3)">'+t.d+'</div></div></div>').join('')+'</div>':'<div style="color:var(--text3);font-size:13px">لا يوجد نشاط بعد</div>')
+      +'</div>';
+  }catch(e){el.innerHTML='<div style="color:var(--danger);font-size:13px;text-align:center">خطأ: '+e.message+'</div>';}
+}
+
 function closeM(){document.getElementById('OV').classList.remove('open');}
 function mc(e){if(e.target===document.getElementById('OV'))closeM();}
+
+window.addEventListener('load',async()=>{
+  localStorage.removeItem('sb_url');
+  localStorage.removeItem('sb_key');
+  if(!dbR)return;
+  try{
+    const{data:{session}}=await sb.auth.getSession();
+    if(session&&session.user)await setupUser(session.user);
+  }catch(e){console.error(e);}
+});
 </script>
 
 
@@ -1618,473 +1351,7 @@ function mc(e){if(e.target===document.getElementById('OV'))closeM();}
     </div>
   </div>
 </div>
-<script>
 
-// ── SETUP FUNCTIONS ───────────────────────────────────────────────────────────
-function checkSetup(){
-  const url=localStorage.getItem('sb_url');
-  const key=localStorage.getItem('sb_key');
-  if(!url||!key||url.includes('YOUR_')){
-    document.getElementById('SETUP').style.display='flex';
-    return false;
-  }
-  return true;
-}
-
-function saveSetup(){
-  const url=document.getElementById('setup-url').value.trim();
-  const key=document.getElementById('setup-key').value.trim();
-  const err=document.getElementById('setup-err');
-  err.textContent='';
-  if(!url||!url.startsWith('https://')){err.textContent='يرجى إدخال Project URL صحيح يبدأ بـ https://';return;}
-  if(!key||!key.startsWith('eyJ')){err.textContent='يرجى إدخال anon key صحيح يبدأ بـ eyJ';return;}
-  localStorage.setItem('sb_url', url);
-  localStorage.setItem('sb_key', key);
-  // Reload page to apply new keys
-  location.reload();
-}
-
-function openSettings(){
-  const url=localStorage.getItem('sb_url')||'';
-  const key=localStorage.getItem('sb_key')||'';
-  document.getElementById('setup-url').value=url;
-  document.getElementById('setup-key').value=key;
-  document.getElementById('SETUP').style.display='flex';
-}
-
-// ── CITIZEN PORTAL ────────────────────────────────────────────────────────────
-let citUser = null;
-
-function showLanding(){
-  document.getElementById('LANDING').style.display='flex';
-  document.getElementById('LS').style.display='none';
-  document.getElementById('CP').style.display='none';
-  document.getElementById('APP').style.display='none';
-}
-function showCitizenPortal(){
-  document.getElementById('LANDING').style.display='none';
-  document.getElementById('CP').style.display='block';
-  document.getElementById('LS').style.display='none';
-  showCitizenHero();
-}
-function showStaffLogin(){
-  document.getElementById('LANDING').style.display='none';
-  document.getElementById('CP').style.display='none';
-  document.getElementById('LS').style.display='flex';
-}
-function showCitizenHero(){
-  document.getElementById('cit-hero').style.display='block';
-  document.getElementById('cit-login-form').style.display='none';
-  document.getElementById('cit-reg-form').style.display='none';
-  document.getElementById('cit-dashboard').style.display='none';
-  document.getElementById('cit-add-form').style.display='none';
-}
-function showCitizenLogin(){
-  document.getElementById('cit-hero').style.display='none';
-  document.getElementById('cit-login-form').style.display='block';
-  document.getElementById('cit-reg-form').style.display='none';
-  document.getElementById('cit-dashboard').style.display='none';
-  document.getElementById('cit-add-form').style.display='none';
-}
-function showCitizenRegister(){
-  document.getElementById('cit-hero').style.display='none';
-  document.getElementById('cit-login-form').style.display='none';
-  document.getElementById('cit-reg-form').style.display='block';
-  document.getElementById('cit-dashboard').style.display='none';
-  document.getElementById('cit-add-form').style.display='none';
-}
-function showCitDashboard(){
-  document.getElementById('cit-hero').style.display='none';
-  document.getElementById('cit-login-form').style.display='none';
-  document.getElementById('cit-reg-form').style.display='none';
-  document.getElementById('cit-dashboard').style.display='block';
-  document.getElementById('cit-add-form').style.display='none';
-  loadCitCases();
-}
-function openCitAdd(){
-  document.getElementById('cit-dashboard').style.display='none';
-  document.getElementById('cit-add-form').style.display='block';
-}
-
-
-// ── CITIZEN FUNCTIONS ─────────────────────────────────────────────────────────
-function showCitizenPortal(){
-  document.getElementById('LANDING').style.display='none';
-  document.getElementById('CP').style.display='block';
-  document.getElementById('LS').style.display='none';
-  document.getElementById('APP').style.display='none';
-}
-
-async function doTrack(){
-  const ref=document.getElementById('track-num').value.toString().trim();
-  const el=document.getElementById('track-res');
-  if(!ref){el.innerHTML='<div style="color:var(--danger);font-size:13px;text-align:center">يرجى إدخال رقم الطلب</div>';return;}
-  el.innerHTML='<div style="text-align:center;padding:12px;color:var(--text3)">⏳ جاري البحث…</div>';
-  if(!dbR){el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center">الخدمة غير متاحة</div>';return;}
-  try{
-    const{data,error}=await sb.from('cases').select('id,type,status,description,created_at,timeline,documents,public_note').eq('id',ref).single();
-    if(error||!data){el.innerHTML='<div style="background:var(--danger-bg);border:1px solid #f2bcbc;border-radius:10px;padding:14px;text-align:center;color:var(--danger)">❌ لم يتم العثور على طلب بهذا الرقم</div>';return;}
-    const typeL={complaint:'شكوى',welfare:'رعاية اجتماعية',permit:'ترخيص',inquiry:'استفسار'};
-    const SL2={new:'جديد ✓','in-progress':'قيد المعالجة ⚙️',review:'مراجعة 🔍','pending-approval':'ينتظر الموافقة ⏳',resolved:'منجز ✅',closed:'مغلق'};
-    const SLC={new:'#e6f0fa','in-progress':'#fff4e0',review:'#ede8f8','pending-approval':'#fff8e6',resolved:'#d4edda',closed:'#eef0f6'};
-    const SCC={new:'#1a6eb5','in-progress':'#c47800',review:'#6535a8','pending-approval':'#b87500',resolved:'#1e5429',closed:'#8d93a6'};
-    const pMap={new:25,'in-progress':50,review:75,'pending-approval':75,resolved:100,closed:100};
-    const pct=pMap[data.status]||25;
-    const tl=Array.isArray(data.timeline)?data.timeline:[];
-    const docs2=Array.isArray(data.documents)?data.documents:[];
-    el.innerHTML=`
-      <div style="background:#f8fbff;border:1.5px solid var(--blue3);border-radius:14px;padding:18px;margin-top:4px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:14px;font-weight:700;color:var(--text2)">طلب رقم #${data.id} · ${typeL[data.type]||data.type}</div>
-          <span style="padding:5px 14px;border-radius:20px;font-size:13px;font-weight:700;background:${SLC[data.status]||'#eef0f6'};color:${SCC[data.status]||'#8d93a6'}">${SL2[data.status]||data.status}</span>
-        </div>
-        <div style="margin-bottom:14px">
-          <div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:600">تقدم الطلب</div>
-          <div style="height:10px;background:var(--border);border-radius:10px;overflow:hidden">
-            <div style="height:100%;background:${data.status==='resolved'?'var(--green)':data.status==='closed'?'var(--danger)':'var(--blue)'};border-radius:10px;width:${pct}%"></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:4px">
-            <span>مقدَّم</span><span>قيد المعالجة</span><span>مراجعة</span><span>منجز</span>
-          </div>
-        </div>
-        ${data.public_note?`<div style="background:#f0f8ea;border:1.5px solid #a8d9b4;border-radius:10px;padding:12px 14px;margin-bottom:14px">
-          <div style="font-size:12px;font-weight:700;color:var(--green2);margin-bottom:5px">📢 رسالة من البلدية</div>
-          <div style="font-size:14px;color:var(--green2)">${data.public_note}</div>
-        </div>`:''}
-        ${docs2.length?`<div style="margin-bottom:14px">
-          <div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:700">📎 المرفقات (${docs2.length})</div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px">${docs2.map(d=>`
-            <a href="${d.url}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;background:var(--blue3);border:1px solid var(--blue);border-radius:9px;color:var(--blue);font-size:13px;font-weight:600;text-decoration:none">
-              ${['jpg','jpeg','png','gif','webp'].includes((d.type||'').toLowerCase())?'🖼️':'📄'} ${d.name} ⬇️
-            </a>`).join('')}
-          </div>
-        </div>`:''}
-        ${tl.length?`<div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">سجل النشاط</div>
-        <div style="display:flex;flex-direction:column;gap:10px">${tl.slice().reverse().map(t=>`
-          <div style="display:flex;gap:10px;align-items:flex-start">
-            <div style="width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:5px"></div>
-            <div><div style="font-size:13.5px;font-weight:600">${t.a}</div><div style="font-size:11.5px;color:var(--text3)">${t.by||''} · ${t.d||''}</div></div>
-          </div>`).join('')}</div>`:'<div style="color:var(--text3);font-size:13px">لا يوجد نشاط بعد</div>'}
-      </div>`;
-  }catch(e){el.innerHTML='<div style="color:var(--danger);font-size:13px;text-align:center">خطأ: '+e.message+'</div>';}
-}
-
-// ── CITIZEN FILE UPLOAD ──────────────────────────────────────────────────────
-let citFiles = [];
-
-function addCitFiles(files){
-  Array.from(files).forEach(f=>{
-    if(f.size>10*1024*1024){alert('الملف '+f.name+' أكبر من 10MB');return;}
-    if(!citFiles.find(x=>x.name===f.name&&x.size===f.size)) citFiles.push(f);
-  });
-  renderCitFiles();
-}
-
-function removeCitFile(i){
-  citFiles.splice(i,1);
-  renderCitFiles();
-}
-
-function renderCitFiles(){
-  const fmt=b=>b>1024*1024?`${(b/1024/1024).toFixed(1)}MB`:`${Math.round(b/1024)}KB`;
-  const icon=f=>['jpg','jpeg','png','gif','webp'].some(e=>f.name.toLowerCase().endsWith('.'+e))?'🖼️':'📄';
-  document.getElementById('c-files-list').innerHTML=citFiles.map((f,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:7px 11px;background:var(--blue3);border-radius:8px;font-size:13px">
-      <span style="font-size:16px">${icon(f)}</span>
-      <span style="flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</span>
-      <span style="font-size:11px;color:var(--text3)">${fmt(f.size)}</span>
-      <button onclick="removeCitFile(${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;padding:2px" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text3)'">✕</button>
-    </div>`).join('');
-}
-
-async function doSubmitCit(){
-  const name=document.getElementById('c-name').value.trim();
-  const phone=document.getElementById('c-phone').value.trim();
-  const email=document.getElementById('c-email').value.trim();
-  const type=document.getElementById('c-type').value;
-  const addr=document.getElementById('c-addr').value.trim();
-  const desc=document.getElementById('c-desc').value.trim();
-  const err=document.getElementById('c-err');
-  const btn=document.getElementById('c-btn');
-  err.textContent='';
-  if(!name){err.textContent='يرجى إدخال اسمك الكامل';return;}
-  if(!phone){err.textContent='يرجى إدخال رقم هاتفك';return;}
-  if(!desc){err.textContent='يرجى وصف طلبك';return;}
-  if(!dbR){err.textContent='⚠️ الخدمة غير متاحة حالياً';return;}
-  btn.disabled=true;btn.textContent='⏳ جاري الإرسال…';
-  const today=new Date().toISOString().slice(0,10);
-  const na=['permit','welfare'].includes(type);
-  const nc={name,phone,email,address:addr,type,description:desc,priority:'medium',
-    assigned:'م. مقصود',status:na?'pending-approval':'new',
-    approval_state:na?'pending':null,approval_by:null,approval_date:null,
-    timeline:[{a:'تم تقديم الطلب عبر الموقع الإلكتروني',by:name,d:today,cls:''}],
-    documents:[],source:'website'};
-  try{
-    const{data,error}=await sb.from('cases').insert([nc]).select().single();
-    if(error)throw error;
-    const caseId=data.id;
-    // Upload files if any
-    if(citFiles.length>0&&dbR){
-      const prog=document.getElementById('c-upload-prog');
-      const bar=document.getElementById('c-prog-bar');
-      const lbl=document.getElementById('c-prog-label');
-      prog.style.display='block';
-      const docs=[];
-      for(let i=0;i<citFiles.length;i++){
-        const f=citFiles[i];
-        bar.style.width=Math.round((i/citFiles.length)*90)+'%';
-        lbl.textContent=`رفع الملف ${i+1} من ${citFiles.length}: ${f.name}`;
-        const ext=f.name.split('.').pop().toLowerCase();
-        const path=`${caseId}/${Date.now()}_${i}.${ext}`;
-        const{error:ue}=await sb.storage.from('case-documents').upload(path,f);
-        if(!ue){
-          const{data:pd}=sb.storage.from('case-documents').getPublicUrl(path);
-          docs.push({name:f.name,path,url:pd.publicUrl,type:ext,size:f.size});
-        }
-      }
-      if(docs.length>0){
-        const tl=[...nc.timeline,{a:`تم إرفاق ${docs.length} مستند`,by:name,d:today,cls:''}];
-        await sb.from('cases').update({documents:docs,timeline:tl}).eq('id',caseId);
-      }
-      bar.style.width='100%';lbl.textContent='تم!';
-      setTimeout(()=>{prog.style.display='none';bar.style.width='0%';},1000);
-    }
-    document.getElementById('c-ref').textContent=caseId;
-    document.getElementById('submit-form-wrap').style.display='none';
-    document.getElementById('c-success').style.display='block';
-    document.getElementById('c-success').scrollIntoView({behavior:'smooth'});
-  }catch(e){err.textContent='خطأ: '+e.message;btn.disabled=false;btn.textContent='📤 إرسال الطلب';}
-}
-
-function resetCit(){
-  ['c-name','c-phone','c-email','c-addr','c-desc'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('c-err').textContent='';
-  document.getElementById('c-success').style.display='none';
-  document.getElementById('submit-form-wrap').style.display='block';
-  document.getElementById('c-btn').disabled=false;
-  document.getElementById('c-btn').textContent='📤 إرسال الطلب';
-  citFiles=[];
-  renderCitFiles();
-}
-
-async function citLogin(){
-  const email=document.getElementById('cit-em').value.trim();
-  const pw=document.getElementById('cit-pw').value;
-  const err=document.getElementById('cit-err');
-  const btn=event.currentTarget||document.querySelector('[onclick="citLogin()"]');
-  err.textContent='';
-  if(!email||!pw){err.textContent='يرجى إدخال البريد وكلمة المرور';return;}
-  if(!dbR){err.textContent='⚠️ Supabase غير مُعد';return;}
-  try{
-    const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
-    if(error)throw error;
-    citUser=data.user;
-    setupCitDashboard();
-  }catch(e){
-    console.error('Login error:',e);
-    err.textContent='البريد أو كلمة المرور غير صحيحة ❌';
-  }
-}
-
-async function citRegister(){
-  const name=document.getElementById('cit-name').value.trim();
-  const phone=document.getElementById('cit-phone').value.trim();
-  const email=document.getElementById('cit-rem').value.trim();
-  const pw=document.getElementById('cit-rpw').value;
-  const err=document.getElementById('cit-rerr');
-  err.textContent='';
-  if(!name||!email||!pw){err.textContent='يرجى ملء جميع الحقول الإلزامية';return;}
-  if(pw.length<8){err.textContent='كلمة المرور يجب أن تكون 8 أحرف على الأقل';return;}
-  if(!dbR){err.textContent='⚠️ Supabase غير مُعد';return;}
-  try{
-    const{data,error}=await sb.auth.signUp({
-      email,password:pw,
-      options:{data:{name,phone,role:'citizen'}}
-    });
-    if(error)throw error;
-    // After signup, immediately sign in to get a valid session
-    const{data:loginData,error:loginError}=await sb.auth.signInWithPassword({email,password:pw});
-    if(loginError)throw loginError;
-    citUser=loginData.user;
-    setupCitDashboard();
-  }catch(e){
-    console.error('Register error:',e);
-    err.textContent='خطأ: '+e.message;
-  }
-}
-
-function setupCitDashboard(){
-  const name=citUser?.user_metadata?.name||citUser?.email?.split('@')[0]||'مواطن';
-  const ini2=name.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('');
-  document.getElementById('cit-av').textContent=ini2;
-  document.getElementById('cit-welcome').textContent='مرحباً، '+name;
-  document.getElementById('cit-uemail').textContent=citUser?.email||'';
-  showCitDashboard();
-}
-
-async function loadCitCases(){
-  const el=document.getElementById('cit-cases');
-  if(!dbR||!citUser){el.innerHTML='<div class="em">لا توجد طلبات بعد</div>';return;}
-  el.innerHTML='<div class="em"><div style="font-size:28px">⏳</div></div>';
-  try{
-    const{data,error}=await sb.from('cases').select('id,name,type,status,description,created_at,approval_state,documents').eq('email',citUser.email).order('created_at',{ascending:false});
-    if(error)throw error;
-    if(!data||!data.length){el.innerHTML='<div class="em" style="padding:30px"><div style="font-size:32px;margin-bottom:10px">📭</div><div style="font-size:14px">لا توجد طلبات بعد</div></div>';return;}
-    const SLC2={new:'bn','in-progress':'bip',review:'br2','pending-approval':'bpa',resolved:'bdo',closed:'bc'};
-    el.innerHTML=data.map(c=>`
-      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div style="font-size:12px;color:var(--text3);direction:ltr">#${String(c.id).slice(-4)} · ${(c.created_at||'').slice(0,10)}</div>
-          <span class="badge ${SLC2[c.status]||'bc'}"><span class="bd"></span>${SL[c.status]||c.status}</span>
-        </div>
-        <div style="font-size:13px;font-weight:700;margin-bottom:4px">${TL[c.type]||c.type}</div>
-        <div style="font-size:13px;color:var(--text2)">${(c.description||'').slice(0,80)}${(c.description||'').length>80?'…':''}</div>
-        ${(c.documents||[]).length>0?`<div style="margin-top:6px"><span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:6px;background:var(--blue3);color:var(--blue);font-size:11.5px;font-weight:600">📎 ${(c.documents||[]).length} مستند</span></div>`:''}
-      </div>`).join('');
-  }catch(e){el.innerHTML='<div class="em">خطأ في التحميل</div>';}
-}
-
-// Citizen file management
-let citPendingFiles = [];
-
-function handleCitFiles(files){
-  Array.from(files).forEach(f=>{
-    if(f.size>10*1024*1024){toast('الملف '+f.name+' أكبر من 10MB','err');return;}
-    if(!citPendingFiles.find(x=>x.name===f.name&&x.size===f.size)) citPendingFiles.push(f);
-  });
-  renderCitFileList();
-}
-function handleCitDrop(e){
-  e.preventDefault();
-  e.currentTarget.classList.remove('drag');
-  handleCitFiles(e.dataTransfer.files);
-}
-function removeCitFile(i){
-  citPendingFiles.splice(i,1);
-  renderCitFileList();
-}
-function renderCitFileList(){
-  const fmt=b=>b>1024*1024?`${(b/1024/1024).toFixed(1)}MB`:`${Math.round(b/1024)}KB`;
-  const icon=f=>f.name.toLowerCase().endsWith('.pdf')?'📄':'🖼️';
-  document.getElementById('cit-files-list').innerHTML=citPendingFiles.map((f,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:7px 11px;background:var(--blue3);border-radius:8px;font-size:13px">
-      <span style="font-size:17px">${icon(f)}</span>
-      <span style="flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</span>
-      <span style="font-size:11px;color:var(--text3);white-space:nowrap">${fmt(f.size)}</span>
-      <button onclick="removeCitFile(${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text3)'">✕</button>
-    </div>`).join('');
-}
-
-async function submitCitCase(){
-  const type=document.getElementById('cit-type').value;
-  const desc=document.getElementById('cit-desc').value.trim();
-  const addr=document.getElementById('cit-addr').value.trim();
-  const err=document.getElementById('cit-add-err');
-  const btn=document.getElementById('cit-submit-btn');
-  err.textContent='';
-  if(!desc){err.textContent='يرجى كتابة وصف الطلب';return;}
-  if(!dbR){err.textContent='⚠️ Supabase غير مُعد';return;}
-  if(!citUser){err.textContent='يرجى تسجيل الدخول أولاً';return;}
-  // Re-check session if citUser is null
-  if(!citUser){
-    try{
-      const{data:{session}}=await sb.auth.getSession();
-      if(session&&session.user){citUser=session.user;}
-      else{err.textContent='يرجى تسجيل الدخول أولاً';return;}
-    }catch(e){err.textContent='خطأ في الاتصال: '+e.message;return;}
-  }
-  const name=citUser?.user_metadata?.name||'مواطن';
-  const phone=citUser?.user_metadata?.phone||'';
-  const email=citUser?.email||'';
-  const today=new Date().toISOString().slice(0,10);
-  const na=NA.includes(type);
-  btn.disabled=true;btn.textContent='⏳ جاري الإرسال…';
-  try{
-    // 1. Insert case first
-    const nc={name,phone,email,address:addr,type,description:desc,priority:'medium',
-      assigned:'م. مقصود',status:na?'pending-approval':'new',
-      approval_state:na?'pending':null,approval_by:null,approval_date:null,
-      timeline:[{a:'تم تقديم الطلب عبر بوابة المواطن',by:name,d:today,cls:''}],
-      documents:[],source:'citizen-portal'};
-    const{data,error}=await sb.from('cases').insert([nc]).select().single();
-    if(error)throw error;
-    const caseId=data.id;
-    // 2. Upload files if any
-    if(citPendingFiles.length>0){
-      const progWrap=document.getElementById('cit-upload-progress');
-      const progBar=document.getElementById('cit-prog-bar');
-      const progLabel=document.getElementById('cit-prog-label');
-      progWrap.style.display='block';
-      const docs=[];
-      for(let i=0;i<citPendingFiles.length;i++){
-        const f=citPendingFiles[i];
-        const pct=Math.round(((i)/citPendingFiles.length)*90);
-        progBar.style.width=pct+'%';
-        progLabel.textContent=`رفع الملف ${i+1} من ${citPendingFiles.length}: ${f.name}`;
-        const ext=f.name.split('.').pop().toLowerCase();
-        const path=`${caseId}/${Date.now()}_${i}.${ext}`;
-        const{error:ue}=await sb.storage.from('case-documents').upload(path,f);
-        if(!ue){
-          const{data:pd}=sb.storage.from('case-documents').getPublicUrl(path);
-          docs.push({name:f.name,path,url:pd.publicUrl,type:ext,size:f.size});
-        }
-      }
-      if(docs.length>0){
-        const tl=[...nc.timeline,{a:`تم إرفاق ${docs.length} مستند`,by:name,d:today,cls:''}];
-        await sb.from('cases').update({documents:docs,timeline:tl}).eq('id',caseId);
-      }
-      progBar.style.width='100%';
-      progLabel.textContent='تم الرفع!';
-      setTimeout(()=>{progWrap.style.display='none';progBar.style.width='0%';},1000);
-    }
-    // Reset form
-    document.getElementById('cit-desc').value='';
-    document.getElementById('cit-addr').value='';
-    citPendingFiles=[];
-    renderCitFileList();
-    showCitDashboard();
-    toast('✅ تم إرسال طلبك بنجاح!');
-  }catch(e){
-    console.error('Submit error:',e);
-    err.textContent='خطأ: '+(e.message||'حدث خطأ غير متوقع');
-    err.style.color='var(--danger)';
-  }
-  finally{btn.disabled=false;btn.textContent='📤 إرسال الطلب';}
-}
-
-async function citLogout(){
-  if(dbR)await sb.auth.signOut();
-  citUser=null;
-  showLanding();
-}
-
-// Override window load to show landing
-window.addEventListener('load',async()=>{
-  // Clear any old setup screen data from previous versions
-  localStorage.removeItem('sb_url');
-  localStorage.removeItem('sb_key');
-  document.getElementById('APP').style.display='none';
-  document.getElementById('LS').style.display='none';
-  if(typeof document.getElementById('CP')!=='undefined' && document.getElementById('CP'))
-    document.getElementById('CP').style.display='none';
-  if(!dbR){
-    document.getElementById('LANDING').style.display='flex';
-    return;
-  }
-  try{
-    const{data:{session}}=await sb.auth.getSession();
-    if(session&&session.user){
-      const role=session.user?.user_metadata?.role||'';
-      if(['mayor','admin','approver','officer'].includes(role)){
-        document.getElementById('LANDING').style.display='none';
-        await setupUser(session.user);
-        return;
-      }
-    }
-  }catch(e){console.error('Session check error:',e);}
-  document.getElementById('LANDING').style.display='flex';
-});
-</script>
 
 
 <div style="background:rgba(0,0,0,0.2);color:rgba(255,255,255,0.5);text-align:center;padding:10px;font-size:12px;position:fixed;bottom:0;width:100%;z-index:50">Powered by <strong style="color:rgba(255,255,255,0.75)">IanTrading SAL</strong> &nbsp;·&nbsp; All rights reserved © 2026</div>
