@@ -1223,6 +1223,9 @@ async function citLogout(){
 
 // Override window load to show landing
 window.addEventListener('load',async()=>{
+  // Clear any old setup screen data from previous versions
+  localStorage.removeItem('sb_url');
+  localStorage.removeItem('sb_key');
   document.getElementById('APP').style.display='none';
   document.getElementById('LS').style.display='none';
   if(typeof document.getElementById('CP')!=='undefined' && document.getElementById('CP'))
@@ -1280,5 +1283,7 @@ window.addEventListener('load',async()=>{
     </div>
   </div>
 </div>
+
+<div style="background:rgba(0,0,0,0.2);color:rgba(255,255,255,0.5);text-align:center;padding:10px;font-size:12px;position:fixed;bottom:0;width:100%;z-index:50">Powered by <strong style="color:rgba(255,255,255,0.75)">IanTrading SAL</strong> &nbsp;·&nbsp; All rights reserved © 2026</div>
 </body>
 </html>
