@@ -291,11 +291,11 @@ select.fi{cursor:pointer;appearance:none;-webkit-appearance:none;}
 </div>
 
 <script>
-// المفاتيح تُقرأ من إعدادات المتصفح المحفوظة
-const SUPABASE_URL      = 'https://onjbwhkmmtqnymhjnplw.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
+const SUPABASE_URL="https://onjbwhkmmtqnymhjnplw.supabase.co";
+const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4";
 </script>
 <script>
+
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const TL={complaint:'شكوى',welfare:'رعاية اجتماعية',permit:'ترخيص',inquiry:'استفسار'};
 const SL={new:'جديد','in-progress':'قيد المعالجة',review:'مراجعة','pending-approval':'ينتظر الموافقة',resolved:'منجز',closed:'مغلق'};
@@ -318,6 +318,7 @@ const ROLE_CFG={
 // ── SUPABASE ──────────────────────────────────────────────────────────────────
 let sb=null,dbR=false;
 try{sb=window.supabase.createClient('https://onjbwhkmmtqnymhjnplw.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4');dbR=true;}catch(e){console.error(e);}
+
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let currentUser=null,userRole=null,cases=[],stF='all',tyF='all',srcF='all',sortM='date-desc',qF='',page=1;
 const PER=12;
@@ -409,7 +410,7 @@ async function saveC(c){
     const{error}=await sb.from('cases').upsert({
       id:c.id,name:c.name,phone:c.phone||'',email:c.email||'',address:c.address||'',
       type:c.type,description:c.description,assigned:c.assigned,status:c.status,
-      priority:c.priority,notes:c.notes||'',approval_state:c.approval_state||null,
+      priority:c.priority,notes:c.notes||'',public_note:c.public_note||null,approval_state:c.approval_state||null,
       approval_by:c.approval_by||null,approval_date:c.approval_date||null,
       timeline:c.timeline||[],documents:c.documents||[],source:c.source||'staff'
     });
@@ -568,7 +569,7 @@ function openDetail(id){
   const isImg=ext=>['jpg','jpeg','png','gif','webp'].includes((ext||'').toLowerCase());
   const docsH=docs.length?docs.map(d=>`<div class="dcd">
     ${isImg(d.type)?`<img class="dth" src="${d.url}" onclick="window.open('${d.url}','_blank')">`:`<div class="dpdf" onclick="window.open('${d.url}','_blank')">📄</div>`}
-    <div class="ddi"><span class="ddn" title="${d.name}">${d.name}</span>${R.edit?`<button class="ddrm" onclick="event.stopPropagation();rmDoc('${id}','${d.path}')">🗑</button>`:''}</div>
+    <div class="ddi"><span class="ddn" title="${d.name}">${d.name}</span><a href="${d.url}" download="${d.name}" target="_blank" style="color:var(--blue);font-size:13px;text-decoration:none;margin-left:4px" title="تحميل">⬇️</a>${R.edit?`<button class="ddrm" onclick="event.stopPropagation();rmDoc('${id}','${d.path}')">🗑</button>`:''}</div>
   </div>`).join(''):'<div style="color:var(--text3);font-size:13px;padding:4px 0">لا توجد مستندات مرفقة</div>';
   const uz=R.edit?`<div class="uz" id="uz${id}" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="hd(event,'${id}')"><input type="file" multiple accept="image/*,.pdf" onchange="hf(this.files,'${id}')"><div class="uzi">📎</div><div class="uzt">اسحب الملفات أو اضغط للاختيار</div><div class="uzs">صور JPG/PNG وPDF — حتى 10MB</div></div>`:'';
   document.getElementById('MB').innerHTML=`
@@ -806,6 +807,7 @@ async function delEmp(uid,name){
 
 function closeM(){document.getElementById('OV').classList.remove('open');}
 function mc(e){if(e.target===document.getElementById('OV'))closeM();}
+
 </script>
 
 
@@ -924,6 +926,7 @@ function mc(e){if(e.target===document.getElementById('OV'))closeM();}
   </div>
 </div>
 <script>
+
 
 // ── SETUP FUNCTIONS ───────────────────────────────────────────────────────────
 
@@ -1289,6 +1292,7 @@ window.addEventListener('load',async()=>{
   }catch(e){console.error('Session check error:',e);}
   document.getElementById('LANDING').style.display='flex';
 });
+
 </script>
 <div style="position:fixed;bottom:0;left:0;right:0;background:rgba(15,77,130,0.95);color:rgba(255,255,255,0.6);text-align:center;padding:8px;font-size:12px;z-index:9999;pointer-events:none;direction:ltr">Powered by <strong style="color:#fff">IanTrading SAL</strong> &nbsp;·&nbsp; All rights reserved © 2026</div>
 </body>
