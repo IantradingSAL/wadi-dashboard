@@ -568,7 +568,9 @@ function openDetail(id){
   const isImg=ext=>['jpg','jpeg','png','gif','webp'].includes((ext||'').toLowerCase());
   const docsH=docs.length?docs.map(d=>`<div class="dcd">
     ${isImg(d.type)?`<img class="dth" src="${d.url}" onclick="window.open('${d.url}','_blank')">`:`<div class="dpdf" onclick="window.open('${d.url}','_blank')">📄</div>`}
-    <div class="ddi"><span class="ddn" title="${d.name}">${d.name}</span>${R.edit?`<button class="ddrm" onclick="event.stopPropagation();rmDoc('${id}','${d.path}')">🗑</button>`:''}</div>
+    <div class="ddi"><span class="ddn" title="${d.name}">${d.name}</span>
+      <a href="${d.url}" download="${d.name}" target="_blank" style="color:var(--blue);font-size:13px;text-decoration:none" title="تحميل">⬇️</a>
+      ${R.edit?`<button class="ddrm" onclick="event.stopPropagation();rmDoc('${id}','${d.path}')">🗑</button>`:''}</div>
   </div>`).join(''):'<div style="color:var(--text3);font-size:13px;padding:4px 0">لا توجد مستندات مرفقة</div>';
   const uz=R.edit?`<div class="uz" id="uz${id}" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="hd(event,'${id}')"><input type="file" multiple accept="image/*,.pdf" onchange="hf(this.files,'${id}')"><div class="uzi">📎</div><div class="uzt">اسحب الملفات أو اضغط للاختيار</div><div class="uzs">صور JPG/PNG وPDF — حتى 10MB</div></div>`:'';
   document.getElementById('MB').innerHTML=`
@@ -790,6 +792,21 @@ function mc(e){if(e.target===document.getElementById('OV'))closeM();}
       </div>
       <div style="margin-top:13px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">وصف الطلب *</div>
         <textarea id="c-desc" class="fi" placeholder="اشرح طلبك بالتفصيل…" style="min-height:100px;resize:vertical"></textarea></div>
+      <!-- FILE + CAMERA UPLOAD -->
+      <div style="margin-top:13px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:8px">المستندات والصور (اختياري)</div>
+        <div style="display:flex;gap:9px;margin-bottom:8px">
+          <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px;background:var(--blue3);border:1.5px dashed var(--blue);border-radius:10px;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--blue)">
+            <input type="file" id="c-files" multiple accept="image/*,.pdf" onchange="addCitFiles(this.files)" style="display:none">📁 اختر ملفات</label>
+          <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px;background:var(--green3);border:1.5px dashed var(--green);border-radius:10px;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--green2)">
+            <input type="file" id="c-camera" accept="image/*" capture="environment" onchange="addCitFiles(this.files)" style="display:none">📸 التقط صورة</label>
+        </div>
+        <div id="c-files-list" style="display:flex;flex-direction:column;gap:6px"></div>
+        <div id="c-prog-wrap" style="display:none;margin-top:8px">
+          <div style="height:6px;background:var(--border);border-radius:6px;overflow:hidden"><div id="c-prog-bar" style="height:100%;background:var(--blue);border-radius:6px;width:0%;transition:width .3s"></div></div>
+          <div id="c-prog-lbl" style="font-size:12px;color:var(--text3);text-align:center;margin-top:4px"></div>
+        </div>
+      </div>
       <div id="c-err" style="color:var(--danger);font-size:13px;margin-top:10px;text-align:center;min-height:18px"></div>
       <button onclick="doSubmitCit()" id="c-btn" style="width:100%;margin-top:14px;padding:13px;background:linear-gradient(120deg,var(--blue2),var(--blue));color:#fff;border:none;border-radius:10px;font-family:var(--font);font-size:16px;font-weight:700;cursor:pointer">📤 إرسال الطلب</button>
     </div>
@@ -962,6 +979,34 @@ async function doTrack(){
   }catch(e){el.innerHTML='<div style="color:var(--danger);font-size:13px;text-align:center">خطأ: '+e.message+'</div>';}
 }
 
+
+// ── CITIZEN FILE UPLOAD ───────────────────────────────────────────────────────
+let citFiles=[];
+
+function addCitFiles(files){
+  Array.from(files).forEach(f=>{
+    if(f.size>10*1024*1024){alert('الملف '+f.name+' أكبر من 10MB');return;}
+    if(!citFiles.find(x=>x.name===f.name&&x.size===f.size))citFiles.push(f);
+  });
+  renderCitFiles();
+}
+
+function removeCitFile(i){citFiles.splice(i,1);renderCitFiles();}
+
+function renderCitFiles(){
+  const fmt=b=>b>1048576?(b/1048576).toFixed(1)+'MB':Math.round(b/1024)+'KB';
+  const ico=f=>f.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/)?'🖼️':'📄';
+  const el=document.getElementById('c-files-list');
+  if(!el)return;
+  el.innerHTML=citFiles.map((f,i)=>
+    '<div style="display:flex;align-items:center;gap:8px;padding:7px 11px;background:var(--blue3);border-radius:8px;font-size:13px">'
+    +'<span style="font-size:16px">'+ico(f)+'</span>'
+    +'<span style="flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+f.name+'</span>'
+    +'<span style="font-size:11px;color:var(--text3)">'+fmt(f.size)+'</span>'
+    +'<button onclick="removeCitFile('+i+')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text3)'">✕</button></div>'
+  ).join('');
+}
+
 async function doSubmitCit(){
   const name=document.getElementById('c-name').value.trim();
   const phone=document.getElementById('c-phone').value.trim();
@@ -987,7 +1032,30 @@ async function doSubmitCit(){
   try{
     const{data,error}=await sb.from('cases').insert([nc]).select().single();
     if(error)throw error;
-    document.getElementById('c-ref').textContent=data.id;
+    const caseId=data.id;
+    if(citFiles.length>0&&dbR){
+      const pw=document.getElementById('c-prog-wrap');
+      const pb=document.getElementById('c-prog-bar');
+      const pl=document.getElementById('c-prog-lbl');
+      if(pw)pw.style.display='block';
+      const uploadedDocs=[];
+      for(let i=0;i<citFiles.length;i++){
+        const f=citFiles[i];
+        if(pb)pb.style.width=Math.round(i/citFiles.length*90)+'%';
+        if(pl)pl.textContent='رفع '+f.name+'…';
+        const ext=f.name.split('.').pop().toLowerCase();
+        const path=caseId+'/'+Date.now()+'_'+i+'.'+ext;
+        const{error:ue}=await sb.storage.from('case-documents').upload(path,f);
+        if(!ue){const{data:pd}=sb.storage.from('case-documents').getPublicUrl(path);uploadedDocs.push({name:f.name,path,url:pd.publicUrl,type:ext,size:f.size});}
+      }
+      if(uploadedDocs.length){
+        const tl2=[...nc.timeline,{a:'تم إرفاق '+uploadedDocs.length+' مستند',by:name,d:today,cls:''}];
+        await sb.from('cases').update({documents:uploadedDocs,timeline:tl2}).eq('id',caseId);
+      }
+      if(pb)pb.style.width='100%';if(pl)pl.textContent='تم!';
+      setTimeout(()=>{if(pw)pw.style.display='none';if(pb)pb.style.width='0%';},800);
+    }
+    document.getElementById('c-ref').textContent=caseId;
     document.getElementById('submit-form-wrap').style.display='none';
     document.getElementById('c-success').style.display='block';
     document.getElementById('c-success').scrollIntoView({behavior:'smooth'});
