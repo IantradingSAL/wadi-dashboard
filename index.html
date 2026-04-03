@@ -896,6 +896,23 @@ function mc(e){if(e.target===document.getElementById('OV'))closeM();}
         <button onclick="doTrack()" style="padding:11px 22px;background:var(--blue);color:#fff;border:none;border-radius:10px;font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer">متابعة</button>
       </div>
 
+      <div id="phone-popup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:20px">
+        <div style="background:#fff;border-radius:20px;padding:28px 24px;max-width:360px;width:100%;text-align:center;direction:rtl">
+          <div style="font-size:48px;margin-bottom:12px">📱</div>
+          <div style="font-size:18px;font-weight:800;color:var(--blue2);margin-bottom:6px">تحقق من هويتك</div>
+          <div style="font-size:13px;color:var(--text3);margin-bottom:20px">أدخل رقم هاتفك للتأكد أنك صاحب الطلب</div>
+          <input type="tel" id="popup-phone" placeholder="مثال: 03xxxxxx"
+            style="width:100%;padding:13px;border:1.5px solid var(--border);border-radius:10px;font-family:var(--font);font-size:16px;text-align:center;outline:none;direction:ltr;margin-bottom:8px"
+            onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'"
+            onkeydown="if(event.key==='Enter')confirmPhone()">
+          <div id="popup-err" style="color:var(--danger);font-size:13px;min-height:18px;margin-bottom:12px"></div>
+          <div style="display:flex;gap:10px">
+            <button onclick="closePhonePopup()" style="flex:1;padding:12px;border:1.5px solid var(--border);background:#fff;border-radius:10px;font-family:var(--font);font-size:15px;font-weight:600;cursor:pointer;color:var(--text2)">إلغاء</button>
+            <button onclick="confirmPhone()" style="flex:2;padding:12px;background:linear-gradient(120deg,var(--blue2),var(--blue));color:#fff;border:none;border-radius:10px;font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer">تأكيد ←</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Phone Verification Popup -->
       <div id="phone-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;direction:rtl">
         <div style="background:#fff;border-radius:20px;padding:28px 24px;max-width:360px;width:90%;text-align:center;animation:popIn .2s ease">
@@ -1082,7 +1099,41 @@ function openCitAdd(){
 // ── CITIZEN FUNCTIONS ─────────────────────────────────────────────────────────
 
 
-async function doTrack(){
+
+function showPhonePopup() {
+  const ref = document.getElementById('track-num').value.toString().trim();
+  const el = document.getElementById('track-res');
+  if (!ref) {
+    el.innerHTML = '<div style="color:var(--danger);font-size:13px;text-align:center;padding:10px">⚠️ يرجى إدخال رقم الطلب أولاً</div>';
+    return;
+  }
+  document.getElementById('popup-phone').value = '';
+  document.getElementById('popup-err').textContent = '';
+  const popup = document.getElementById('phone-popup');
+  popup.style.display = 'flex';
+  setTimeout(() => document.getElementById('popup-phone').focus(), 100);
+}
+
+function closePhonePopup() {
+  document.getElementById('phone-popup').style.display = 'none';
+}
+
+function confirmPhone() {
+  const phone = document.getElementById('popup-phone').value.replace(/[^0-9+]/g, '').trim();
+  if (!phone) {
+    document.getElementById('popup-err').textContent = '⚠️ يرجى إدخال رقم الهاتف';
+    return;
+  }
+  document.getElementById('phone-popup').style.display = 'none';
+  doTrack(phone);
+}
+
+document.addEventListener('click', function(e) {
+  const popup = document.getElementById('phone-popup');
+  if (popup && e.target === popup) closePhonePopup();
+});
+
+async function doTrack(phone=""){
   const ref=document.getElementById('track-num').value.toString().trim();
   const el=document.getElementById('track-res');
   if(!ref){el.innerHTML='<div style="color:var(--danger);font-size:13px;text-align:center;padding:10px">⚠️ يرجى إدخال رقم الطلب</div>';return;}
