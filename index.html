@@ -597,7 +597,22 @@ function openDetail(id){
       <div class="fg"><div class="fl">المسؤول</div><select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','assigned',this.value,\`${userName}\`)">${OFFICERS.map(o=>`<option${o===c.assigned?' selected':''}>${o}</option>`).join('')}</select></div>
       <div class="fg"><div class="fl">الأولوية</div><select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','priority',this.value,\`${userName}\`)">${PRIOS.map(p=>`<option value="${p}"${p===c.priority?' selected':''}>${PL[p]}</option>`).join('')}</select></div>
     </div>
-    <div class="fg"><div class="fl">ملاحظات</div><textarea class="fi" ${R.edit?'':'disabled'} onblur="uf('${id}','notes',this.value,\`${userName}\`)">${c.notes||''}</textarea></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:4px">
+      <div>
+        <div class="fl" style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+          🔒 ملاحظة داخلية
+          <span style="font-size:10px;background:#fff4e0;color:#b97000;padding:2px 7px;border-radius:4px;font-weight:700">للموظفين فقط</span>
+        </div>
+        <textarea class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','notes',this.value,'${userName}')" placeholder="ملاحظة داخلية — لا يراها المواطن أبداً…" style="min-height:90px">${c.notes||''}</textarea>
+      </div>
+      <div>
+        <div class="fl" style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+          📢 رد البلدية للمواطن
+          <span style="font-size:10px;background:#d4edda;color:#1e5429;padding:2px 7px;border-radius:4px;font-weight:700">يظهر للمواطن</span>
+        </div>
+        <textarea class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','public_note',this.value,'${userName}')" placeholder="رسالة ترد بها البلدية على المواطن…" style="min-height:90px">${c.public_note||''}</textarea>
+      </div>
+    </div>
     <div class="dv"></div>
     <div class="fg"><div class="fl">المستندات (${docs.length})</div><div class="dg">${docsH}</div><div style="margin-top:10px">${uz}</div></div>
     <div class="dv"></div>
@@ -912,6 +927,7 @@ function mc(e){if(e.target===document.getElementById('OV'))closeM();}
       </div>
       <div style="margin-top:13px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">البريد الإلكتروني</div>
         <input type="email" id="c-email" class="fi" placeholder="email@example.com" style="direction:ltr"></div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:5px;margin-bottom:2px;font-size:12px;color:var(--green2)">📧 سيتم إرسال إشعار إلكتروني إلى بريدك لتأكيد استلام طلبك</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:13px">
         <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">نوع الطلب *</div>
           <select id="c-type" class="fi" style="appearance:none;-webkit-appearance:none">
@@ -947,7 +963,11 @@ function mc(e){if(e.target===document.getElementById('OV'))closeM();}
     <div id="c-success" style="display:none;background:#fff;border:1px solid var(--border);border-radius:16px;padding:32px;text-align:center;margin-top:18px">
       <div style="font-size:52px;margin-bottom:14px">🎉</div>
       <div style="font-size:20px;font-weight:800;color:var(--green2);margin-bottom:8px">تم استلام طلبك!</div>
-      <div style="font-size:14px;color:var(--text2);margin-bottom:20px">سيتواصل معك فريق البلدية في أقرب وقت</div>
+      <div style="font-size:14px;color:var(--text2);margin-bottom:12px">سيتواصل معك فريق البلدية في أقرب وقت</div>
+      <div style="background:#f0f8ea;border:1.5px solid #a8d9b4;border-radius:10px;padding:11px 14px;margin-bottom:16px;font-size:14px;color:#1e5429;display:flex;align-items:center;gap:8px;justify-content:center">
+        <span style="font-size:18px">📧</span>
+        <span>تم إرسال إشعار إلكتروني إلى بريدك بتفاصيل طلبك ورقمه المرجعي</span>
+      </div>
       <div style="background:var(--blue3);border:1.5px solid var(--blue);border-radius:12px;padding:18px;margin-bottom:20px">
         <div style="font-size:12px;font-weight:700;color:var(--blue2);margin-bottom:6px">رقمك المرجعي — احتفظ به</div>
         <div style="font-size:36px;font-weight:800;color:var(--blue);direction:ltr" id="c-ref">—</div>
