@@ -226,10 +226,10 @@ select.fi{cursor:pointer;appearance:none;-webkit-appearance:none;}
       <div class="ni" onclick="navTo(this,'web')" id="nav-web"><span class="nii">🌐</span> طلبات الموقع <span class="nb" id="nb-web">—</span></div>
       <div class="ni" onclick="navTo(this,'pend')" id="nav-pend" style="display:none"><span class="nii">⏳</span> تنتظر الموافقة <span class="nb" id="nb-pend">—</span></div>
       <div class="ns">التصنيفات</div>
-      <div class="ni" onclick="navType(this,'complaint')"><span class="nii">⚠️</span> الشكاوى <span class="nb" id="nb-complaint">—</span></div>
-      <div class="ni" onclick="navType(this,'welfare')"><span class="nii">🤝</span> الرعاية <span class="nb" id="nb-welfare">—</span></div>
-      <div class="ni" onclick="navType(this,'permit')"><span class="nii">🏗️</span> التراخيص <span class="nb" id="nb-permit">—</span></div>
-      <div class="ni" onclick="navType(this,'inquiry')"><span class="nii">❓</span> الاستفسارات <span class="nb" id="nb-inquiry">—</span></div>
+      <div class="ni" id="nav-complaint" onclick="navType(this,'complaint')"><span class="nii">⚠️</span> الشكاوى <span class="nb" id="nb-complaint">—</span></div>
+      <div class="ni" id="nav-welfare" onclick="navType(this,'welfare')"><span class="nii">🤝</span> الرعاية <span class="nb" id="nb-welfare">—</span></div>
+      <div class="ni" id="nav-permit" onclick="navType(this,'permit')"><span class="nii">🏗️</span> التراخيص <span class="nb" id="nb-permit">—</span></div>
+      <div class="ni" id="nav-inquiry" onclick="navType(this,'inquiry')"><span class="nii">❓</span> الاستفسارات <span class="nb" id="nb-inquiry">—</span></div>
       <div class="ns">الإجراءات</div>
       <div class="ni" id="nav-add" onclick="openAdd()"><span class="nii">➕</span> إضافة طلب</div>
       <div class="ni" id="nav-users" onclick="openUsers()" style="display:none"><span class="nii">👥</span> إدارة المستخدمين</div>
@@ -362,6 +362,8 @@ async function doReset(){
 async function setupUser(user){
   currentUser=user;
   userRole=(user.user_metadata&&user.user_metadata.role)||'officer';
+  window._userPerms=(user.user_metadata&&user.user_metadata.permissions)||window.ROLE_DEFAULTS[userRole]||window.ROLE_DEFAULTS.officer;
+  setTimeout(applyPermsToUI,100);
   const userName=(user.user_metadata&&user.user_metadata.name)||user.email.split('@')[0];
   const R=getRoleCfg();
   // Update sidebar
@@ -513,8 +515,35 @@ function navType(el,t){
 function sf(f,btn){stF=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page=1;go();}
 function go(){qF=document.getElementById('QQ').value.trim();tyF=document.getElementById('TS').value;sortM=document.getElementById('SS').value;render();}
 
+
+function applyPermsToUI(){
+  const p = window._userPerms||[];
+  // Show/hide sidebar type items
+  const navMap = {complaint:'nav-complaint',welfare:'nav-welfare',permit:'nav-permit',inquiry:'nav-inquiry'};
+  Object.entries(navMap).forEach(([type,navId])=>{
+    const el = document.getElementById(navId);
+    if(el) el.style.display = p.includes('view_'+type) ? '' : 'none';
+  });
+  // Hide add button if no permission
+  const navAdd = document.getElementById('nav-add');
+  if(navAdd) navAdd.style.display = p.includes('add_cases') ? '' : 'none';
+  // Hide manage users if no permission
+  const navUsers = document.getElementById('nav-users');
+  if(navUsers) navUsers.style.display = (p.includes('manage_users')||userRole==='admin'||userRole==='mayor') ? '' : 'none';
+  // Hide export if no permission
+  document.querySelectorAll('.ni').forEach(ni=>{
+    if(ni.textContent.includes('تصدير CSV') && !p.includes('export_csv') && userRole!=='admin' && userRole!=='mayor'){
+      ni.style.display='none';
+    }
+  });
+}
+
 function filtered(){
   let d=[...cases];
+  // Apply type permissions - filter out types user can't see
+  const up = window._userPerms||[];
+  const typeMap = {complaint:'view_complaint',welfare:'view_welfare',permit:'view_permit',inquiry:'view_inquiry'};
+  if(up.length){d=d.filter(c=>up.includes(typeMap[c.type])||!typeMap[c.type]);}
   if(srcF!=='all')d=d.filter(c=>c.source===srcF);
   if(stF!=='all')d=d.filter(c=>c.status===stF);
   if(tyF!=='all')d=d.filter(c=>c.type===tyF);
@@ -692,34 +721,312 @@ async function subAdd(){
 
 // ── USER MANAGEMENT (Admin only) ──────────────────────────────────────────────
 function openUsers(){
-  document.getElementById('MT').textContent='إدارة المستخدمين';
+  document.getElementById('MT').textContent='إعدادات المستخدمين والصلاحيات';
   document.getElementById('MB').innerHTML=`
-    <div class="admin-section">
-      <div class="admin-header">➕ إضافة موظف جديد</div>
-      <div class="fg"><div class="fl">الاسم الكامل *</div><input type="text" class="fi" id="nu-name" placeholder="اسم الموظف"></div>
-      <div class="fg"><div class="fl">البريد الإلكتروني *</div><input type="email" class="fi" id="nu-email" placeholder="employee@municipality.lb" style="direction:ltr"></div>
-      <div class="fg"><div class="fl">كلمة المرور *</div><input type="password" class="fi" id="nu-pw" placeholder="8 أحرف على الأقل" style="direction:ltr"></div>
-      <div class="fg"><div class="fl">الدور / الصلاحية</div>
-        <select class="fi" id="nu-role">
-          <option value="officer">👤 موظف المتابعة</option>
-          <option value="approver">✅ مسؤول الموافقات</option>
-          <option value="admin">⚙️ المدير</option>
-          <option value="mayor">👑 رئيس البلدية</option>
-        </select>
-      </div>
-      <button class="btn bp" style="width:100%;justify-content:center" onclick="createUser()">✓ إنشاء الحساب</button>
-      <div id="cu-msg" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px"></div>
+    <style>
+      .usr-tabs{display:flex;gap:8px;margin-bottom:16px;border-bottom:1.5px solid var(--border);padding-bottom:12px}
+      .usr-tab{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--bg2);color:var(--text2);transition:all .15s}
+      .usr-tab.act{background:var(--blue);color:#fff;border-color:var(--blue)}
+      .perm-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+      .perm-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:var(--bg2);border:1px solid var(--border);font-size:13px;cursor:pointer;transition:all .15s}
+      .perm-item:hover{border-color:var(--blue)}
+      .perm-item input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--blue)}
+      .perm-item.on{background:var(--blue3);border-color:var(--blue)}
+      .role-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+      .emp-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;transition:all .15s}
+      .emp-card:hover{border-color:var(--blue3)}
+      .emp-card.inactive{opacity:.55}
+      .toggle-sw{position:relative;display:inline-block;width:42px;height:22px}
+      .toggle-sw input{opacity:0;width:0;height:0}
+      .toggle-sl{position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:22px;transition:.3s}
+      .toggle-sl:before{position:absolute;content:"";height:16px;width:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+      input:checked + .toggle-sl{background:var(--green)}
+      input:checked + .toggle-sl:before{transform:translateX(20px)}
+    </style>
+    <div class="usr-tabs">
+      <div class="usr-tab act" onclick="usrTab(this,'tab-list')">👥 قائمة الموظفين</div>
+      <div class="usr-tab" onclick="usrTab(this,'tab-add')">➕ إضافة موظف</div>
+      <div class="usr-tab" onclick="usrTab(this,'tab-roles')">🔐 إعدادات الأدوار</div>
     </div>
-    <div class="admin-section">
-      <div class="admin-header">📋 تعليمات مهمة</div>
-      <div style="font-size:13.5px;color:var(--text2);line-height:2">
-        ✅ بعد إنشاء الحساب، يصل الموظف رابط تفعيل على بريده<br>
-        ✅ يدخل الموظف بالبريد الإلكتروني وكلمة المرور التي اخترتها<br>
-        ✅ يمكن تغيير كلمة المرور لاحقاً من "نسيت كلمة المرور"<br>
-        ✅ رابط لوحة التحكم: <strong>iantradingsal.github.io/wadi-dashboard/</strong>
+
+    <!-- TAB 1: قائمة الموظفين -->
+    <div id="tab-list">
+      <div id="usr-emp-list"><div style="text-align:center;padding:20px;color:var(--text3)">⏳ جاري التحميل…</div></div>
+    </div>
+
+    <!-- TAB 2: إضافة موظف -->
+    <div id="tab-add" style="display:none">
+      <div class="admin-section">
+        <div class="admin-header">➕ إضافة موظف جديد</div>
+        <div class="fg"><div class="fl">الاسم الكامل *</div><input type="text" class="fi" id="nu-name" placeholder="اسم الموظف"></div>
+        <div class="fg"><div class="fl">البريد الإلكتروني *</div><input type="email" class="fi" id="nu-email" placeholder="employee@municipality.lb" style="direction:ltr"></div>
+        <div class="fg"><div class="fl">كلمة المرور *</div><input type="password" class="fi" id="nu-pw" placeholder="8 أحرف على الأقل" style="direction:ltr"></div>
+        <div class="fg"><div class="fl">الدور / الصلاحية</div>
+          <select class="fi" id="nu-role" onchange="showRolePerms(this.value,'nu-perms-preview')">
+            <option value="officer">👤 موظف المتابعة</option>
+            <option value="approver">✅ مسؤول الموافقات</option>
+            <option value="admin">⚙️ المدير</option>
+            <option value="mayor">👑 رئيس البلدية</option>
+          </select>
+        </div>
+        <div class="fg">
+          <div class="fl">صلاحيات مخصصة</div>
+          <div id="nu-perms-preview" class="perm-grid"></div>
+        </div>
+        <button class="btn bp" style="width:100%;justify-content:center;margin-top:10px" onclick="createUser()">✓ إنشاء الحساب</button>
+        <div id="cu-msg" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px"></div>
       </div>
-    </div>`;
+    </div>
+
+    <!-- TAB 3: إعدادات الأدوار -->
+    <div id="tab-roles" style="display:none">
+      <div class="admin-section">
+        <div class="admin-header">🔐 صلاحيات كل دور</div>
+        <div style="display:grid;gap:12px">
+          ${['officer','approver','admin','mayor'].map(r=>`
+            <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
+              <div style="background:var(--bg2);padding:10px 14px;display:flex;align-items:center;gap:10px">
+                <span style="font-size:16px">${{officer:'👤',approver:'✅',admin:'⚙️',mayor:'👑'}[r]}</span>
+                <span style="font-weight:700">${{officer:'موظف المتابعة',approver:'مسؤول الموافقات',admin:'المدير',mayor:'رئيس البلدية'}[r]}</span>
+              </div>
+              <div class="perm-grid" style="padding:10px">${window.PERMS.map(p=>`
+                <div class="perm-item ${window.ROLE_DEFAULTS[r]?.includes(p.id)?'on':''}">
+                  <input type="checkbox" id="rp-${r}-${p.id}" ${window.ROLE_DEFAULTS[r]?.includes(p.id)?'checked':''} onchange="saveRolePerm('${r}','${p.id}',this.checked)">
+                  <label for="rp-${r}-${p.id}" style="cursor:pointer">${p.icon} ${p.label}</label>
+                </div>`).join('')}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
   document.getElementById('OV').classList.add('open');
+  usrLoadEmps();
+  showRolePerms(document.getElementById('nu-role')?.value||'officer','nu-perms-preview');
+}
+
+function usrTab(el, tabId){
+  document.querySelectorAll('.usr-tab').forEach(t=>t.classList.remove('act'));
+  el.classList.add('act');
+  ['tab-list','tab-add','tab-roles'].forEach(id=>{
+    const el2 = document.getElementById(id);
+    if(el2) el2.style.display = id===tabId?'block':'none';
+  });
+}
+
+// All permissions definition
+window.PERMS = [
+  // ── الوصول لأنواع الطلبات ─────────────────────────────
+  {id:'view_complaint', icon:'⚠️', label:'رؤية الشكاوى', group:'types'},
+  {id:'view_welfare',   icon:'🤝', label:'رؤية الرعاية الاجتماعية', group:'types'},
+  {id:'view_permit',    icon:'🏗️', label:'رؤية التراخيص', group:'types'},
+  {id:'view_inquiry',   icon:'❓', label:'رؤية الاستفسارات', group:'types'},
+  // ── الإجراءات ─────────────────────────────────────────
+  {id:'edit_cases',     icon:'✏️', label:'تعديل الطلبات', group:'actions'},
+  {id:'change_status',  icon:'🔄', label:'تغيير الحالة', group:'actions'},
+  {id:'add_cases',      icon:'➕', label:'إضافة طلبات', group:'actions'},
+  {id:'delete_cases',   icon:'🗑️', label:'حذف الطلبات', group:'actions'},
+  {id:'approve_cases',  icon:'✅', label:'الموافقة على الطلبات', group:'actions'},
+  // ── المحتوى ────────────────────────────────────────────
+  {id:'internal_notes', icon:'🔒', label:'الملاحظات الداخلية', group:'content'},
+  {id:'public_notes',   icon:'📢', label:'الرد على المواطنين', group:'content'},
+  {id:'upload_docs',    icon:'📎', label:'رفع المستندات', group:'content'},
+  {id:'export_csv',     icon:'⬇️', label:'تصدير CSV', group:'content'},
+  // ── الإدارة ────────────────────────────────────────────
+  {id:'manage_users',   icon:'👥', label:'إدارة الموظفين', group:'admin'},
+];
+
+window.PERM_GROUPS = {
+  types:   '📂 أنواع الطلبات المسموح بها',
+  actions: '⚡ الإجراءات المتاحة',
+  content: '📝 المحتوى والمستندات',
+  admin:   '⚙️ الإدارة',
+};
+
+// Default permissions per role
+window.ROLE_DEFAULTS = {
+  officer:  ['view_complaint','view_welfare','view_permit','view_inquiry','edit_cases','change_status','add_cases','internal_notes','public_notes','upload_docs'],
+  approver: ['view_complaint','view_welfare','view_permit','view_inquiry','edit_cases','change_status','add_cases','approve_cases','internal_notes','public_notes','upload_docs'],
+  admin:    ['view_complaint','view_welfare','view_permit','view_inquiry','edit_cases','change_status','add_cases','delete_cases','approve_cases','internal_notes','public_notes','upload_docs','export_csv','manage_users'],
+  mayor:    ['view_complaint','view_welfare','view_permit','view_inquiry','edit_cases','change_status','add_cases','delete_cases','approve_cases','internal_notes','public_notes','upload_docs','export_csv','manage_users'],
+};
+
+function showRolePerms(role, containerId){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const defaults = window.ROLE_DEFAULTS[role] || window.ROLE_DEFAULTS.officer;
+  let html2 = '';
+  const groups = ['types','actions','content','admin'];
+  groups.forEach(g => {
+    const gPerms = window.PERMS.filter(p=>p.group===g);
+    if(!gPerms.length) return;
+    html2 += `<div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--text3);margin-top:8px;margin-bottom:2px">${window.PERM_GROUPS[g]}</div>`;
+    gPerms.forEach(p => {
+      html2 += `<div class="perm-item ${defaults.includes(p.id)?'on':''}">
+        <input type="checkbox" id="np-${p.id}" ${defaults.includes(p.id)?'checked':''}>
+        <label for="np-${p.id}" style="cursor:pointer">${p.icon} ${p.label}</label>
+      </div>`;
+    });
+  });
+  el.innerHTML = html2;
+}
+
+function saveRolePerm(role, perm, checked){
+  if(!window.ROLE_DEFAULTS[role]) return;
+  if(checked && !window.ROLE_DEFAULTS[role].includes(perm)) window.ROLE_DEFAULTS[role].push(perm);
+  else if(!checked) window.ROLE_DEFAULTS[role] = window.ROLE_DEFAULTS[role].filter(p=>p!==perm);
+  // Update visual
+  const item = document.getElementById(`rp-${role}-${perm}`)?.closest('.perm-item');
+  if(item) item.classList.toggle('on', checked);
+  toast(checked?`✅ تم تفعيل الصلاحية`:`🔒 تم إلغاء الصلاحية`);
+}
+
+async function usrLoadEmps(){
+  const el = document.getElementById('usr-emp-list');
+  if(!el) return;
+  try {
+    const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users?per_page=50', {
+      headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }
+    });
+    if(!r.ok){el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:14px">⚠️ يمكن إدارة الموظفين من Supabase مباشرة</div>';return;}
+    const d = await r.json();
+    const users = d.users||[];
+    if(!users.length){el.innerHTML='<div style="text-align:center;padding:14px;color:var(--text3)">لا يوجد موظفون بعد</div>';return;}
+    const RL={mayor:'👑 رئيس البلدية',admin:'⚙️ المدير',approver:'✅ مسؤول الموافقات',officer:'👤 موظف المتابعة'};
+    const RC={mayor:'#6535a8',admin:'#1a6eb5',approver:'#1e5429',officer:'#c47800'};
+    const RB={mayor:'#ede8f8',admin:'#daeaf8',approver:'#d4edda',officer:'#fff4e0'};
+    el.innerHTML = users.map(u=>{
+      const meta = u.user_metadata||{};
+      const role = meta.role||'officer';
+      const active = !u.banned_until;
+      const name = meta.name||u.email?.split('@')[0]||'—';
+      const initials = name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+      return `<div class="emp-card ${active?'':'inactive'}">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:50%;background:${RB[role]};color:${RC[role]};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0">${initials}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px">${name}</div>
+            <div style="font-size:12px;color:var(--text3);direction:ltr">${u.email||'—'}</div>
+          </div>
+          <span class="role-badge" style="background:${RB[role]};color:${RC[role]}">${RL[role]||role}</span>
+          <label class="toggle-sw" title="${active?'إلغاء تفعيل':'تفعيل'}">
+            <input type="checkbox" ${active?'checked':''} onchange="toggleEmpActive('${u.id}','${name}',this.checked)">
+            <span class="toggle-sl"></span>
+          </label>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+          <select class="fi" style="flex:1;padding:6px 10px;font-size:12px;height:auto" data-uid="${u.id}" data-nm="${name}" onchange="chRole(this)">
+            ${['officer','approver','admin','mayor'].map(r=>`<option value="${r}" ${role===r?'selected':''}>${RL[r]}</option>`).join('')}
+          </select>
+          <button class="btn" style="padding:6px 14px;font-size:12px" onclick="usrEditPerms('${u.id}','${name}','${role}',(${JSON.stringify(meta.notifications||{})}))">🔐 صلاحيات</button>
+          <button class="btn" style="padding:6px 14px;font-size:12px" onclick="editEmp('${u.id}','${name}','${u.email}','${role}')">✏️ تعديل</button>
+          <button class="btn" style="padding:6px 14px;font-size:12px;color:var(--danger)" onclick="delEmp('${u.id}','${name}')">🗑️</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e){ el.innerHTML=`<div style="color:var(--danger);font-size:13px;text-align:center;padding:14px">خطأ: ${e.message}</div>`; }
+}
+
+function usrEditPerms(uid, name, role, notif){
+  const perms = window.ROLE_DEFAULTS[role]||window.ROLE_DEFAULTS.officer;
+  const n = notif || {};
+  const NOTIF_EVENTS = [
+    {id:'new_case',    icon:'📋', label:'طلب جديد'},
+    {id:'status_change',icon:'🔄', label:'تغيير الحالة'},
+    {id:'public_note', icon:'📢', label:'رد البلدية'},
+    {id:'doc_added',   icon:'📎', label:'مستند جديد'},
+    {id:'approval',    icon:'✅', label:'موافقة / رفض'},
+  ];
+  const html2 = `<div style="padding:4px">
+    <div style="font-weight:700;font-size:16px;margin-bottom:4px;color:var(--blue2)">👤 ${name}</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:16px">${{officer:'موظف المتابعة',approver:'مسؤول الموافقات',admin:'المدير',mayor:'رئيس البلدية'}[role]||role}</div>
+
+    <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:8px">🔐 الصلاحيات</div>
+    <div class="perm-grid" style="margin-bottom:20px">${window.PERMS.map(p=>`
+      <div class="perm-item ${perms.includes(p.id)?'on':''}">
+        <input type="checkbox" id="ep-${uid.slice(0,8)}-${p.id}" ${perms.includes(p.id)?'checked':''}>
+        <label for="ep-${uid.slice(0,8)}-${p.id}" style="cursor:pointer">${p.icon} ${p.label}</label>
+      </div>`).join('')}
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:12px">🔔 إشعارات الموظف</div>
+
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div style="flex:1;min-width:120px;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;cursor:pointer" id="notif-email-box" onclick="toggleNotifChannel('email','${uid.slice(0,8)}')">
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="notif-email-${uid.slice(0,8)}" ${n.email?'checked':''} style="width:16px;height:16px;accent-color:var(--blue)" onchange="toggleNotifChannel('email','${uid.slice(0,8)}')">
+            <span style="font-size:20px">📧</span>
+            <span style="font-weight:700;font-size:13px">إيميل</span>
+          </div>
+        </div>
+        <div style="flex:1;min-width:120px;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;cursor:pointer" id="notif-whatsapp-box" onclick="toggleNotifChannel('whatsapp','${uid.slice(0,8)}')">
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="notif-whatsapp-${uid.slice(0,8)}" ${n.whatsapp?'checked':''} style="width:16px;height:16px;accent-color:var(--green)" onchange="toggleNotifChannel('whatsapp','${uid.slice(0,8)}')">
+            <span style="font-size:20px">💬</span>
+            <span style="font-weight:700;font-size:13px">واتساب</span>
+          </div>
+        </div>
+        <div style="flex:1;min-width:120px;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;cursor:pointer" id="notif-sms-box" onclick="toggleNotifChannel('sms','${uid.slice(0,8)}')">
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="notif-sms-${uid.slice(0,8)}" ${n.sms?'checked':''} style="width:16px;height:16px;accent-color:var(--warn)" onchange="toggleNotifChannel('sms','${uid.slice(0,8)}')">
+            <span style="font-size:20px">📱</span>
+            <span style="font-weight:700;font-size:13px">SMS</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:600">أبلغني عند:</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${NOTIF_EVENTS.map(ev=>`
+          <div class="perm-item ${n.events?.includes(ev.id)?'on':''}">
+            <input type="checkbox" id="ne-${uid.slice(0,8)}-${ev.id}" ${n.events?.includes(ev.id)||!n.events?'checked':''}>
+            <label for="ne-${uid.slice(0,8)}-${ev.id}" style="cursor:pointer">${ev.icon} ${ev.label}</label>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <button class="btn bp" style="width:100%;justify-content:center;margin-top:16px" onclick="saveEmpPerms('${uid}','${role}')">💾 حفظ الإعدادات</button>
+    <button class="btn" style="width:100%;justify-content:center;margin-top:8px" onclick="usrLoadEmps();document.getElementById('MB').innerHTML='';setTimeout(()=>document.getElementById('MB').innerHTML='',100);openUsers()">← رجوع</button>
+  </div>`;
+  document.getElementById('MB').innerHTML = html2;
+}
+
+function toggleNotifChannel(ch, uidShort){
+  const cb = document.getElementById('notif-'+ch+'-'+uidShort);
+  if(cb) cb.checked = !cb.checked;
+}
+
+async function saveEmpPerms(uid, role){
+  const uidS = uid.slice(0,8);
+  const selectedPerms = window.PERMS.filter(p=>document.getElementById(`ep-${uidS}-${p.id}`)?.checked).map(p=>p.id);
+  const NOTIF_EVENTS = ['new_case','status_change','public_note','doc_added','approval'];
+  const notifSettings = {
+    email: document.getElementById('notif-email-'+uidS)?.checked||false,
+    whatsapp: document.getElementById('notif-whatsapp-'+uidS)?.checked||false,
+    sms: document.getElementById('notif-sms-'+uidS)?.checked||false,
+    events: NOTIF_EVENTS.filter(ev=>document.getElementById(`ne-${uidS}-${ev}`)?.checked),
+  };
+  try{
+    const r = await fetch(`https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/${uid}`,{
+      method:'PUT',
+      headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({user_metadata:{role, permissions:selectedPerms, notifications:notifSettings}})
+    });
+    if(r.ok){ toast('✅ تم حفظ الإعدادات بنجاح'); openUsers(); }
+    else throw new Error('فشل الحفظ');
+  }catch(e){ toast('⚠️ '+e.message,'err'); }
+}
+
+async function toggleEmpActive(uid, name, active){
+  try{
+    const body = active ? {ban_duration:'none'} : {ban_duration:'876000h'};
+    const r = await fetch(`https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/${uid}`,{
+      method:'PUT', headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    if(r.ok) toast(active?`✅ تم تفعيل ${name}`:`🔒 تم إيقاف ${name}`);
+    else throw new Error('فشل التحديث');
+  }catch(e){ toast('⚠️ '+e.message,'err'); }
 }
 
 async function createUser(){
@@ -799,6 +1106,10 @@ async function loadEmp() {
             style="padding:7px 12px;background:var(--blue3);color:var(--blue);border:1px solid var(--blue);border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">✏️ تعديل</button>
           <button onclick="delEmp(this)" data-uid="${u.id}" data-nm="${nm.replace(/"/g,'')}"
             style="padding:7px 12px;background:var(--danger-bg);color:var(--danger);border:1px solid #f2bcbc;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">🗑 حذف</button>
+          <button onclick="toggleEmpStatus(this)" data-uid="${u.id}" data-nm="${nm.replace(/"/g,'')}" data-active="${u.user_metadata?.active!==false?'1':'0'}"
+            style="padding:7px 12px;background:${u.user_metadata?.active===false?'var(--green3)':'#fff4e0'};color:${u.user_metadata?.active===false?'var(--green2)':'var(--warn)'};border:1px solid ${u.user_metadata?.active===false?'var(--green)':'var(--warn)'};border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">
+            ${u.user_metadata?.active===false?'✅ تفعيل':'⏸ تعطيل'}
+          </button>
         </div></div>`;
     }).join('');
   } catch(e) { el.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:12px">⚠️ يمكن إدارة الموظفين من Supabase مباشرة</div>'; }
@@ -852,6 +1163,25 @@ async function saveEmp(uid) {
     if (d.error) throw new Error(d.msg || JSON.stringify(d.error));
     toast('✅ تم حفظ التعديلات');
     setTimeout(loadEmp, 700);
+  } catch(e) { toast('⚠️ ' + e.message, 'err'); }
+}
+
+
+async function toggleEmpStatus(btn) {
+  const uid = btn.dataset.uid, name = btn.dataset.nm, isActive = btn.dataset.active === '1';
+  const action = isActive ? 'تعطيل' : 'تفعيل';
+  if (!confirm(`هل تريد ${action} حساب "${name}"؟`)) return;
+  try {
+    const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/' + uid, {
+      method: 'PUT',
+      headers: { apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4',
+        Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4',
+        'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_metadata: { active: !isActive } })
+    });
+    if (!r.ok) throw new Error(await r.text());
+    toast(`${isActive ? '⏸' : '✅'} تم ${action} حساب "${name}"`);
+    setTimeout(() => { loadEmp(); usersTab('list'); }, 700);
   } catch(e) { toast('⚠️ ' + e.message, 'err'); }
 }
 
