@@ -304,9 +304,8 @@ const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 <script>
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
-const TL_BASE={complaint:'⚠️ شكوى',welfare:'🤝 رعاية اجتماعية',permit:'🏗️ ترخيص',inquiry:'❓ استفسار',maintenance:'🔧 صيانة',request:'📄 طلب وثيقة',emergency:'🚨 طوارئ'};
-function getTL(){ try{ const cats=getCats(); const tl={...TL_BASE}; cats.forEach(c=>{tl[c.id]=c.icon+' '+c.label;}); return tl; }catch(e){ return TL_BASE; } }
-const TL=new Proxy({},{get:(t,k)=>getTL()[k]||k});
+const TL={complaint:'⚠️ شكوى',welfare:'🤝 رعاية اجتماعية',permit:'🏗️ ترخيص',inquiry:'❓ استفسار',maintenance:'🔧 صيانة',request:'📄 طلب وثيقة',emergency:'🚨 طوارئ'};
+function getTL(id){ try{ const cats=getCats(); const cat=cats.find(c=>c.id===id); if(cat) return cat.icon+' '+cat.label; }catch(e){} return TL[id]||id; }
 const SL={new:'جديد','in-progress':'قيد المعالجة',review:'مراجعة','pending-approval':'ينتظر الموافقة',resolved:'منجز',closed:'مغلق'};
 const PL={high:'عالية',medium:'متوسطة',low:'منخفضة'};
 const STATUSES=['new','in-progress','review','pending-approval','resolved','closed'];
@@ -320,10 +319,11 @@ const NA=['permit','welfare'];
 let OFFICERS=['جاري التحميل…'];
 async function loadOfficers(){
   try{
+    const _sk='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
     const {data:{session}} = await sb.auth.getSession();
-    const token = session?.access_token || SB_KEY;
+    const token = session?.access_token || _sk;
     const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users?per_page=50',{
-      headers:{apikey:SB_KEY,Authorization:'Bearer '+token}
+      headers:{apikey:_sk,Authorization:'Bearer '+token}
     });
     if(!r.ok) return;
     const d=await r.json();
@@ -756,7 +756,7 @@ function openAdd(){
       <div class="fg"><div class="fl">العنوان</div><input type="text" class="fi" id="aad" placeholder="حارة، قرية…"></div>
     </div>
     <div class="g2">
-      <div class="fg"><div class="fl">نوع الطلب *</div><select class="fi" id="at" onchange="can()">${(typeof getCats!=='undefined'?getCats():TYPES_STATIC.map(id=>({id,label:TL[id]||id,icon:''}))).map(c=>`<option value="${c.id}">${c.icon||''} ${c.label||TL[c.id]||c.id}</option>`).join('')}</select></div>
+      <div class="fg"><div class="fl">نوع الطلب *</div><select class="fi" id="at" onchange="can()">${(typeof getCats!=='undefined'?getCats():TYPES_STATIC.map(id=>({id,label:TL[id]||id,icon:''}))).map(c=>`<option value="${c.id}">${c.icon?c.icon+' ':''} ${c.label||TL[c.id]||c.id}</option>`).join('')}</select></div>
       <div class="fg"><div class="fl">الأولوية</div><select class="fi" id="ap"><option value="high">عالية</option><option value="medium" selected>متوسطة</option><option value="low">منخفضة</option></select></div>
     </div>
     <div class="fg"><div class="fl">وصف الطلب *</div><textarea class="fi" id="ad" placeholder="وصف الطلب أو الشكوى بالتفصيل…"></textarea></div>
@@ -1112,7 +1112,7 @@ async function resendConfirm(uid, email){
   try{
     const r = await fetch(`https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/${uid}`,{
       method:'PUT',
-      headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json'},
+      headers:{apikey:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4',Authorization:'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Content-Type':'application/json'},
       body:JSON.stringify({email_confirm:true})
     });
     if(r.ok){ toast(`✅ تم إرسال رسالة التفعيل إلى ${email}`); usrLoadEmps(); }
@@ -1302,7 +1302,7 @@ async function createUser(){
 // ── EXPORT ────────────────────────────────────────────────────────────────────
 function exportCSV(){
   const h=['الرقم','الاسم','الهاتف','البريد','العنوان','النوع','الوصف','المسؤول','التاريخ','الحالة','الأولوية','الموافقة','ملفات','المصدر'];
-  const rows=cases.map(c=>[c.id,c.name,c.phone||'',c.email||'',c.address||'',TL[c.type]||c.type,c.description,c.assigned,(c.created_at||'').slice(0,10),SL[c.status]||c.status,PL[c.priority]||c.priority,c.approval_state||'—',(c.documents||[]).length,c.source==='website'?'موقع':'موظف']);
+  const rows=cases.map(c=>[c.id,c.name,c.phone||'',c.email||'',c.address||'',getTL(c.type)||c.type,c.description,c.assigned,(c.created_at||'').slice(0,10),SL[c.status]||c.status,PL[c.priority]||c.priority,c.approval_state||'—',(c.documents||[]).length,c.source==='website'?'موقع':'موظف']);
   const csv='\uFEFF'+[h,...rows].map(r=>r.map(x=>`"${x||''}"`).join(',')).join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));a.download='بلدية_وادي_الست.csv';a.click();
 }
@@ -1864,7 +1864,7 @@ async function confirmPhone(){
     if(data.phone)h+='<div style="padding:8px;background:#fff;border-radius:8px;border:1px solid var(--border)"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">الهاتف</div><span style="direction:ltr;display:inline-block">'+data.phone+'</span></div>';
     if(data.email)h+='<div style="padding:8px;background:#fff;border-radius:8px;border:1px solid var(--border)"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">البريد</div>'+data.email+'</div>';
     if(data.address)h+='<div style="padding:8px;background:#fff;border-radius:8px;border:1px solid var(--border)"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">العنوان</div>'+data.address+'</div>';
-    h+='<div style="padding:8px;background:#fff;border-radius:8px;border:1px solid var(--border)"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">النوع</div>'+(TL[data.type]||data.type)+'</div>';
+    h+='<div style="padding:8px;background:#fff;border-radius:8px;border:1px solid var(--border)"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">النوع</div>'+(getTL(data.type)||data.type)+'</div>';
     if(data.priority)h+='<div style="padding:8px;background:#fff;border-radius:8px;border:1px solid var(--border)"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">الأولوية</div>'+(PL[data.priority]||data.priority)+'</div>';
     if(data.assigned)h+='<div style="padding:8px;background:#fff;border-radius:8px;border:1px solid var(--border)"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">المسؤول</div>'+data.assigned+'</div>';
     h+='<div style="padding:8px;background:#fff;border-radius:8px;border:1px solid var(--border)"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">التاريخ</div><span style="direction:ltr;display:inline-block">'+(data.created_at||'').slice(0,10)+'</span></div></div>';
@@ -2050,7 +2050,7 @@ async function loadCitCases(){
           <div style="font-size:12px;color:var(--text3);direction:ltr">#${String(c.id).slice(-4)} · ${(c.created_at||'').slice(0,10)}</div>
           <span class="badge ${SLC2[c.status]||'bc'}"><span class="bd"></span>${SL[c.status]||c.status}</span>
         </div>
-        <div style="font-size:13px;font-weight:700;margin-bottom:4px">${TL[c.type]||c.type}</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px">${getTL(c.type)||c.type}</div>
         <div style="font-size:13px;color:var(--text2)">${(c.description||'').slice(0,80)}${(c.description||'').length>80?'…':''}</div>
         ${(c.documents||[]).length>0?`<div style="margin-top:6px"><span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:6px;background:var(--blue3);color:var(--blue);font-size:11.5px;font-weight:600">📎 ${(c.documents||[]).length} مستند</span></div>`:''}
       </div>`).join('');
