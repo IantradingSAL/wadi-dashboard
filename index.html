@@ -414,10 +414,13 @@ async function setupUser(user){
   if(R.A)document.getElementById('nav-pend').style.display='flex';
   if(!R.add){document.getElementById('BADD').style.display='none';document.getElementById('nav-add').style.display='none';}
   if(R.admin)document.getElementById('nav-users').style.display='flex';
-  const navCats=document.getElementById('nav-cats'); if(navCats) navCats.style.display=(role==='admin'||role==='mayor')?'flex':'none';
-  // Switch screens
+  const navCats=document.getElementById('nav-cats'); if(navCats) navCats.style.display=(userRole==='admin'||userRole==='mayor')?'flex':'none';
+  // Switch screens - hide ALL other screens
   document.getElementById('LS').style.display='none';
   document.getElementById('APP').style.display='block';
+  const landing=document.getElementById('LANDING');if(landing)landing.style.display='none';
+  const cp=document.getElementById('CP');if(cp)cp.style.display='none';
+  const recovery=document.getElementById('RECOVERY');if(recovery)recovery.remove();
   await load();
   tick();setInterval(tick,60000);
   if(dbR)subscribe();
@@ -427,7 +430,7 @@ async function doLogout(){
   if(dbR)await sb.auth.signOut();
   currentUser=null;userRole=null;cases=[];
   document.getElementById('APP').style.display='none';
-  document.getElementById('LS').style.display='flex';
+  document.getElementById('LANDING').style.display='none';document.getElementById('LS').style.display='flex';
   document.getElementById('EM').value='';
   document.getElementById('PW').value='';
   document.getElementById('LERR').textContent='';
@@ -1636,7 +1639,7 @@ function showCitizenPortal(){
 function showStaffLogin(){
   document.getElementById('LANDING').style.display='none';
   document.getElementById('CP').style.display='none';
-  document.getElementById('LS').style.display='flex';
+  document.getElementById('LANDING').style.display='none';document.getElementById('LS').style.display='flex';
 }
 function showCitizenHero(){
   document.getElementById('cit-hero').style.display='block';
