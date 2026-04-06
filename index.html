@@ -346,6 +346,36 @@ async function doLogin(){
   const pw=document.getElementById('PW').value;
   const errEl=document.getElementById('LERR');
   errEl.textContent='';
+
+// ── MAGIC LINK / RECOVERY TOKEN HANDLER ─────────────────────────────────────
+(async function handleAuthToken(){
+  const hash = window.location.hash;
+  if(!hash || hash === '#') return;
+  const params = new URLSearchParams(hash.slice(1));
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+  const type = params.get('type'); // 'magiclink' or 'recovery'
+  if(!accessToken) return;
+  try{
+    // Exchange tokens with Supabase
+    const {data, error} = await sb.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken || ''
+    });
+    // Clear hash from URL
+    history.replaceState(null, '', window.location.pathname);
+    if(error) throw error;
+    if(type === 'recovery'){
+      // Show password reset form
+      showRecoveryForm(accessToken);
+    } else if(data?.user){
+      // Magic link login - go to app
+      await setupUser(data.user);
+    }
+  }catch(e){
+    console.error('Token exchange error:', e.message);
+  }
+})();
   if(!email||!pw){errEl.textContent='يرجى إدخال البريد الإلكتروني وكلمة المرور';return;}
   const btn=document.getElementById('LB');
   btn.disabled=true;btn.textContent='⏳ جاري التحقق…';
