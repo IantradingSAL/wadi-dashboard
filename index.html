@@ -364,7 +364,7 @@ async function doReset(){
   const email=document.getElementById('EM').value.trim();
   if(!email){document.getElementById('LERR').textContent='أدخل بريدك الإلكتروني أولاً';return;}
   if(!dbR)return;
-  const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});
+  const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+window.location.pathname+'#recovery'});
   if(error){document.getElementById('LERR').textContent='خطأ: '+error.message;}
   else{document.getElementById('LERR').style.color='var(--green)';document.getElementById('LERR').textContent='✅ تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك';}
 }
@@ -1124,6 +1124,14 @@ async function saveEmpPerms(uid, role){
 }
 
 async function toggleEmpActive(uid, name, active){
+  // Prevent admin from banning themselves
+  const {data:{user}} = await sb.auth.getUser();
+  if(user && user.id === uid && !active){
+    alert('⚠️ لا يمكنك إيقاف حسابك الخاص!');
+    // Re-check the toggle
+    setTimeout(()=>usrLoadEmps(),100);
+    return;
+  }
   try{
     const body = active ? {ban_duration:'none'} : {ban_duration:'876000h'};
     const r = await fetch(`https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/${uid}`,{
@@ -2060,6 +2068,75 @@ window.addEventListener('load',async()=>{
   }catch(e){console.error('Session check error:',e);}
   document.getElementById('LANDING').style.display='flex';
 });
+
+
+// ── PASSWORD RECOVERY HANDLER ─────────────────────────────────────────────────
+(async function checkRecovery(){
+  const hash = window.location.hash;
+  if(hash.includes('type=recovery') || hash.includes('#recovery') || hash.includes('access_token')) {
+    // Parse tokens from hash
+    const params = new URLSearchParams(hash.replace('#',''));
+    const accessToken = params.get('access_token');
+    const type = params.get('type');
+    if(accessToken && (type==='recovery' || hash.includes('recovery'))) {
+      // Show password reset form
+      showRecoveryForm(accessToken);
+      return;
+    }
+  }
+  // Also check via Supabase session
+  if(typeof sb !== 'undefined') {
+    sb.auth.onAuthStateChange((event, session) => {
+      if(event === 'PASSWORD_RECOVERY') {
+        showRecoveryForm(session?.access_token);
+      }
+    });
+  }
+})();
+
+function showRecoveryForm(token){
+  // Hide all sections
+  ['LANDING','CP','APP','LS'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display='none';
+  });
+  // Create reset form
+  const div = document.createElement('div');
+  div.id = 'RECOVERY';
+  div.style.cssText = 'min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);direction:rtl;padding:20px';
+  div.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:36px;max-width:400px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,0.12);text-align:center">
+      <div style="font-size:48px;margin-bottom:12px">🔐</div>
+      <div style="font-size:20px;font-weight:800;color:var(--blue2);margin-bottom:6px">تغيير كلمة المرور</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:24px">أدخل كلمة المرور الجديدة</div>
+      <input type="password" id="new-pw1" class="fi" placeholder="كلمة المرور الجديدة" style="margin-bottom:12px;direction:ltr;text-align:left">
+      <input type="password" id="new-pw2" class="fi" placeholder="تأكيد كلمة المرور" style="margin-bottom:16px;direction:ltr;text-align:left">
+      <div id="recovery-err" style="color:var(--danger);font-size:13px;margin-bottom:12px;min-height:18px"></div>
+      <button class="btn bp" style="width:100%;justify-content:center;padding:13px" onclick="doRecovery()">✅ حفظ كلمة المرور الجديدة</button>
+    </div>`;
+  document.body.appendChild(div);
+  window._recoveryToken = token;
+  // Clear the hash
+  history.replaceState(null,'',window.location.pathname);
+}
+
+async function doRecovery(){
+  const pw1 = document.getElementById('new-pw1')?.value||'';
+  const pw2 = document.getElementById('new-pw2')?.value||'';
+  const err = document.getElementById('recovery-err');
+  if(pw1.length < 8){err.textContent='يجب أن تكون كلمة المرور 8 أحرف على الأقل';return;}
+  if(pw1!==pw2){err.textContent='كلمتا المرور غير متطابقتين';return;}
+  err.textContent='';
+  try{
+    const{error}=await sb.auth.updateUser({password:pw1});
+    if(error) throw error;
+    document.getElementById('RECOVERY')?.remove();
+    alert('✅ تم تغيير كلمة المرور بنجاح\nيمكنك الآن تسجيل الدخول');
+    window.location.reload();
+  }catch(e){
+    err.textContent='خطأ: '+e.message;
+  }
+}
 
 </script>
 <div style="position:fixed;bottom:0;left:0;right:0;background:rgba(15,77,130,0.95);color:rgba(255,255,255,0.6);text-align:center;padding:8px;font-size:12px;z-index:9999;pointer-events:none;direction:ltr">Powered by <strong style="color:#fff">IanTrading SAL</strong> &nbsp;·&nbsp; All rights reserved © 2026</div>
