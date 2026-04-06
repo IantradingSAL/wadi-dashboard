@@ -313,8 +313,8 @@ const PRIOS=['high','medium','low'];
 // Dynamic types — loads from localStorage if custom cats exist
 function getTypes(){return getCats().map(c=>c.id);}
 function getTL(){const m={};getCats().forEach(c=>m[c.id]=c.icon+' '+c.label);return m;}
-function getDynTypes(){ try{ return getCats().map(c=>c.id); }catch(e){ return ['complaint','welfare','permit','inquiry']; } }
-const TYPES_STATIC=['complaint','welfare','permit','inquiry'];
+const TYPES=['complaint','welfare','permit','inquiry'];
+function getDynTypes(){ try{ return getCats().map(c=>c.id); }catch(e){ return TYPES; } }
 const NA=['permit','welfare'];
 let OFFICERS=['جاري التحميل…'];
 async function loadOfficers(){
@@ -548,7 +548,7 @@ function rStats(){
   document.getElementById('nb-all').textContent=cases.length;
   document.getElementById('nb-web').textContent=cases.filter(c=>c.source==='website').length;
   document.getElementById('nb-pend').textContent=cases.filter(c=>c.approval_state==='pending').length;
-  TYPES.forEach(t=>{const el=document.getElementById('nb-'+t);if(el)el.textContent=cases.filter(c=>c.type===t).length;});
+  getDynTypes().forEach(t=>{const el=document.getElementById('nb-'+t);if(el)el.textContent=cases.filter(c=>c.type===t).length;});
 }
 
 const AVS=[['#1a6eb5','#d6e9f8'],['#8a6200','#f5edca'],['#bf2424','#fdeaea'],['#6535a8','#ede8f8'],['#9a5500','#fce8ca'],['#0f5470','#d4eaf5']];
@@ -756,7 +756,7 @@ function openAdd(){
       <div class="fg"><div class="fl">العنوان</div><input type="text" class="fi" id="aad" placeholder="حارة، قرية…"></div>
     </div>
     <div class="g2">
-      <div class="fg"><div class="fl">نوع الطلب *</div><select class="fi" id="at" onchange="can()">${(typeof getCats!=='undefined'?getCats():TYPES_STATIC.map(id=>({id,label:TL[id]||id,icon:''}))).map(c=>`<option value="${c.id}">${c.icon?c.icon+' ':''} ${c.label||TL[c.id]||c.id}</option>`).join('')}</select></div>
+      <div class="fg"><div class="fl">نوع الطلب *</div><select class="fi" id="at" onchange="can()">${getDynTypes().map(t=>`<option value="${t}">${TL[t]||t}</option>`).join('')}</select></div>
       <div class="fg"><div class="fl">الأولوية</div><select class="fi" id="ap"><option value="high">عالية</option><option value="medium" selected>متوسطة</option><option value="low">منخفضة</option></select></div>
     </div>
     <div class="fg"><div class="fl">وصف الطلب *</div><textarea class="fi" id="ad" placeholder="وصف الطلب أو الشكوى بالتفصيل…"></textarea></div>
