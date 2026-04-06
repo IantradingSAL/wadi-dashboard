@@ -225,14 +225,20 @@ select.fi{cursor:pointer;appearance:none;-webkit-appearance:none;}
       <div class="ni on" onclick="navTo(this,'all')"><span class="nii">📋</span> جميع الطلبات <span class="nb" id="nb-all">—</span></div>
       <div class="ni" onclick="navTo(this,'web')" id="nav-web"><span class="nii">🌐</span> طلبات الموقع <span class="nb" id="nb-web">—</span></div>
       <div class="ni" onclick="navTo(this,'pend')" id="nav-pend" style="display:none"><span class="nii">⏳</span> تنتظر الموافقة <span class="nb" id="nb-pend">—</span></div>
-      <div class="ns">التصنيفات</div>
+      <div class="ns" style="display:flex;align-items:center;justify-content:space-between">
+        <span>التصنيفات</span>
+        <span id="nav-manage-cats" onclick="openManageCats()" style="font-size:11px;color:var(--blue);cursor:pointer;padding:2px 6px;border-radius:4px;background:var(--blue3)">⚙️ إدارة</span>
+      </div>
+      <div id="cats-nav-list">
       <div class="ni" id="nav-complaint" onclick="navType(this,'complaint')"><span class="nii">⚠️</span> الشكاوى <span class="nb" id="nb-complaint">—</span></div>
       <div class="ni" id="nav-welfare" onclick="navType(this,'welfare')"><span class="nii">🤝</span> الرعاية <span class="nb" id="nb-welfare">—</span></div>
       <div class="ni" id="nav-permit" onclick="navType(this,'permit')"><span class="nii">🏗️</span> التراخيص <span class="nb" id="nb-permit">—</span></div>
       <div class="ni" id="nav-inquiry" onclick="navType(this,'inquiry')"><span class="nii">❓</span> الاستفسارات <span class="nb" id="nb-inquiry">—</span></div>
+      </div>
       <div class="ns">الإجراءات</div>
       <div class="ni" id="nav-add" onclick="openAdd()"><span class="nii">➕</span> إضافة طلب</div>
       <div class="ni" id="nav-users" onclick="openUsers()" style="display:none"><span class="nii">👥</span> إدارة المستخدمين</div>
+      <div class="ni" id="nav-cats" onclick="manageCats()" style="display:none"><span class="nii">📂</span> إدارة التصنيفات</div>
       <div class="ni" onclick="exportCSV()"><span class="nii">⬇️</span> تصدير CSV</div>
     </div>
     <div class="sb-ft">
@@ -298,11 +304,14 @@ const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 <script>
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
-const TL={complaint:'شكوى',welfare:'رعاية اجتماعية',permit:'ترخيص',inquiry:'استفسار'};
+const TL={complaint:'⚠️ شكوى',welfare:'🤝 رعاية اجتماعية',permit:'🏗️ ترخيص',inquiry:'❓ استفسار',maintenance:'🔧 صيانة',request:'📄 طلب وثيقة',emergency:'🚨 طوارئ'};
 const SL={new:'جديد','in-progress':'قيد المعالجة',review:'مراجعة','pending-approval':'ينتظر الموافقة',resolved:'منجز',closed:'مغلق'};
 const PL={high:'عالية',medium:'متوسطة',low:'منخفضة'};
 const STATUSES=['new','in-progress','review','pending-approval','resolved','closed'];
 const PRIOS=['high','medium','low'];
+// Dynamic types — loads from localStorage if custom cats exist
+function getTypes(){return getCats().map(c=>c.id);}
+function getTL(){const m={};getCats().forEach(c=>m[c.id]=c.icon+' '+c.label);return m;}
 const TYPES=['complaint','welfare','permit','inquiry'];
 const NA=['permit','welfare'];
 const OFFICERS=['م. مقصود','ف. جوهر','ن. خوري','ر. سلامة','إ. حداد'];
@@ -318,7 +327,8 @@ const ROLE_CFG={
 
 // ── SUPABASE ──────────────────────────────────────────────────────────────────
 let sb=null,dbR=false;
-try{sb=window.supabase.createClient('https://onjbwhkmmtqnymhjnplw.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4');dbR=true;}catch(e){console.error(e);}
+try{sb=window.supabase.createClient('https://onjbwhkmmtqnymhjnplw.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4');dbR=true;
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';}catch(e){console.error(e);}
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let currentUser=null,userRole=null,cases=[],stF='all',tyF='all',srcF='all',sortM='date-desc',qF='',page=1;
@@ -374,6 +384,7 @@ async function setupUser(user){
   if(R.A)document.getElementById('nav-pend').style.display='flex';
   if(!R.add){document.getElementById('BADD').style.display='none';document.getElementById('nav-add').style.display='none';}
   if(R.admin)document.getElementById('nav-users').style.display='flex';
+  const navCats=document.getElementById('nav-cats'); if(navCats) navCats.style.display=(role==='admin'||role==='mayor')?'flex':'none';
   // Switch screens
   document.getElementById('LS').style.display='none';
   document.getElementById('APP').style.display='block';
@@ -720,6 +731,101 @@ async function subAdd(){
 }
 
 // ── USER MANAGEMENT (Admin only) ──────────────────────────────────────────────
+
+// ── CATEGORY MANAGEMENT ──────────────────────────────────────────────────────
+const WADI_DEFAULT_CATS = [
+  {id:'complaint', icon:'⚠️', label:'شكوى'},
+  {id:'welfare',   icon:'🤝', label:'رعاية اجتماعية'},
+  {id:'permit',    icon:'🏗️', label:'ترخيص'},
+  {id:'inquiry',   icon:'❓', label:'استفسار'},
+  {id:'maintenance',icon:'🔧', label:'صيانة'},
+  {id:'request',   icon:'📄', label:'طلب وثيقة'},
+  {id:'emergency', icon:'🚨', label:'طوارئ'},
+];
+
+function getCats() {
+  try { return JSON.parse(localStorage.getItem('wadi_cats') || 'null') || WADI_DEFAULT_CATS; }
+  catch { return DEFAULT_CATS; }
+}
+
+function saveCats(cats) {
+  localStorage.setItem('wadi_cats', JSON.stringify(cats));
+  refreshCatSelects();
+}
+
+function refreshCatSelects() {
+  const cats = getCats();
+  const opts = cats.map(c=>`<option value="${c.id}">${c.icon} ${c.label}</option>`).join('');
+  document.querySelectorAll('#at, #c-type').forEach(sel=>{ if(sel) sel.innerHTML = opts; });
+  // Update TL global
+  cats.forEach(c=>{ TL[c.id] = c.icon+' '+c.label; });
+  // Refresh sidebar nav type filters
+  const sbn = document.querySelector('.sbn');
+  if(sbn){
+    document.querySelectorAll('.ni[data-cat]').forEach(el=>el.remove());
+    cats.forEach(c=>{
+      const exists = document.querySelector(`.ni[data-cat="${c.id}"]`);
+      if(!exists){
+        const div=document.createElement('div');
+        div.className='ni'; div.dataset.cat=c.id;
+        div.innerHTML=`<span class="nii">${c.icon}</span> ${c.label} <span class="nb" id="nb-${c.id}">—</span>`;
+        div.onclick=()=>navType(div,c.id);
+        const addBtn=document.getElementById('nav-add');
+        if(addBtn) sbn.insertBefore(div, addBtn.parentNode.querySelector('.ns:last-of-type')?.nextSibling || addBtn);
+      }
+    });
+  }
+}
+
+function manageCats() {
+  const cats = getCats();
+  document.getElementById('MT').textContent = 'إدارة التصنيفات';
+  document.getElementById('MB').innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:var(--blue2)">📂 التصنيفات الحالية</div>
+      <div id="cats-list">${cats.map((c,i)=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
+          <span style="font-size:20px">${c.icon}</span>
+          <span style="flex:1;font-weight:600">${c.label}</span>
+          <span style="font-size:12px;color:var(--text3);direction:ltr">${c.id}</span>
+          <button class="btn" style="padding:4px 10px;font-size:12px;color:var(--danger)" onclick="deleteCat('${c.id}')">✕</button>
+        </div>`).join('')}
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:14px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:var(--blue2)">➕ إضافة تصنيف جديد</div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr;gap:8px;margin-bottom:10px">
+        <input class="fi" id="new-cat-icon" placeholder="🏠" style="text-align:center;font-size:20px;padding:8px">
+        <input class="fi" id="new-cat-label" placeholder="اسم التصنيف بالعربي">
+        <input class="fi" id="new-cat-id" placeholder="cat_id (بالانجليزي)" style="direction:ltr">
+      </div>
+      <button class="btn bp" style="width:100%;justify-content:center" onclick="addNewCat()">➕ إضافة التصنيف</button>
+    </div>
+  `;
+  document.getElementById('OV').classList.add('open');
+}
+
+function addNewCat() {
+  const icon = document.getElementById('new-cat-icon').value.trim() || '📌';
+  const label = document.getElementById('new-cat-label').value.trim();
+  const id = document.getElementById('new-cat-id').value.trim().replace(/[^a-z0-9_]/gi,'_').toLowerCase();
+  if(!label || !id) { toast('يرجى إدخال الاسم والمعرّف','err'); return; }
+  const cats = getCats();
+  if(cats.find(c=>c.id===id)) { toast('هذا المعرّف موجود مسبقاً','err'); return; }
+  cats.push({id, icon, label});
+  saveCats(cats);
+  toast('✅ تم إضافة التصنيف: '+label);
+  manageCats();
+}
+
+function deleteCat(id) {
+  if(!confirm('هل تريد حذف هذا التصنيف؟')) return;
+  const cats = getCats().filter(c=>c.id!==id);
+  saveCats(cats);
+  toast('🗑 تم حذف التصنيف');
+  manageCats();
+}
+
 function openUsers(){
   document.getElementById('MT').textContent='إعدادات المستخدمين والصلاحيات';
   document.getElementById('MB').innerHTML=`
@@ -1009,7 +1115,7 @@ async function saveEmpPerms(uid, role){
   try{
     const r = await fetch(`https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/${uid}`,{
       method:'PUT',
-      headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json'},
+      headers:{apikey:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4',Authorization:'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Content-Type':'application/json'},
       body:JSON.stringify({user_metadata:{role, permissions:selectedPerms, notifications:notifSettings}})
     });
     if(r.ok){ toast('✅ تم حفظ الإعدادات بنجاح'); openUsers(); }
@@ -1200,6 +1306,109 @@ async function delEmp(btn) {
 
 function closeM(){document.getElementById('OV').classList.remove('open');}
 function mc(e){if(e.target===document.getElementById('OV'))closeM();}
+
+
+// ── CATEGORIES MANAGEMENT ─────────────────────────────────────────────────────
+const DEFAULT_CATS = [
+  {id:'complaint', icon:'⚠️', label:'شكوى', color:'#c47800'},
+  {id:'welfare',   icon:'🤝', label:'رعاية اجتماعية', color:'#1a6eb5'},
+  {id:'permit',    icon:'🏗️', label:'ترخيص', color:'#6535a8'},
+  {id:'inquiry',   icon:'❓', label:'استفسار', color:'#1e5429'},
+];
+
+function getCats(){
+  try { return JSON.parse(localStorage.getItem('wadi_cats')||'null') || WADI_DEFAULT_CATS; }
+  catch(e){ return DEFAULT_CATS; }
+}
+
+function saveCats(cats){
+  localStorage.setItem('wadi_cats', JSON.stringify(cats));
+  renderCatsNav();
+}
+
+function renderCatsNav(){
+  const cats = getCats();
+  const el = document.getElementById('cats-nav-list');
+  if(!el) return;
+  el.innerHTML = cats.map(c=>`
+    <div class="ni" id="nav-${c.id}" onclick="navType(this,'${c.id}')">
+      <span class="nii">${c.icon}</span> ${c.label}
+      <span class="nb" id="nb-${c.id}">—</span>
+    </div>`).join('');
+}
+
+function openManageCats(){
+  const cats = getCats();
+  document.getElementById('MT').textContent = 'إدارة التصنيفات';
+  document.getElementById('MB').innerHTML = `
+    <div class="admin-section">
+      <div class="admin-header">📋 التصنيفات الحالية</div>
+      <div id="cats-list-edit" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+        ${cats.map((c,i)=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px">
+            <span style="font-size:20px">${c.icon}</span>
+            <input value="${c.label}" id="cat-lbl-${i}" class="fi" style="flex:1;padding:6px 10px;height:auto;font-size:13px">
+            <input value="${c.icon}" id="cat-ico-${i}" class="fi" style="width:60px;padding:6px 8px;height:auto;font-size:16px;text-align:center">
+            <button class="btn" style="padding:6px 12px;font-size:12px;color:var(--danger)" onclick="deleteCat(${i})">🗑️</button>
+          </div>`).join('')}
+      </div>
+      <button class="btn" style="width:100%;justify-content:center;margin-bottom:10px" onclick="addCatRow()">➕ إضافة تصنيف جديد</button>
+      <button class="btn bp" style="width:100%;justify-content:center" onclick="saveCatsFromForm(${cats.length})">💾 حفظ التصنيفات</button>
+    </div>
+    <div class="admin-section">
+      <div class="admin-header">💡 ملاحظة</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.8">
+        ✅ يمكن إضافة تصنيفات غير محدودة<br>
+        ✅ استخدم Emoji كأيقونة للتصنيف<br>
+        ✅ سيظهر التصنيف فوراً في القائمة الجانبية
+      </div>
+    </div>`;
+  document.getElementById('OV').classList.add('open');
+}
+
+function addCatRow(){
+  const list = document.getElementById('cats-list-edit');
+  if(!list) return;
+  const i = list.children.length;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--blue);border-radius:10px';
+  div.innerHTML = `
+    <span style="font-size:20px">📌</span>
+    <input placeholder="اسم التصنيف" id="cat-lbl-${i}" class="fi" style="flex:1;padding:6px 10px;height:auto;font-size:13px">
+    <input value="📌" id="cat-ico-${i}" class="fi" style="width:60px;padding:6px 8px;height:auto;font-size:16px;text-align:center">
+    <button class="btn" style="padding:6px 12px;font-size:12px;color:var(--danger)" onclick="this.closest('div').remove()">🗑️</button>`;
+  list.appendChild(div);
+}
+
+function deleteCat(idx){
+  const cats = getCats();
+  if(cats.length<=1){toast('يجب أن يكون هناك تصنيف واحد على الأقل','err');return;}
+  cats.splice(idx,1);
+  saveCats(cats);
+  openManageCats();
+}
+
+function saveCatsFromForm(originalCount){
+  const list = document.getElementById('cats-list-edit');
+  if(!list) return;
+  const count = list.children.length;
+  const newCats = [];
+  for(let i=0;i<count;i++){
+    const lbl = document.getElementById('cat-lbl-'+i)?.value?.trim();
+    const ico = document.getElementById('cat-ico-'+i)?.value?.trim()||'📌';
+    if(!lbl) continue;
+    // Generate id from label
+    const id = 'cat_' + lbl.replace(/[ ]+/g,'_').toLowerCase() + '_' + Date.now().toString(36).slice(-4);
+    newCats.push({id, icon:ico, label:lbl});
+  }
+  if(!newCats.length){toast('أضف تصنيفاً واحداً على الأقل','err');return;}
+  saveCats(newCats);
+  toast('✅ تم حفظ التصنيفات');
+  closeM();
+}
+
+// Init categories on load
+document.addEventListener('DOMContentLoaded', renderCatsNav);
 
 </script>
 
