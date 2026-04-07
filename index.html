@@ -855,7 +855,7 @@ function can(){const t=document.getElementById('at').value;document.getElementBy
 async function subAdd(){
   trackActivity('فتح إضافة طلب','بدء إنشاء طلب جديد');
   if(!guard('add','🚫 لا تملك صلاحية إضافة طلب جديد')) return;
-  const name=document.getElementById('an').value.trim(),phone=document.getElementById('aph').value.trim(),email=document.getElementById('aem').value.trim(),address=document.getElementById('aad').value.trim(),type=document.getElementById('at').value,description=document.getElementById('ad').value.trim(),priority=document.getElementById('ap').value,assigned=document.getElementById('ao').value,notes=document.getElementById('ano').value.trim();
+  const name=document.getElementById('an').value.trim(),phone=document.getElementById('aph').value.trim(),email=document.getElementById('aem').value.trim(),address=document.getElementById('aad').value.trim(),type=getDbType(document.getElementById('at').value),description=document.getElementById('ad').value.trim(),priority=document.getElementById('ap').value,assigned=document.getElementById('ao').value,notes=document.getElementById('ano').value.trim();
   if(!name||!description){alert('يرجى إدخال الاسم والوصف');return;}
   const today=new Date().toISOString().slice(0,10);const na=NA.includes(type);
   const by=currentUser?.user_metadata?.name||currentUser?.email||'—';
@@ -1515,6 +1515,8 @@ async function doSubmitCit(){
   const phone=document.getElementById('c-phone').value.trim();
   const email=document.getElementById('c-email').value.trim();
   const type=document.getElementById('c-type').value;
+  // getDbType maps custom cats to valid DB types
+  type=getDbType(type);
   const addr=document.getElementById('c-addr').value.trim();
   const desc=document.getElementById('c-desc').value.trim();
   const err=document.getElementById('c-err');
@@ -1527,8 +1529,8 @@ async function doSubmitCit(){
   btn.disabled=true;btn.textContent='⏳ جاري الإرسال…';
   const today=new Date().toISOString().slice(0,10);
   const na=['permit','welfare'].includes(type);
-  const nc={name,phone,email,address:addr,type,description:desc,priority:'medium',
-    assigned:'م. مقصود',status:na?'pending-approval':'new',
+  const nc={name,phone,email,address:addr,type:type,description:desc,priority:'medium',
+    assigned:OFFICERS[0]||'',status:na?'pending-approval':'new',
     approval_state:na?'pending':null,approval_by:null,approval_date:null,
     timeline:[{a:'تم تقديم الطلب عبر الموقع الإلكتروني',by:name,d:today,cls:''}],
     documents:[],source:'website'};
@@ -2439,37 +2441,23 @@ function navTypeById(el) {
 // ── EMAIL NOTIFICATIONS VIA BREVO ────────────────────────────────────────────
 async function sendStaffNotifEmails(caseData, eventType) {
   try {
-    // Get all users via Edge Function
-    const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/functions/v1/admin-user', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4'},
-      body: JSON.stringify({action:'list'})
-    });
-    if (!r.ok) return;
-    const d = await r.json();
-    const users = d.users || [];
-    
-    for (const u of users) {
+    const d = await adminAPI({action:'list'});
+    for (const u of (d.users||[])) {
       const meta = u.user_metadata || {};
       const notif = meta.notifications || {};
       const events = notif.events || [];
-      // Check if this user wants this event notification
-      if (!notif.email || !events.includes(eventType)) continue;
-      if (!u.email) continue;
-      
+      if (!notif.email || !events.includes(eventType) || !u.email) continue;
       const name = meta.name || u.email.split('@')[0];
-      const subject = getNotifSubject(eventType, caseData);
-      const html_body = buildStaffEmailHtml(name, eventType, caseData);
-      
-      // Send via Brevo
+      const subject = '[بلدية وادي الست] ' + getNotifSubject(eventType, caseData);
+      const body = buildStaffEmailHtml(name, eventType, caseData);
       await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
-        headers: {'api-key':'','Content-Type':'application/json'},
+        headers: {'api-key': 'xsmtpsib-0421702005db0037488fcf8571d71affe52db33a95300e80847392294f871b55-3tghpHASSCqFTGHj', 'Content-Type': 'application/json'},
         body: JSON.stringify({
-          sender: {name:'بلدية وادي الست', email:'imadaehn@gmail.com'},
+          sender: {name: 'بلدية وادي الست', email: 'noreply@municipality-wadi-el-sitt.org'},
           to: [{email: u.email, name: name}],
           subject: subject,
-          htmlContent: html_body
+          htmlContent: body
         })
       });
     }
@@ -2516,6 +2504,22 @@ function buildStaffEmailHtml(staffName, eventType, c) {
     </div>
     <div class="ft">بلدية وادي الست · Powered by IanTrading SAL © 2026</div>
   </div></body></html>`;
+}
+
+
+// Map any cat ID to a valid DB type (constraint: complaint/welfare/permit/inquiry)
+function getDbType(catId) {
+  const base = ['complaint','welfare','permit','inquiry'];
+  if (base.includes(catId)) return catId;
+  // Custom cats: try to guess from label, else default to 'complaint'
+  const cat = getCats().find(function(c){ return c.id === catId; });
+  if (!cat) return 'complaint';
+  const label = (cat.label || '').toLowerCase();
+  if (label.includes('شكو') || label.includes('شكاو')) return 'complaint';
+  if (label.includes('رعاي') || label.includes('اجتماع')) return 'welfare';
+  if (label.includes('رخص') || label.includes('ترخيص')) return 'permit';
+  if (label.includes('استفس') || label.includes('سؤال')) return 'inquiry';
+  return 'complaint'; // default fallback
 }
 
 </script>
