@@ -1230,7 +1230,10 @@ function mc(e){if(e.target===document.getElementById('OV'))closeM();}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:13px">
         <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">نوع الطلب *</div>
           <select id="c-type" class="fi" style="appearance:none;-webkit-appearance:none">
-            ${getCats().map(function(c){return '<option value="'+c.id+'">'+c.icon+' '+c.label+'</option>';}).join('')}
+            <option value="complaint">⚠️ شكوى</option>
+            <option value="welfare">🤝 رعاية اجتماعية</option>
+            <option value="permit">🏗️ ترخيص</option>
+            <option value="inquiry">❓ استفسار</option>
             </select></div>
         <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">العنوان</div>
           <input type="text" id="c-addr" class="fi" placeholder="حارة، منطقة…"></div>
@@ -1330,6 +1333,7 @@ function showLanding(){
   document.getElementById('APP').style.display='none';
 }
 function showCitizenPortal(){
+  updateCitizenTypeSelect();
   document.getElementById('LANDING').style.display='none';
   document.getElementById('CP').style.display='block';
   document.getElementById('LS').style.display='none';
@@ -1851,6 +1855,7 @@ function saveCats(c) {
   }
   // Update badges
   if(typeof tick === 'function') setTimeout(tick, 100);
+  updateCitizenTypeSelect();
 }
 function getTLabel(id) {
   try { const c = getCats().find(function(x){ return x.id === id; }); if(c) return (c.icon ? c.icon+' ' : '') + c.label; }
@@ -2415,6 +2420,8 @@ async function loadOfficers() {
 
 // ── SIDEBAR CATEGORIES BUTTON ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
+  // Update citizen type select with dynamic categories
+  updateCitizenTypeSelect();
   // Add ⚙️ إدارة button next to التصنيفات header
   var nsList = document.querySelectorAll('.sbn .ns');
   nsList.forEach(function(ns){
@@ -2473,6 +2480,17 @@ function getDbType(catId) {
   if (label.includes('رخص') || label.includes('ترخيص')) return 'permit';
   if (label.includes('استفس') || label.includes('سؤال')) return 'inquiry';
   return 'complaint'; // default fallback
+}
+
+
+// Update citizen type select with saved categories
+function updateCitizenTypeSelect() {
+  var sel = document.getElementById('c-type');
+  if (!sel) return;
+  var cats = getCats();
+  sel.innerHTML = cats.map(function(c) {
+    return '<option value="' + c.id + '">' + c.icon + ' ' + c.label + '</option>';
+  }).join('');
 }
 
 </script>
