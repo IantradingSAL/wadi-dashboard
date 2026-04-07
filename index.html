@@ -224,10 +224,7 @@ select.fi{cursor:pointer;appearance:none;-webkit-appearance:none;}
       <div class="ni on" onclick="navTo(this,'all')"><span class="nii">📋</span> جميع الطلبات <span class="nb" id="nb-all">—</span></div>
       <div class="ni" onclick="navTo(this,'web')" id="nav-web"><span class="nii">🌐</span> طلبات الموقع <span class="nb" id="nb-web">—</span></div>
       <div class="ni" onclick="navTo(this,'pend')" id="nav-pend" style="display:none"><span class="nii">⏳</span> تنتظر الموافقة <span class="nb" id="nb-pend">—</span></div>
-      <div class="ns" style="display:flex;align-items:center;justify-content:space-between">
-        <span>التصنيفات</span>
-        <span onclick="openManageCats()" style="font-size:11px;color:var(--blue);cursor:pointer;padding:2px 7px;border-radius:4px;background:var(--blue3);font-weight:700">⚙️ إدارة</span>
-      </div>
+      <div class="ns">التصنيفات</div>
       <div class="ni" onclick="navType(this,'complaint')"><span class="nii">⚠️</span> الشكاوى <span class="nb" id="nb-complaint">—</span></div>
       <div class="ni" onclick="navType(this,'welfare')"><span class="nii">🤝</span> الرعاية <span class="nb" id="nb-welfare">—</span></div>
       <div class="ni" onclick="navType(this,'permit')"><span class="nii">🏗️</span> التراخيص <span class="nb" id="nb-permit">—</span></div>
@@ -710,29 +707,29 @@ function openUsers(){
 }
 
 async function createUser(){
-  const name=document.getElementById('nu-name').value.trim();
-  const email=document.getElementById('nu-email').value.trim();
-  const pw=document.getElementById('nu-pw').value;
-  const role=document.getElementById('nu-role').value;
-  const msg=document.getElementById('cu-msg');
-  if(!name||!email||!pw){msg.style.color='var(--danger)';msg.textContent='يرجى ملء جميع الحقول';return;}
-  if(pw.length<8){msg.style.color='var(--danger)';msg.textContent='كلمة المرور 8 أحرف على الأقل';return;}
-  msg.style.color='var(--text3)';msg.textContent='⏳ جاري إنشاء الحساب…';
+  const name=document.getElementById("nu-name")?.value?.trim();
+  const email=document.getElementById("nu-email")?.value?.trim();
+  const pw=document.getElementById("nu-pw")?.value;
+  const role=document.getElementById("nu-role")?.value||"officer";
+  const msg=document.getElementById("cu-msg");
+  if(!name||!email||!pw){msg.style.color="var(--danger)";msg.textContent="يرجى ملء جميع الحقول";return;}
+  if(pw.length<8){msg.style.color="var(--danger)";msg.textContent="كلمة المرور 8 أحرف على الأقل";return;}
+  msg.style.color="var(--text3)";msg.textContent="⏳ جاري إنشاء الحساب…";
   try{
-    const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users',{
-      method:'POST',
-      headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Content-Type':'application/json'},
-      body:JSON.stringify({email,password:pw,email_confirm:true,user_metadata:{name,role}})
+    const session=await sb.auth.getSession();
+    const jwt=session?.data?.session?.access_token||"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4";
+    const r=await fetch("https://onjbwhkmmtqnymhjnplw.supabase.co/functions/v1/admin-user",{
+      method:"POST",
+      headers:{"apikey":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4","Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
+      body:JSON.stringify({action:"create",email:email,password:pw,name:name,role:role})
     });
     const d=await r.json();
-    if(!r.ok) throw new Error(d.msg||d.message||d.error_description||'فشل');
-    msg.style.color='var(--green2)';
-    msg.textContent='✅ تم إنشاء حساب '+name+' بنجاح! يمكنه الدخول الآن.';
-    document.getElementById('nu-name').value='';
-    document.getElementById('nu-email').value='';
-    document.getElementById('nu-pw').value='';
-    setTimeout(()=>loadEmp(),800);
-  }catch(e){msg.style.color='var(--danger)';msg.textContent='خطأ: '+e.message;}
+    if(!r.ok) throw new Error(d.error||d.message||d.msg||"فشل إنشاء الحساب");
+    msg.style.color="var(--green2)";
+    msg.textContent="✅ تم إنشاء حساب "+name+" بنجاح! يمكنه الدخول الآن.";
+    ["nu-name","nu-email","nu-pw"].forEach(function(id){var el=document.getElementById(id);if(el)el.value="";});
+    setTimeout(function(){loadEmp();},800);
+  }catch(e){msg.style.color="var(--danger)";msg.textContent="خطأ: "+e.message;}
 }
 
 // ── EXPORT ────────────────────────────────────────────────────────────────────
@@ -1343,600 +1340,545 @@ window.addEventListener('load',async()=>{
 });
 
 
-// ══════════════════════════════════════════════════════════════════════════════
-// DYNAMIC CATEGORIES
-// ══════════════════════════════════════════════════════════════════════════════
-const WADI_DEFAULT_CATS=[
-  {id:'complaint',icon:'⚠️',label:'شكوى',color:'#c47800'},
-  {id:'welfare',icon:'🤝',label:'رعاية اجتماعية',color:'#1a6eb5'},
-  {id:'permit',icon:'🏗️',label:'ترخيص',color:'#6535a8'},
-  {id:'inquiry',icon:'❓',label:'استفسار',color:'#1e5429'},
-];
-function getCats(){try{return JSON.parse(localStorage.getItem('wadi_cats')||'null')||WADI_DEFAULT_CATS;}catch(e){return WADI_DEFAULT_CATS;}}
-function saveCats(c){localStorage.setItem('wadi_cats',JSON.stringify(c));renderCatsNav();}
-function getDynTypes(){try{return getCats().map(c=>c.id);}catch(e){return['complaint','welfare','permit','inquiry'];}}
-function getTLabel(id){try{const c=getCats().find(c=>c.id===id);if(c)return(c.icon?c.icon+' ':'')+c.label;}catch(e){}return{complaint:'شكوى',welfare:'رعاية اجتماعية',permit:'ترخيص',inquiry:'استفسار'}[id]||id;}
-function renderCatsNav(){
-  const el=document.getElementById('cats-nav-list');
-  if(!el)return;
-  el.innerHTML=getCats().map(c=>`<div class="ni" id="nav-${c.id}" onclick="navType(this,'${c.id}')"><span class="nii">${c.icon}</span> ${c.label} <span class="nb" id="nb-${c.id}">—</span></div>`).join('');
+
+// ── ADMIN API (Edge Function with service_role) ───────────────────────────────
+const SB_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
+
+async function adminAPI(payload) {
+  const session = await sb.auth.getSession();
+  const jwt = session?.data?.session?.access_token || SB_ANON_KEY;
+  const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/functions/v1/admin-user', {
+    method: 'POST',
+    headers: { 'apikey': SB_ANON_KEY, 'Authorization': 'Bearer ' + jwt, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || d.message || d.msg || JSON.stringify(d));
+  return d;
 }
-function openManageCats(){
-  const cats=getCats();
-  document.getElementById('MT').textContent='إدارة التصنيفات';
-  document.getElementById('MB').innerHTML=`
-    <div class="admin-section">
-      <div class="admin-header">📋 التصنيفات الحالية</div>
-      <div id="cats-edit" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
-        ${cats.map((c,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px">
-          <span style="font-size:20px">${c.icon}</span>
-          <input value="${c.label}" id="cat-lbl-${i}" class="fi" style="flex:1;padding:6px 10px;height:auto;font-size:13px">
-          <input value="${c.icon}" id="cat-ico-${i}" class="fi" style="width:60px;padding:6px;height:auto;font-size:16px;text-align:center">
-          <button class="btn" style="padding:6px 12px;font-size:12px;color:var(--danger)" onclick="deleteCat(${i})">🗑️</button>
-        </div>`).join('')}
-      </div>
-      <button class="btn" style="width:100%;justify-content:center;margin-bottom:10px" onclick="addCatRow()">➕ إضافة تصنيف</button>
-      <button class="btn bp" style="width:100%;justify-content:center" onclick="saveCatsForm()">💾 حفظ</button>
-    </div>
-    <div class="admin-section">
-      <div class="admin-header">💡 تعليمات</div>
-      <div style="font-size:13px;color:var(--text2);line-height:2">✅ يمكن إضافة تصنيفات غير محدودة<br>✅ استخدم Emoji كأيقونة<br>✅ يظهر التصنيف فوراً في القائمة</div>
-    </div>`;
+
+// ── CATEGORIES ────────────────────────────────────────────────────────────────
+const WADI_CATS_DEFAULT = [
+  {id:'complaint', icon:'⚠️', label:'شكوى'},
+  {id:'welfare',   icon:'🤝', label:'رعاية اجتماعية'},
+  {id:'permit',    icon:'🏗️', label:'ترخيص'},
+  {id:'inquiry',   icon:'❓', label:'استفسار'},
+];
+function getCats() {
+  try { return JSON.parse(localStorage.getItem('wadi_cats') || 'null') || WADI_CATS_DEFAULT; }
+  catch(e) { return WADI_CATS_DEFAULT; }
+}
+function saveCats(c) { localStorage.setItem('wadi_cats', JSON.stringify(c)); renderCatsNav(); }
+function getTLabel(id) {
+  try { const c = getCats().find(c => c.id === id); if(c) return (c.icon ? c.icon+' ' : '') + c.label; }
+  catch(e) {}
+  return {complaint:'شكوى', welfare:'رعاية اجتماعية', permit:'ترخيص', inquiry:'استفسار'}[id] || id;
+}
+function renderCatsNav() {
+  const el = document.getElementById('cats-nav-list');
+  if (!el) return;
+  el.innerHTML = getCats().map(c =>
+    '<div class="ni" id="nav-' + c.id + '" onclick="navType(this,\'' + c.id + '\')">' +
+    '<span class="nii">' + c.icon + '</span> ' + c.label +
+    ' <span class="nb" id="nb-' + c.id + '">—</span></div>'
+  ).join('');
+}
+function openManageCats() {
+  const cats = getCats();
+  document.getElementById('MT').textContent = 'إدارة التصنيفات';
+  var rows = cats.map(function(c, i) {
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px">' +
+      '<span style="font-size:20px">' + c.icon + '</span>' +
+      '<input value="' + c.label + '" id="cat-lbl-' + i + '" class="fi" style="flex:1;padding:6px 10px;height:auto;font-size:13px">' +
+      '<input value="' + c.icon + '" id="cat-ico-' + i + '" class="fi" style="width:60px;padding:6px;height:auto;font-size:16px;text-align:center">' +
+      '<button class="btn" style="padding:6px 12px;font-size:12px;color:var(--danger)" onclick="deleteCat(' + i + ')">🗑️</button>' +
+      '</div>';
+  }).join('');
+  document.getElementById('MB').innerHTML =
+    '<div class="admin-section">' +
+    '<div class="admin-header">📋 التصنيفات الحالية</div>' +
+    '<div id="cats-edit" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">' + rows + '</div>' +
+    '<button class="btn" style="width:100%;justify-content:center;margin-bottom:10px" onclick="addCatRow()">➕ إضافة تصنيف</button>' +
+    '<button class="btn bp" style="width:100%;justify-content:center" onclick="saveCatsForm()">💾 حفظ</button>' +
+    '</div>';
   document.getElementById('OV').classList.add('open');
 }
-function addCatRow(){
-  const list=document.getElementById('cats-edit');if(!list)return;
-  const i=list.children.length;
-  const div=document.createElement('div');
-  div.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--blue);border-radius:10px';
-  div.innerHTML=`<span style="font-size:20px">📌</span><input placeholder="اسم التصنيف" id="cat-lbl-${i}" class="fi" style="flex:1;padding:6px 10px;height:auto;font-size:13px"><input value="📌" id="cat-ico-${i}" class="fi" style="width:60px;padding:6px;height:auto;font-size:16px;text-align:center"><button class="btn" style="padding:6px 12px;font-size:12px;color:var(--danger)" onclick="this.closest('div').remove()">🗑️</button>`;
+function addCatRow() {
+  var list = document.getElementById('cats-edit'); if (!list) return;
+  var i = list.children.length;
+  var div = document.createElement('div');
+  div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--blue);border-radius:10px';
+  div.innerHTML = '<span>📌</span>' +
+    '<input placeholder="اسم التصنيف" id="cat-lbl-' + i + '" class="fi" style="flex:1;padding:6px 10px;height:auto;font-size:13px">' +
+    '<input value="📌" id="cat-ico-' + i + '" class="fi" style="width:60px;padding:6px;height:auto;font-size:16px;text-align:center">' +
+    '<button class="btn" style="padding:6px 12px;font-size:12px;color:var(--danger)" onclick="this.closest(\'div\').remove()">🗑️</button>';
   list.appendChild(div);
 }
-function deleteCat(i){const cats=getCats();if(cats.length<=1){toast('يجب أن يكون هناك تصنيف واحد على الأقل','err');return;}cats.splice(i,1);saveCats(cats);openManageCats();}
-function saveCatsForm(){
-  const list=document.getElementById('cats-edit');if(!list)return;
-  const newCats=[];
-  for(let i=0;i<list.children.length;i++){
-    const lbl=document.getElementById('cat-lbl-'+i)?.value?.trim();
-    const ico=document.getElementById('cat-ico-'+i)?.value?.trim()||'📌';
-    if(!lbl)continue;
-    const id='cat_'+lbl.replace(/\s+/g,'_').toLowerCase()+'_'+Date.now().toString(36).slice(-4);
-    newCats.push({id,icon:ico,label:lbl,color:'#666'});
-  }
-  if(!newCats.length){toast('أضف تصنيفاً واحداً على الأقل','err');return;}
-  saveCats(newCats);toast('✅ تم حفظ التصنيفات');closeM();
+function deleteCat(i) {
+  var cats = getCats();
+  if (cats.length <= 1) { toast('يجب أن يكون هناك تصنيف واحد على الأقل', 'err'); return; }
+  cats.splice(i, 1); saveCats(cats); openManageCats();
 }
-document.addEventListener('DOMContentLoaded',()=>{
-  renderCatsNav();
-  // Wrap cats nav items in a container for dynamic rendering
-  const sb=document.querySelector('.sbn');
-  if(sb&&!document.getElementById('cats-nav-list')){
-    const items=['complaint','welfare','permit','inquiry'];
-    items.forEach(id=>{
-      const el=document.getElementById('nav-'+id);
-      if(el)el.remove();
-    });
-    const ns=sb.querySelector('.ns');
-    if(ns){const div=document.createElement('div');div.id='cats-nav-list';ns.after(div);renderCatsNav();}
+function saveCatsForm() {
+  var list = document.getElementById('cats-edit'); if (!list) return;
+  var newCats = [];
+  for (var i = 0; i < list.children.length; i++) {
+    var lbl = document.getElementById('cat-lbl-' + i)?.value?.trim();
+    var ico = document.getElementById('cat-ico-' + i)?.value?.trim() || '📌';
+    if (!lbl) continue;
+    newCats.push({id: 'cat_' + Date.now().toString(36).slice(-6) + i, icon: ico, label: lbl});
   }
-});
+  if (!newCats.length) { toast('أضف تصنيفاً واحداً', 'err'); return; }
+  saveCats(newCats); toast('✅ تم حفظ التصنيفات'); closeM();
+}
 
-// ══════════════════════════════════════════════════════════════════════════════
-// ADVANCED ROLE & PERMISSION SYSTEM
-// ══════════════════════════════════════════════════════════════════════════════
-
-// ALL PERMISSIONS grouped by section
-window.ALL_PERMS={
-  cases:[
-    {id:'view_all',    icon:'👁️', label:'مشاهدة جميع الطلبات'},
-    {id:'view_own',    icon:'👤', label:'مشاهدة طلباته فقط'},
-    {id:'add_case',    icon:'➕', label:'إضافة طلب جديد'},
-    {id:'edit_case',   icon:'✏️', label:'تعديل الطلبات'},
-    {id:'delete_case', icon:'🗑️',label:'حذف الطلبات'},
-    {id:'change_status',icon:'🔄',label:'تغيير حالة الطلب'},
-    {id:'assign_case', icon:'👮', label:'تعيين المسؤول'},
+// ── ROLES SYSTEM ──────────────────────────────────────────────────────────────
+window.ALL_PERMS = {
+  cases: [
+    {id:'view_all',    icon:'👁️',  label:'مشاهدة جميع الطلبات'},
+    {id:'view_own',    icon:'👤',  label:'مشاهدة طلباته فقط'},
+    {id:'add_case',    icon:'➕',  label:'إضافة طلب جديد'},
+    {id:'edit_case',   icon:'✏️',  label:'تعديل الطلبات'},
+    {id:'delete_case', icon:'🗑️', label:'حذف الطلبات'},
+    {id:'change_status',icon:'🔄', label:'تغيير حالة الطلب'},
   ],
-  content:[
-    {id:'internal_note',icon:'🔒',label:'كتابة ملاحظات داخلية'},
-    {id:'public_reply', icon:'📢',label:'الرد على المواطنين'},
-    {id:'upload_docs',  icon:'📎',label:'رفع مستندات'},
-    {id:'view_docs',    icon:'📂',label:'مشاهدة المستندات'},
+  content: [
+    {id:'internal_note',icon:'🔒', label:'ملاحظات داخلية'},
+    {id:'public_reply', icon:'📢', label:'الرد على المواطنين'},
+    {id:'upload_docs',  icon:'📎', label:'رفع مستندات'},
   ],
-  types:[
-    {id:'type_complaint',icon:'⚠️',label:'إدارة الشكاوى'},
-    {id:'type_welfare',  icon:'🤝',label:'إدارة الرعاية الاجتماعية'},
+  types: [
+    {id:'type_complaint',icon:'⚠️', label:'إدارة الشكاوى'},
+    {id:'type_welfare',  icon:'🤝', label:'إدارة الرعاية'},
     {id:'type_permit',   icon:'🏗️',label:'إدارة التراخيص'},
-    {id:'type_inquiry',  icon:'❓',label:'إدارة الاستفسارات'},
+    {id:'type_inquiry',  icon:'❓', label:'إدارة الاستفسارات'},
   ],
-  approval:[
-    {id:'approve_case',icon:'✅',label:'الموافقة على الطلبات'},
-    {id:'reject_case', icon:'❌',label:'رفض الطلبات'},
+  approval: [
+    {id:'approve_case',icon:'✅', label:'الموافقة على الطلبات'},
+    {id:'reject_case', icon:'❌', label:'رفض الطلبات'},
   ],
-  reports:[
-    {id:'export_csv',  icon:'⬇️',label:'تصدير CSV'},
-    {id:'view_stats',  icon:'📊',label:'مشاهدة الإحصائيات'},
+  reports: [
+    {id:'export_csv',  icon:'⬇️', label:'تصدير CSV'},
+    {id:'view_stats',  icon:'📊', label:'الإحصائيات'},
   ],
-  admin:[
-    {id:'manage_users',   icon:'👥',label:'إدارة الموظفين'},
-    {id:'manage_cats',    icon:'📋',label:'إدارة التصنيفات'},
-    {id:'system_settings',icon:'⚙️',label:'إعدادات النظام'},
+  admin: [
+    {id:'manage_users', icon:'👥', label:'إدارة الموظفين'},
+    {id:'manage_cats',  icon:'📋', label:'إدارة التصنيفات'},
   ],
 };
-
-// ALL NOTIFICATION EVENTS
-window.ALL_NOTIF=[
-  {id:'new_case',       icon:'📋',label:'طلب جديد من الموقع'},
-  {id:'new_staff_case', icon:'➕',label:'طلب جديد من موظف'},
-  {id:'status_change',  icon:'🔄',label:'تغيير الحالة'},
-  {id:'public_reply',   icon:'📢',label:'رد البلدية'},
-  {id:'internal_note',  icon:'🔒',label:'ملاحظة داخلية'},
-  {id:'doc_added',      icon:'📎',label:'مستند جديد'},
-  {id:'approval_needed',icon:'⏳',label:'طلب ينتظر موافقة'},
-  {id:'approved',       icon:'✅',label:'تمت الموافقة'},
-  {id:'rejected',       icon:'❌',label:'رُفض طلب'},
+window.ALL_NOTIF = [
+  {id:'new_case',        icon:'📋', label:'طلب جديد من الموقع'},
+  {id:'status_change',   icon:'🔄', label:'تغيير الحالة'},
+  {id:'public_reply',    icon:'📢', label:'رد البلدية'},
+  {id:'internal_note',   icon:'🔒', label:'ملاحظة داخلية'},
+  {id:'doc_added',       icon:'📎', label:'مستند جديد'},
+  {id:'approval_needed', icon:'⏳', label:'طلب ينتظر موافقة'},
+  {id:'approved',        icon:'✅', label:'تمت الموافقة'},
+  {id:'rejected',        icon:'❌', label:'رُفض طلب'},
 ];
-
-// BUILTIN ROLES
-window.BUILTIN_ROLES={
-  viewer:{
-    label:'👁️ مشاهد',color:'#8d93a6',bg:'#eef0f6',
-    perms:['view_all','view_docs','view_stats'],
-    notifs:['new_case'],
-  },
-  officer:{
-    label:'👤 موظف المتابعة',color:'#c47800',bg:'#fff4e0',
-    perms:['view_all','add_case','edit_case','change_status','assign_case','internal_note','public_reply','upload_docs','view_docs','type_complaint','type_welfare','type_permit','type_inquiry'],
-    notifs:['new_case','status_change','doc_added'],
-  },
-  approver:{
-    label:'✅ مسؤول الموافقات',color:'#1e5429',bg:'#d4edda',
-    perms:['view_all','add_case','edit_case','change_status','assign_case','approve_case','reject_case','internal_note','public_reply','upload_docs','view_docs','type_complaint','type_welfare','type_permit','type_inquiry'],
-    notifs:['new_case','approval_needed','doc_added'],
-  },
-  admin:{
-    label:'⚙️ المدير',color:'#1a6eb5',bg:'#daeaf8',
-    perms:['view_all','add_case','edit_case','delete_case','change_status','assign_case','approve_case','reject_case','internal_note','public_reply','upload_docs','view_docs','type_complaint','type_welfare','type_permit','type_inquiry','export_csv','view_stats','manage_users','manage_cats'],
-    notifs:['new_case','status_change','approval_needed','approved','rejected'],
-  },
-  mayor:{
-    label:'👑 رئيس البلدية',color:'#6535a8',bg:'#ede8f8',
-    perms:Object.values(window.ALL_PERMS||{}).flat().map(p=>p.id),
-    notifs:(window.ALL_NOTIF||[]).map(e=>e.id),
-  },
+window.BUILTIN_ROLES = {
+  viewer:   {label:'👁️ مشاهد',            color:'#8d93a6', bg:'#eef0f6', perms:['view_all'],                                                                                                                                                             notifs:['new_case']},
+  officer:  {label:'👤 موظف المتابعة',    color:'#c47800', bg:'#fff4e0', perms:['view_all','add_case','edit_case','change_status','internal_note','public_reply','upload_docs','type_complaint','type_welfare','type_permit','type_inquiry'],              notifs:['new_case','status_change']},
+  approver: {label:'✅ مسؤول الموافقات', color:'#1e5429', bg:'#d4edda', perms:['view_all','add_case','edit_case','change_status','approve_case','reject_case','internal_note','public_reply','upload_docs','type_complaint','type_welfare','type_permit','type_inquiry'], notifs:['new_case','approval_needed']},
+  admin:    {label:'⚙️ المدير',           color:'#1a6eb5', bg:'#daeaf8', perms:['view_all','add_case','edit_case','delete_case','change_status','approve_case','reject_case','internal_note','public_reply','upload_docs','type_complaint','type_welfare','type_permit','type_inquiry','export_csv','view_stats','manage_users','manage_cats'], notifs:['new_case','status_change','approval_needed']},
+  mayor:    {label:'👑 رئيس البلدية',    color:'#6535a8', bg:'#ede8f8', perms:[], notifs:[]},
 };
-
-function getCustomRoles(){try{return JSON.parse(localStorage.getItem('wadi_roles')||'{}');}catch(e){return {};}}
-function saveCustomRoles(r){localStorage.setItem('wadi_roles',JSON.stringify(r));}
-function getAllRoles(){
-  const br=window.BUILTIN_ROLES;
-  // Mayor needs lazy init since ALL_PERMS may not be set when BUILTIN_ROLES was defined
-  br.mayor.perms=Object.values(window.ALL_PERMS).flat().map(p=>p.id);
-  br.mayor.notifs=window.ALL_NOTIF.map(e=>e.id);
-  return {...br,...getCustomRoles()};
+function getAllRoles() {
+  var br = window.BUILTIN_ROLES;
+  br.mayor.perms = Object.values(window.ALL_PERMS).flat().map(function(p){return p.id;});
+  br.mayor.notifs = window.ALL_NOTIF.map(function(e){return e.id;});
+  var custom = getCustomRoles();
+  var all = Object.assign({}, br);
+  Object.keys(custom).forEach(function(k){ all[k] = custom[k]; });
+  return all;
 }
-function getRoleCfg(id){return getAllRoles()[id]||window.BUILTIN_ROLES.officer;}
+function getCustomRoles() { try { return JSON.parse(localStorage.getItem('wadi_roles') || '{}'); } catch(e) { return {}; } }
+function saveCustomRoles(r) { localStorage.setItem('wadi_roles', JSON.stringify(r)); }
+function getRoleCfg(id) { return getAllRoles()[id] || window.BUILTIN_ROLES.officer; }
 
-// SECTION LABELS
-const SECTION_LABELS={cases:'الطلبات',content:'المحتوى',types:'أنواع الطلبات',approval:'الموافقات',reports:'التقارير',admin:'الإدارة'};
-
-// PERM CHIPS HTML helper
-function permChipsHTML(prefix, checkedIds){
-  return Object.entries(window.ALL_PERMS).map(([sec,perms])=>`
-    <div style="margin-bottom:12px">
-      <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--text3);letter-spacing:.5px;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid var(--border)">${SECTION_LABELS[sec]||sec}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
-        ${perms.map(p=>{
-          const on=checkedIds.includes(p.id);
-          return `<label style="display:flex;align-items:center;gap:6px;padding:7px 9px;border-radius:8px;background:${on?'var(--blue3)':'var(--bg2)'};border:1px solid ${on?'var(--blue)':'var(--border)'};font-size:12.5px;cursor:pointer;transition:all .15s" class="pchip">
-            <input type="checkbox" id="${prefix}-${p.id}" ${on?'checked':''} style="width:14px;height:14px;accent-color:var(--blue)" onchange="this.closest('label').style.background=this.checked?'var(--blue3)':'var(--bg2)';this.closest('label').style.borderColor=this.checked?'var(--blue)':'var(--border)'">
-            ${p.icon} ${p.label}</label>`;
-        }).join('')}
-      </div>
-    </div>`).join('');
+// Perm/Notif chips builders
+function buildPermChips(prefix, checkedIds) {
+  var secLabels = {cases:'الطلبات', content:'المحتوى', types:'أنواع الطلبات', approval:'الموافقات', reports:'التقارير', admin:'الإدارة'};
+  return Object.entries(window.ALL_PERMS).map(function(entry) {
+    var sec = entry[0], perms = entry[1];
+    var chips = perms.map(function(p) {
+      var on = checkedIds.includes(p.id);
+      return '<label style="display:flex;align-items:center;gap:6px;padding:7px 9px;border-radius:8px;background:' + (on?'var(--blue3)':'var(--bg2)') + ';border:1px solid ' + (on?'var(--blue)':'var(--border)') + ';font-size:12.5px;cursor:pointer">' +
+        '<input type="checkbox" id="' + prefix + '-' + p.id + '" ' + (on?'checked':'') + ' style="width:14px;height:14px;accent-color:var(--blue)" onchange="this.closest(\'label\').style.background=this.checked?\'var(--blue3)\':\'var(--bg2)\'">' +
+        p.icon + ' ' + p.label + '</label>';
+    }).join('');
+    return '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--text3);margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid var(--border)">' + (secLabels[sec]||sec) + '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">' + chips + '</div></div>';
+  }).join('');
 }
-
-// NOTIF CHIPS HTML helper
-function notifChipsHTML(prefix, checkedIds){
-  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
-    ${window.ALL_NOTIF.map(ev=>{
-      const on=(checkedIds||[]).includes(ev.id);
-      return `<label style="display:flex;align-items:center;gap:6px;padding:7px 9px;border-radius:8px;background:${on?'#fff4e0':'var(--bg2)'};border:1px solid ${on?'var(--warn)':'var(--border)'};font-size:12.5px;cursor:pointer" class="nchip">
-        <input type="checkbox" id="${prefix}-${ev.id}" ${on?'checked':''} style="width:14px;height:14px;accent-color:var(--warn)" onchange="this.closest('label').style.background=this.checked?'#fff4e0':'var(--bg2)';this.closest('label').style.borderColor=this.checked?'var(--warn)':'var(--border)'">
-        ${ev.icon} ${ev.label}</label>`;
-    }).join('')}
-  </div>`;
+function buildNotifChips(prefix, checkedIds) {
+  var chips = window.ALL_NOTIF.map(function(ev) {
+    var on = (checkedIds||[]).includes(ev.id);
+    return '<label style="display:flex;align-items:center;gap:6px;padding:7px 9px;border-radius:8px;background:' + (on?'#fff4e0':'var(--bg2)') + ';border:1px solid ' + (on?'var(--warn)':'var(--border)') + ';font-size:12.5px;cursor:pointer">' +
+      '<input type="checkbox" id="' + prefix + '-' + ev.id + '" ' + (on?'checked':'') + ' style="width:14px;height:14px;accent-color:var(--warn)" onchange="this.closest(\'label\').style.background=this.checked?\'#fff4e0\':\'var(--bg2)\'">' +
+      ev.icon + ' ' + ev.label + '</label>';
+  }).join('');
+  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">' + chips + '</div>';
 }
+function getCheckedPerms(prefix) { return Object.values(window.ALL_PERMS).flat().filter(function(p){ return document.getElementById(prefix+'-'+p.id)?.checked; }).map(function(p){return p.id;}); }
+function getCheckedNotifs(prefix) { return window.ALL_NOTIF.filter(function(e){ return document.getElementById(prefix+'-'+e.id)?.checked; }).map(function(e){return e.id;}); }
 
-// GET SELECTED PERMS/NOTIFS
-function getCheckedPerms(prefix){return Object.values(window.ALL_PERMS).flat().filter(p=>document.getElementById(prefix+'-'+p.id)?.checked).map(p=>p.id);}
-function getCheckedNotifs(prefix){return window.ALL_NOTIF.filter(e=>document.getElementById(prefix+'-'+e.id)?.checked).map(e=>e.id);}
+// ── openUsers ─────────────────────────────────────────────────────────────────
+function openUsers() {
+  document.getElementById('MT').textContent = 'إدارة المستخدمين والأدوار';
+  var allR = getAllRoles();
+  var roleOpts = Object.entries(allR).map(function(e){ return '<option value="'+e[0]+'">'+e[1].label+'</option>'; }).join('');
+  var iconOpts = ['🔑','👷','🏛️','📝','🔍','👁️','🤝','⚡','🌟','🛡️','🎯','👔'].map(function(e){
+    return '<span onclick="pickIco(this,\''+e+'\')" style="font-size:22px;cursor:pointer;padding:4px;border-radius:6px;border:2px solid transparent" class="ico-opt">'+e+'</span>';
+  }).join('');
+  var colorOpts = [['#1a6eb5','#daeaf8'],['#1e5429','#d4edda'],['#c47800','#fff4e0'],['#6535a8','#ede8f8'],['#b02020','#fdeaea'],['#555','#eee']].map(function(p){
+    return '<span onclick="pickClr(this,\''+p[0]+'\',\''+p[1]+'\')" style="width:26px;height:26px;border-radius:50%;background:'+p[1]+';border:3px solid '+p[0]+';cursor:pointer" class="clr-opt" data-c="'+p[0]+'" data-bg="'+p[1]+'"></span>';
+  }).join('');
 
-// ── OPEN USERS (main entry point) ─────────────────────────────────────────────
-function openUsers(){
-  document.getElementById('MT').textContent='إدارة المستخدمين والأدوار';
-  document.getElementById('MB').innerHTML=`
-    <style>
-      .adtab{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--bg2);color:var(--text2)}
-      .adtab.on{background:var(--blue);color:#fff;border-color:var(--blue)}
-      .role-pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
-      .emp-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px}
-      .tgl{position:relative;display:inline-block;width:38px;height:20px}
-      .tgl input{opacity:0;width:0;height:0}
-      .tgl-sl{position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:20px;transition:.3s}
-      .tgl-sl:before{position:absolute;content:"";height:14px;width:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
-      input:checked+.tgl-sl{background:var(--green)}
-      input:checked+.tgl-sl:before{transform:translateX(18px)}
-    </style>
-    <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">
-      <div class="adtab on" onclick="usTab(this,'t-emps')">👥 الموظفون</div>
-      <div class="adtab" onclick="usTab(this,'t-add')">➕ إضافة</div>
-      <div class="adtab" onclick="usTab(this,'t-roles');renderRolesList()">🎭 الأدوار</div>
-      <div class="adtab" onclick="usTab(this,'t-newrole')">✨ دور جديد</div>
-    </div>
-
-    <div id="t-emps"><div id="emp-cards" style="text-align:center;padding:20px;color:var(--text3)">⏳ جاري التحميل…</div></div>
-
-    <div id="t-add" style="display:none">
-      <div class="admin-section">
-        <div class="admin-header">➕ موظف جديد</div>
-        <div class="fg"><div class="fl">الاسم الكامل *</div><input type="text" class="fi" id="nu-name" placeholder="اسم الموظف"></div>
-        <div class="fg"><div class="fl">البريد الإلكتروني *</div><input type="email" class="fi" id="nu-email" placeholder="email@municipality.lb" style="direction:ltr"></div>
-        <div class="fg"><div class="fl">كلمة المرور *</div><input type="password" class="fi" id="nu-pw" placeholder="8 أحرف على الأقل" style="direction:ltr"></div>
-        <div class="fg"><div class="fl">رقم الهاتف</div><input type="tel" class="fi" id="nu-phone" placeholder="03xxxxxx" style="direction:ltr"></div>
-        <div class="fg">
-          <div class="fl">الدور</div>
-          <select class="fi" id="nu-role" onchange="showRolePreview(this.value)">
-            ${Object.entries(getAllRoles()).map(([id,r])=>`<option value="${id}">${r.label}</option>`).join('')}
-          </select>
-        </div>
-        <div id="role-preview" style="margin:8px 0;padding:10px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--text3)"></div>
-        <div class="fg">
-          <div class="fl">قنوات الإشعار</div>
-          <div style="display:flex;gap:14px;flex-wrap:wrap">
-            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="nu-email-notif" checked style="accent-color:var(--blue)"> 📧 إيميل</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="nu-wa" style="accent-color:var(--green)"> 💬 واتساب</label>
-          </div>
-        </div>
-        <button class="btn bp" style="width:100%;justify-content:center;margin-top:12px" onclick="createUser()">✓ إنشاء الحساب</button>
-        <div id="cu-msg" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px"></div>
-      </div>
-    </div>
-
-    <div id="t-roles" style="display:none">
-      <div id="roles-list"></div>
-    </div>
-
-    <div id="t-newrole" style="display:none">
-      <div class="admin-section">
-        <div class="admin-header">✨ إنشاء دور جديد</div>
-        <div class="fg"><div class="fl">اسم الدور *</div><input type="text" class="fi" id="nr-name" placeholder="مثال: مشرف الشكاوى"></div>
-        <div class="fg">
-          <div class="fl">أيقونة</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">
-            ${['🔑','👷','🏛️','📝','🔍','👁️','🤝','⚡','🌟','🛡️','👔','🎯'].map(e=>`<span onclick="pickIcon(this,'${e}')" style="font-size:22px;cursor:pointer;padding:4px 6px;border-radius:6px;border:2px solid transparent;transition:all .15s" class="icon-opt">${e}</span>`).join('')}
-          </div>
-          <input type="hidden" id="nr-icon" value="🔑">
-        </div>
-        <div class="fg">
-          <div class="fl">لون</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            ${[['#1a6eb5','#daeaf8'],['#1e5429','#d4edda'],['#c47800','#fff4e0'],['#6535a8','#ede8f8'],['#b02020','#fdeaea'],['#555','#eee'],['#0077aa','#d0eef9'],['#6b4000','#f5e8cc']].map(([c,bg])=>`<span onclick="pickColor(this,'${c}','${bg}')" style="width:26px;height:26px;border-radius:50%;background:${bg};border:3px solid ${c};cursor:pointer;transition:all .15s" class="color-opt" data-c="${c}" data-bg="${bg}"></span>`).join('')}
-          </div>
-          <input type="hidden" id="nr-color" value="#1a6eb5">
-          <input type="hidden" id="nr-bg" value="#daeaf8">
-        </div>
-        <div style="font-size:13px;font-weight:700;color:var(--text);margin:12px 0 8px">🔐 الصلاحيات</div>
-        <div id="nr-perms">${permChipsHTML('nr',['view_all'])}</div>
-        <div style="font-size:13px;font-weight:700;color:var(--text);margin:12px 0 8px">🔔 الإشعارات الافتراضية</div>
-        <div id="nr-notifs">${notifChipsHTML('nr-n',['new_case'])}</div>
-        <button class="btn bp" style="width:100%;justify-content:center;margin-top:16px" onclick="saveNewRole()">💾 حفظ الدور الجديد</button>
-      </div>
-    </div>`;
+  document.getElementById('MB').innerHTML =
+    '<style>' +
+    '.adtab{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--bg2);color:var(--text2)}' +
+    '.adtab.on{background:var(--blue);color:#fff;border-color:var(--blue)}' +
+    '.rcard{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px}' +
+    '.rpill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}' +
+    '.tgl{position:relative;display:inline-block;width:38px;height:20px}' +
+    '.tgl input{opacity:0;width:0;height:0}' +
+    '.tgl-sl{position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:20px;transition:.3s}' +
+    '.tgl-sl:before{position:absolute;content:"";height:14px;width:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}' +
+    'input:checked+.tgl-sl{background:var(--green)}' +
+    'input:checked+.tgl-sl:before{transform:translateX(18px)}' +
+    '</style>' +
+    '<div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">' +
+    '<div class="adtab on" onclick="adTab(this,\'t-emp\')">👥 الموظفون</div>' +
+    '<div class="adtab" onclick="adTab(this,\'t-add\')">➕ إضافة</div>' +
+    '<div class="adtab" onclick="adTab(this,\'t-roles\');showRolesList()">🎭 الأدوار</div>' +
+    '<div class="adtab" onclick="adTab(this,\'t-newrole\')">✨ دور جديد</div>' +
+    '</div>' +
+    '<div id="t-emp"><div id="emp-list2" style="text-align:center;padding:20px;color:var(--text3)">⏳</div></div>' +
+    '<div id="t-add" style="display:none"><div class="admin-section"><div class="admin-header">➕ موظف جديد</div>' +
+    '<div class="fg"><div class="fl">الاسم *</div><input type="text" class="fi" id="nu-name" placeholder="اسم الموظف"></div>' +
+    '<div class="fg"><div class="fl">البريد *</div><input type="email" class="fi" id="nu-email" placeholder="email@" style="direction:ltr"></div>' +
+    '<div class="fg"><div class="fl">كلمة المرور *</div><input type="password" class="fi" id="nu-pw" placeholder="8 أحرف" style="direction:ltr"></div>' +
+    '<div class="fg"><div class="fl">الدور</div><select class="fi" id="nu-role" onchange="showRolePrev(this.value)">' + roleOpts + '</select></div>' +
+    '<div id="role-prev" style="margin:8px 0;padding:8px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--text3);min-height:24px"></div>' +
+    '<div class="fg"><div class="fl">الإشعارات</div><div style="display:flex;gap:12px">' +
+    '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="nu-em" checked style="accent-color:var(--blue)"> 📧 إيميل</label>' +
+    '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="nu-wa" style="accent-color:var(--green)"> 💬 واتساب</label>' +
+    '</div></div>' +
+    '<button class="btn bp" style="width:100%;justify-content:center;margin-top:12px" onclick="createUser()">✓ إنشاء الحساب</button>' +
+    '<div id="cu-msg" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px"></div>' +
+    '</div></div>' +
+    '<div id="t-roles" style="display:none"><div id="roles-list2"></div></div>' +
+    '<div id="t-newrole" style="display:none"><div class="admin-section"><div class="admin-header">✨ إنشاء دور جديد</div>' +
+    '<div class="fg"><div class="fl">اسم الدور *</div><input type="text" class="fi" id="nr-name" placeholder="مثال: مشرف الشكاوى"></div>' +
+    '<div class="fg"><div class="fl">أيقونة</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' + iconOpts + '</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' + colorOpts + '</div>' +
+    '<input type="hidden" id="nr-icon" value="🔑"><input type="hidden" id="nr-color" value="#1a6eb5"><input type="hidden" id="nr-bg" value="#daeaf8"></div>' +
+    '<div style="font-size:13px;font-weight:700;margin:12px 0 8px">🔐 الصلاحيات</div>' +
+    buildPermChips('nr',['view_all']) +
+    '<div style="font-size:13px;font-weight:700;margin:12px 0 8px">🔔 الإشعارات الافتراضية</div>' +
+    buildNotifChips('nr-n',['new_case']) +
+    '<button class="btn bp" style="width:100%;justify-content:center;margin-top:16px" onclick="doSaveNewRole()">💾 حفظ الدور الجديد</button>' +
+    '</div></div>';
 
   document.getElementById('OV').classList.add('open');
-  loadEmpCards();
-  showRolePreview('officer');
+  loadEmpCards2();
+  showRolePrev('officer');
 }
 
-function usTab(el,id){
-  document.querySelectorAll('.adtab').forEach(t=>t.classList.remove('on'));
+function adTab(el, id) {
+  document.querySelectorAll('.adtab').forEach(function(t){ t.classList.remove('on'); });
   el.classList.add('on');
-  ['t-emps','t-add','t-roles','t-newrole'].forEach(tid=>{
-    const e=document.getElementById(tid);
-    if(e)e.style.display=tid===id?'block':'none';
+  ['t-emp','t-add','t-roles','t-newrole'].forEach(function(tid){
+    var e = document.getElementById(tid);
+    if(e) e.style.display = tid===id ? 'block' : 'none';
   });
 }
 
-function showRolePreview(roleId){
-  const el=document.getElementById('role-preview');
-  if(!el)return;
-  const r=getRoleCfg(roleId);
-  const allP=Object.values(window.ALL_PERMS).flat();
-  const tags=r.perms.slice(0,8).map(id=>{const p=allP.find(x=>x.id===id);return p?`<span style="padding:2px 7px;border-radius:4px;background:var(--blue3);color:var(--blue);font-size:11px;font-weight:600">${p.icon} ${p.label}</span>`:''}).join('');
-  const more=r.perms.length>8?`<span style="font-size:11px;color:var(--text3)">+${r.perms.length-8} أخرى</span>`:'';
-  el.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:4px">'+tags+more+'</div>';
+function showRolePrev(rid) {
+  var el = document.getElementById('role-prev'); if(!el) return;
+  var r = getRoleCfg(rid);
+  var allP = Object.values(window.ALL_PERMS).flat();
+  var tags = r.perms.slice(0,6).map(function(id){
+    var p = allP.find(function(x){return x.id===id;});
+    return p ? '<span style="padding:2px 7px;border-radius:4px;background:var(--blue3);color:var(--blue);font-size:11px">'+p.icon+' '+p.label+'</span>' : '';
+  }).join('');
+  el.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:4px">' + tags + (r.perms.length>6 ? '<span style="font-size:11px;color:var(--text3)">+'+(r.perms.length-6)+' أخرى</span>' : '') + '</div>';
 }
 
-// ── LOAD EMPLOYEE CARDS ───────────────────────────────────────────────────────
-async function loadEmpCards(){
-  const el=document.getElementById('emp-cards');
-  if(!el)return;
-  try{
-    const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users?per_page=50',{headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4'}});
-    if(!r.ok){el.innerHTML='<div style="text-align:center;padding:14px;color:var(--text3)">⚠️ تعذر تحميل الموظفين</div>';return;}
-    const d=await r.json();
-    const users=(d.users||[]).filter(u=>u.user_metadata?.role);
-    if(!users.length){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3)">لا يوجد موظفون بعد<br><small>استخدم تبويب إضافة</small></div>';return;}
-    el.innerHTML=users.map(u=>{
-      const meta=u.user_metadata||{};
-      const rid=meta.role||'officer';
-      const rc=getRoleCfg(rid);
-      const active=!u.banned_until||new Date(u.banned_until)<new Date();
-      const name=meta.name||u.email?.split('@')[0]||'—';
-      const ini=name.split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';
-      const notif=meta.notifications||{};
-      const ni=[notif.email?'📧':'',notif.whatsapp?'💬':''].filter(Boolean).join(' ');
-      const permsN=(meta.permissions||rc.perms||[]).length;
-      return '<div class="emp-card">'
-        +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
-        +'<div style="width:42px;height:42px;border-radius:50%;background:'+rc.bg+';color:'+rc.color+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0">'+ini+'</div>'
-        +'<div style="flex:1;min-width:100px"><div style="font-weight:700;font-size:14px">'+name+'</div>'
-        +'<div style="font-size:12px;color:var(--text3);direction:ltr">'+(u.email||'')+'</div>'
-        +(ni?'<div style="font-size:11px;margin-top:1px">'+ni+'</div>':'')+'</div>'
-        +'<span class="role-pill" style="background:'+rc.bg+';color:'+rc.color+'">'+rc.label+'</span>'
-        +'<span style="font-size:11px;color:var(--text3)">'+permsN+' صلاحية</span>'
-        +'<div style="display:flex;align-items:center;gap:4px">'
-        +'<span style="font-size:11px;color:var(--text3)">'+(active?'نشط':'موقوف')+'</span>'
-        +'<label class="tgl"><input type="checkbox" '+(active?'checked':'')+' data-uid="'+u.id+'" data-nm="'+name+'" onchange="togBan(this)"><span class="tgl-sl"></span></label>'
-        +'</div></div>'
-        +'<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">'
-        +'<select class="fi" style="flex:1;padding:6px 10px;font-size:12px;height:auto" data-uid="'+u.id+'" data-nm="'+name+'" onchange="chRoleAdv(this)">'
-        +Object.entries(getAllRoles()).map(([id,rr])=>'<option value="'+id+'"'+(rid===id?' selected':'')+'>'+rr.label+'</option>').join('')+'</select>'
-        +'<button class="btn" style="padding:6px 12px;font-size:12px" data-uid="'+u.id+'" data-nm="'+name+'" data-rl="'+rid+'" onclick="openEditUser(this)">🔐 تخصيص</button>'
-        +'<button class="btn" style="padding:6px 12px;font-size:12px" data-uid="'+u.id+'" data-nm="'+name+'" onclick="resetPwAdv(this)">🔑 كلمة المرور</button>'
-        +'<button class="btn" style="padding:6px 12px;font-size:12px;color:var(--danger)" data-uid="'+u.id+'" data-nm="'+name+'" onclick="delUserAdv(this)">🗑️</button>'
-        +'</div></div>';
+async function loadEmpCards2() {
+  var el = document.getElementById('emp-list2'); if(!el) return;
+  try {
+    var d = await adminAPI({action:'list'});
+    var users = (d.users||[]).filter(function(u){ return u.user_metadata?.role || u.user_metadata?.name; });
+    if(!users.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">لا يوجد موظفون بعد</div>'; return; }
+    el.innerHTML = users.map(function(u) {
+      var meta = u.user_metadata || {};
+      var rid = meta.role || 'officer';
+      var rc = getRoleCfg(rid);
+      var active = !u.banned_until || new Date(u.banned_until) < new Date();
+      var name = meta.name || (u.email ? u.email.split('@')[0] : '—');
+      var ini = name.split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase() || '?';
+      var notif = meta.notifications || {};
+      var ni = [notif.email?'📧':'', notif.whatsapp?'💬':''].filter(Boolean).join(' ');
+      var pc = (meta.permissions || rc.perms || []).length;
+      var allR = getAllRoles();
+      var roleOpts2 = Object.entries(allR).map(function(e){
+        return '<option value="'+e[0]+'"'+(rid===e[0]?' selected':'')+'>'+e[1].label+'</option>';
+      }).join('');
+      return '<div class="rcard">' +
+        '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+        '<div style="width:40px;height:40px;border-radius:50%;background:'+rc.bg+';color:'+rc.color+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0">'+ini+'</div>' +
+        '<div style="flex:1;min-width:100px"><div style="font-weight:700;font-size:14px">'+name+'</div>' +
+        '<div style="font-size:12px;color:var(--text3);direction:ltr">'+(u.email||'')+'</div>' +
+        (ni ? '<div style="font-size:11px;margin-top:1px">'+ni+'</div>' : '') + '</div>' +
+        '<span class="rpill" style="background:'+rc.bg+';color:'+rc.color+'">'+rc.label+'</span>' +
+        '<span style="font-size:11px;color:var(--text3)">'+pc+' ص</span>' +
+        '<label class="tgl"><input type="checkbox" '+(active?'checked':'')+' data-uid="'+u.id+'" data-nm="'+name+'" onchange="doTogBan(this)"><span class="tgl-sl"></span></label>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">' +
+        '<select class="fi" style="flex:1;padding:6px 10px;font-size:12px;height:auto" data-uid="'+u.id+'" data-nm="'+name+'" onchange="doChRole(this)">'+roleOpts2+'</select>' +
+        '<button class="btn" style="padding:6px 12px;font-size:12px" data-uid="'+u.id+'" data-nm="'+name+'" data-rl="'+rid+'" onclick="openEditUser(this)">🔐 تخصيص</button>' +
+        '<button class="btn" style="padding:6px 12px;font-size:12px" data-uid="'+u.id+'" data-nm="'+name+'" onclick="doResetPw(this)">🔑 كلمة المرور</button>' +
+        '<button class="btn" style="padding:6px 12px;font-size:12px;color:var(--danger)" data-uid="'+u.id+'" data-nm="'+name+'" onclick="doDelUser(this)">🗑️</button>' +
+        '</div></div>';
     }).join('');
-  }catch(e){el.innerHTML='<div style="color:var(--danger);font-size:13px;text-align:center;padding:14px">خطأ: '+e.message+'</div>';}
+  } catch(e) { el.innerHTML = '<div style="color:var(--danger);font-size:13px;text-align:center;padding:14px">خطأ: '+e.message+'</div>'; }
 }
 
-// ── CHANGE ROLE ───────────────────────────────────────────────────────────────
-async function chRoleAdv(sel){
-  const uid=sel.dataset.uid,name=sel.dataset.nm,role=sel.value;
-  try{
-    const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/'+uid,{method:'PUT',headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Content-Type':'application/json'},body:JSON.stringify({user_metadata:{role}})});
-    if(r.ok)toast('✅ تم تغيير دور '+name);else throw new Error('فشل');
-  }catch(e){toast('⚠️ '+e.message,'err');}
+async function doChRole(sel) {
+  var uid = sel.dataset.uid, name = sel.dataset.nm, role = sel.value;
+  try { await adminAPI({action:'update', uid:uid, updates:{user_metadata:{role:role}}}); toast('✅ تم تغيير دور '+name); }
+  catch(e) { toast('⚠️ '+e.message, 'err'); }
 }
 
-// ── TOGGLE BAN ────────────────────────────────────────────────────────────────
-async function togBan(cb){
-  const uid=cb.dataset.uid,name=cb.dataset.nm,active=cb.checked;
-  const {data:{user}}=await sb.auth.getUser();
-  if(user&&user.id===uid&&!active){alert('⚠️ لا يمكنك إيقاف حسابك الخاص!');cb.checked=true;return;}
-  try{
-    await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/'+uid,{method:'PUT',headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Content-Type':'application/json'},body:JSON.stringify({ban_duration:active?'none':'876000h'})});
-    toast(active?'✅ تم تفعيل '+name:'🔒 تم إيقاف '+name);
-  }catch(e){cb.checked=!cb.checked;toast('⚠️ '+e.message,'err');}
+async function doTogBan(cb) {
+  var uid = cb.dataset.uid, name = cb.dataset.nm, active = cb.checked;
+  var userRes = await sb.auth.getUser();
+  if(userRes.data.user && userRes.data.user.id === uid && !active) { alert('⚠️ لا يمكنك إيقاف حسابك!'); cb.checked = true; return; }
+  try {
+    await adminAPI({action:'update', uid:uid, updates:{ban_duration: active ? 'none' : '876000h'}});
+    toast(active ? '✅ تم تفعيل '+name : '🔒 تم إيقاف '+name);
+  } catch(e) { cb.checked = !cb.checked; toast('⚠️ '+e.message, 'err'); }
 }
 
-// ── RESET PASSWORD ────────────────────────────────────────────────────────────
-function resetPwAdv(btn){
-  const name=btn.dataset.nm,uid=btn.dataset.uid;
-  const pw=prompt('كلمة المرور الجديدة لـ '+name+':');
-  if(!pw||pw.length<8){if(pw)alert('يجب أن تكون 8 أحرف على الأقل');return;}
-  fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/'+uid,{method:'PUT',headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Content-Type':'application/json'},body:JSON.stringify({password:pw})})
-  .then(r=>toast(r.ok?'✅ تم تغيير كلمة مرور '+name:'⚠️ فشل','err'));
+function doResetPw(btn) {
+  var name = btn.dataset.nm, uid = btn.dataset.uid;
+  var pw = prompt('كلمة المرور الجديدة لـ '+name+' (8 أحرف على الأقل):');
+  if(!pw || pw.length < 8) { if(pw) alert('يجب أن تكون 8 أحرف على الأقل'); return; }
+  adminAPI({action:'update', uid:uid, updates:{password:pw}})
+  .then(function(){ toast('✅ تم تغيير كلمة مرور '+name); })
+  .catch(function(e){ toast('⚠️ '+e.message, 'err'); });
 }
 
-// ── DELETE USER ───────────────────────────────────────────────────────────────
-async function delUserAdv(btn){
-  const uid=btn.dataset.uid,name=btn.dataset.nm;
-  if(!confirm('حذف حساب "'+name+'"؟ لا يمكن التراجع.'))return;
-  try{
-    const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/'+uid,{method:'DELETE',headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4'}});
-    if(r.ok){toast('🗑️ تم حذف '+name);loadEmpCards();}
-    else throw new Error('فشل');
-  }catch(e){toast('⚠️ '+e.message,'err');}
+async function doDelUser(btn) {
+  var uid = btn.dataset.uid, name = btn.dataset.nm;
+  if(!confirm('حذف حساب "'+name+'"؟ لا يمكن التراجع.')) return;
+  try { await adminAPI({action:'delete', uid:uid}); toast('🗑️ تم حذف '+name); loadEmpCards2(); }
+  catch(e) { toast('⚠️ '+e.message, 'err'); }
 }
 
-// ── EDIT INDIVIDUAL USER ──────────────────────────────────────────────────────
-function openEditUser(btn){
-  const uid=btn.dataset.uid,name=btn.dataset.nm,rid=btn.dataset.rl;
-  const r=getRoleCfg(rid);
-  const savedPerms=JSON.parse(localStorage.getItem('up_'+uid)||JSON.stringify(r.perms));
-  const savedNotif=JSON.parse(localStorage.getItem('un_'+uid)||JSON.stringify({email:true,whatsapp:false,events:r.notifs||[]}));
-  document.getElementById('MB').innerHTML=`
-    <div>
-      <div style="font-weight:700;font-size:16px;margin-bottom:4px;color:var(--blue2)">👤 ${name}</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:14px">${r.label} — صلاحيات ومزايا مخصصة</div>
-      <div style="font-size:12px;color:var(--blue);background:var(--blue3);padding:8px 12px;border-radius:8px;margin-bottom:14px">
-        💡 هذه الإعدادات تخصيص فردي تتجاوز صلاحيات الدور لهذا الموظف فقط
-      </div>
-      <div style="font-size:13px;font-weight:700;margin-bottom:8px">🔐 الصلاحيات</div>
-      ${permChipsHTML('up-'+uid.slice(0,6),savedPerms)}
-      <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:14px">
-        <div style="font-size:13px;font-weight:700;margin-bottom:10px">🔔 قنوات الإشعار</div>
-        <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-          <label style="flex:1;min-width:100px;display:flex;align-items:center;gap:8px;padding:10px;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">
-            <input type="checkbox" id="un-em-${uid.slice(0,6)}" ${savedNotif.email?'checked':''} style="width:16px;height:16px;accent-color:var(--blue)"> 📧 <strong>إيميل</strong></label>
-          <label style="flex:1;min-width:100px;display:flex;align-items:center;gap:8px;padding:10px;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">
-            <input type="checkbox" id="un-wa-${uid.slice(0,6)}" ${savedNotif.whatsapp?'checked':''} style="width:16px;height:16px;accent-color:var(--green)"> 💬 <strong>واتساب</strong></label>
-        </div>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:600">أبلغني عند:</div>
-        ${notifChipsHTML('un-ev-'+uid.slice(0,6),savedNotif.events||[])}
-      </div>
-      <button class="btn bp" style="width:100%;justify-content:center;margin-top:16px" onclick="saveUserPerms('${uid}','${rid}')">💾 حفظ</button>
-      <button class="btn" style="width:100%;justify-content:center;margin-top:8px" onclick="openUsers()">← رجوع</button>
-    </div>`;
+function openEditUser(btn) {
+  var uid = btn.dataset.uid, name = btn.dataset.nm, rid = btn.dataset.rl;
+  var r = getRoleCfg(rid);
+  var sp = JSON.parse(localStorage.getItem('up_'+uid) || JSON.stringify(r.perms));
+  var sn = JSON.parse(localStorage.getItem('un_'+uid) || JSON.stringify({email:true, whatsapp:false, events:r.notifs||[]}));
+  document.getElementById('MB').innerHTML =
+    '<div>' +
+    '<div style="font-weight:700;font-size:16px;margin-bottom:4px;color:var(--blue2)">👤 '+name+'</div>' +
+    '<div style="font-size:12px;color:var(--text3);margin-bottom:12px">'+r.label+'</div>' +
+    '<div style="font-size:12px;color:var(--blue);background:var(--blue3);padding:8px 12px;border-radius:8px;margin-bottom:14px">💡 صلاحيات مخصصة لهذا الموظف فقط</div>' +
+    '<div style="font-size:13px;font-weight:700;margin-bottom:8px">🔐 الصلاحيات</div>' +
+    buildPermChips('up-'+uid.slice(0,6), sp) +
+    '<div style="border-top:1px solid var(--border);padding-top:14px;margin-top:14px">' +
+    '<div style="font-size:13px;font-weight:700;margin-bottom:10px">🔔 الإشعارات</div>' +
+    '<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">' +
+    '<label style="flex:1;min-width:100px;display:flex;align-items:center;gap:8px;padding:10px;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">' +
+    '<input type="checkbox" id="un-em-'+uid.slice(0,6)+'" '+(sn.email?'checked':'')+' style="width:16px;height:16px;accent-color:var(--blue)"> 📧 <strong>إيميل</strong></label>' +
+    '<label style="flex:1;min-width:100px;display:flex;align-items:center;gap:8px;padding:10px;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">' +
+    '<input type="checkbox" id="un-wa-'+uid.slice(0,6)+'" '+(sn.whatsapp?'checked':'')+' style="width:16px;height:16px;accent-color:var(--green)"> 💬 <strong>واتساب</strong></label>' +
+    '</div>' +
+    '<div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:600">أبلغني عند:</div>' +
+    buildNotifChips('un-ev-'+uid.slice(0,6), sn.events||[]) +
+    '</div>' +
+    '<button class="btn bp" style="width:100%;justify-content:center;margin-top:16px" onclick="saveUserPerms2(\''+uid+'\',\''+rid+'\')">💾 حفظ</button>' +
+    '<button class="btn" style="width:100%;justify-content:center;margin-top:8px" onclick="openUsers()">← رجوع</button>' +
+    '</div>';
 }
 
-async function saveUserPerms(uid,rid){
-  const us=uid.slice(0,6);
-  const perms=getCheckedPerms('up-'+us);
-  const notif={
-    email:document.getElementById('un-em-'+us)?.checked||false,
-    whatsapp:document.getElementById('un-wa-'+us)?.checked||false,
-    events:getCheckedNotifs('un-ev-'+us),
+async function saveUserPerms2(uid, rid) {
+  var us = uid.slice(0,6);
+  var perms = getCheckedPerms('up-'+us);
+  var notif = {
+    email: document.getElementById('un-em-'+us)?.checked || false,
+    whatsapp: document.getElementById('un-wa-'+us)?.checked || false,
+    events: getCheckedNotifs('un-ev-'+us),
   };
-  localStorage.setItem('up_'+uid,JSON.stringify(perms));
-  localStorage.setItem('un_'+uid,JSON.stringify(notif));
-  try{
-    const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/'+uid,{method:'PUT',headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Content-Type':'application/json'},body:JSON.stringify({user_metadata:{role:rid,permissions:perms,notifications:notif}})});
-    toast(r.ok?'✅ تم حفظ الإعدادات':'⚠️ لم يتم الحفظ في الخادم','err');
-  }catch(e){toast('⚠️ '+e.message,'err');}
+  localStorage.setItem('up_'+uid, JSON.stringify(perms));
+  localStorage.setItem('un_'+uid, JSON.stringify(notif));
+  try {
+    await adminAPI({action:'update', uid:uid, updates:{user_metadata:{role:rid, permissions:perms, notifications:notif}}});
+    toast('✅ تم حفظ الإعدادات');
+  } catch(e) { toast('⚠️ '+e.message, 'err'); }
   openUsers();
 }
 
-// ── RENDER ROLES LIST ─────────────────────────────────────────────────────────
-function renderRolesList(){
-  const el=document.getElementById('roles-list');
-  if(!el)return;
-  const allRoles=getAllRoles();
-  const customRoles=getCustomRoles();
-  const allP=Object.values(window.ALL_PERMS).flat();
-  el.innerHTML=Object.entries(allRoles).map(([id,r])=>{
-    const isCustom=!!customRoles[id];
-    return '<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;background:var(--bg2)">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
-      +'<div style="display:flex;align-items:center;gap:8px">'
-      +'<span class="role-pill" style="background:'+(r.bg||'#eee')+';color:'+(r.color||'#555')+'">'+r.label+'</span>'
-      +(isCustom?'<span style="font-size:10px;color:var(--blue);background:var(--blue3);padding:2px 7px;border-radius:4px;font-weight:700">مخصص</span>':'<span style="font-size:10px;color:var(--text3);background:var(--bg2);padding:2px 7px;border-radius:4px;border:1px solid var(--border)">مدمج</span>')
-      +'</div><div style="display:flex;gap:6px">'
-      +(isCustom?'<button class="btn" style="padding:4px 10px;font-size:11px" data-rid="'+id+'" onclick="openEditRole(this)">✏️ تعديل</button>':'')
-      +(isCustom?'<button class="btn" style="padding:4px 10px;font-size:11px;color:var(--danger)" data-rid="'+id+'" onclick="deleteRole(this)">🗑️</button>':'')
-      +'</div></div>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:3px">'
-      +r.perms.map(pid=>{const p=allP.find(x=>x.id===pid);return p?'<span style="padding:2px 7px;border-radius:4px;background:var(--bg2);border:1px solid var(--border);font-size:11px">'+p.icon+' '+p.label+'</span>':''}).join('')
-      +'</div></div>';
+function showRolesList() {
+  var el = document.getElementById('roles-list2'); if(!el) return;
+  var allRoles = getAllRoles(), custom = getCustomRoles();
+  var allP = Object.values(window.ALL_PERMS).flat();
+  el.innerHTML = Object.entries(allRoles).map(function(entry) {
+    var id = entry[0], r = entry[1];
+    var isC = !!custom[id];
+    var tags = r.perms.slice(0,8).map(function(pid){
+      var p = allP.find(function(x){return x.id===pid;});
+      return p ? '<span style="padding:2px 7px;border-radius:4px;background:var(--bg2);border:1px solid var(--border);font-size:11px">'+p.icon+' '+p.label+'</span>' : '';
+    }).join('');
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;background:var(--bg2)">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+      '<div style="display:flex;align-items:center;gap:8px">' +
+      '<span class="rpill" style="background:'+(r.bg||'#eee')+';color:'+(r.color||'#555')+'">'+r.label+'</span>' +
+      (isC ? '<span style="font-size:10px;color:var(--blue);background:var(--blue3);padding:2px 7px;border-radius:4px">مخصص</span>' : '<span style="font-size:10px;color:var(--text3);border:1px solid var(--border);padding:2px 7px;border-radius:4px">مدمج</span>') +
+      '</div><div style="display:flex;gap:6px">' +
+      (isC ? '<button class="btn" style="padding:4px 10px;font-size:11px" data-rid="'+id+'" onclick="openEditRole(this)">✏️</button>' : '') +
+      (isC ? '<button class="btn" style="padding:4px 10px;font-size:11px;color:var(--danger)" data-rid="'+id+'" onclick="doDeleteRole(this)">🗑️</button>' : '') +
+      '</div></div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:3px">' + tags + (r.perms.length>8?'<span style="font-size:11px;color:var(--text3)">+'+(r.perms.length-8)+' أخرى</span>':'') + '</div>' +
+      '</div>';
   }).join('');
 }
 
-function openEditRole(btn){
-  const rid=btn.dataset.rid;
-  const r=getRoleCfg(rid);
-  document.getElementById('MB').innerHTML=`
-    <div>
-      <div style="font-weight:700;font-size:16px;margin-bottom:14px;color:var(--blue2)">✏️ تعديل: ${r.label}</div>
-      <div class="fg"><div class="fl">اسم الدور</div><input type="text" class="fi" id="er-name" value="${r.label.replace(/^[^\s]+\s/,'')}"></div>
-      <div style="font-size:13px;font-weight:700;margin:12px 0 8px">🔐 الصلاحيات</div>
-      ${permChipsHTML('er',r.perms)}
-      <div style="font-size:13px;font-weight:700;margin:12px 0 8px">🔔 الإشعارات الافتراضية</div>
-      ${notifChipsHTML('er-n',r.notifs||[])}
-      <button class="btn bp" style="width:100%;justify-content:center;margin-top:16px" onclick="saveEditRole('${rid}','${r.label.match(/^./)?.[0]||''}')">💾 حفظ</button>
-      <button class="btn" style="width:100%;justify-content:center;margin-top:8px" onclick="openUsers()">← رجوع</button>
-    </div>`;
+function openEditRole(btn) {
+  var rid = btn.dataset.rid, r = getRoleCfg(rid);
+  document.getElementById('MB').innerHTML =
+    '<div>' +
+    '<div style="font-weight:700;font-size:16px;margin-bottom:14px;color:var(--blue2)">✏️ تعديل: '+r.label+'</div>' +
+    '<div class="fg"><div class="fl">اسم الدور</div><input type="text" class="fi" id="er-name" value="'+r.label.replace(/^[^\s]+\s/,'')+'"></div>' +
+    '<div style="font-size:13px;font-weight:700;margin:12px 0 8px">🔐 الصلاحيات</div>' +
+    buildPermChips('er', r.perms) +
+    '<div style="font-size:13px;font-weight:700;margin:12px 0 8px">🔔 الإشعارات الافتراضية</div>' +
+    buildNotifChips('er-n', r.notifs||[]) +
+    '<button class="btn bp" style="width:100%;justify-content:center;margin-top:16px" onclick="doSaveEditRole(\''+rid+'\',\''+(r.label.match(/^./)||['🔑'])[0]+'\')">💾 حفظ</button>' +
+    '<button class="btn" style="width:100%;justify-content:center;margin-top:8px" onclick="openUsers()">← رجوع</button>' +
+    '</div>';
 }
 
-function saveEditRole(rid,icon){
-  const name=document.getElementById('er-name')?.value?.trim();
-  if(!name){toast('يرجى إدخال اسم الدور','err');return;}
-  const r=getRoleCfg(rid);
-  const perms=getCheckedPerms('er');
-  const notifs=getCheckedNotifs('er-n');
-  const custom=getCustomRoles();
-  custom[rid]={...r,label:icon+' '+name,perms,notifs};
+function doSaveEditRole(rid, ico) {
+  var name = document.getElementById('er-name')?.value?.trim();
+  if(!name) { toast('يرجى إدخال اسم الدور', 'err'); return; }
+  var r = getRoleCfg(rid);
+  var custom = getCustomRoles();
+  custom[rid] = Object.assign({}, r, {label: ico+' '+name, perms: getCheckedPerms('er'), notifs: getCheckedNotifs('er-n')});
   saveCustomRoles(custom);
-  toast('✅ تم حفظ الدور');openUsers();
+  toast('✅ تم حفظ الدور'); openUsers();
 }
 
-function deleteRole(btn){
-  const rid=btn.dataset.rid,r=getRoleCfg(rid);
-  if(!confirm('حذف دور "'+r.label+'"?'))return;
-  const custom=getCustomRoles();
-  delete custom[rid];saveCustomRoles(custom);
-  toast('🗑️ تم حذف الدور');renderRolesList();
+function doDeleteRole(btn) {
+  var rid = btn.dataset.rid, r = getRoleCfg(rid);
+  if(!confirm('حذف "'+r.label+'"?')) return;
+  var custom = getCustomRoles(); delete custom[rid]; saveCustomRoles(custom);
+  toast('🗑️ تم حذف الدور'); showRolesList();
 }
 
-// ── SAVE NEW ROLE ─────────────────────────────────────────────────────────────
-function pickIcon(el,icon){
-  document.querySelectorAll('.icon-opt').forEach(e=>e.style.borderColor='transparent');
-  el.style.borderColor='var(--blue)';
-  document.getElementById('nr-icon').value=icon;
+function pickIco(el, icon) {
+  document.querySelectorAll('.ico-opt').forEach(function(e){ e.style.borderColor='transparent'; });
+  el.style.borderColor='var(--blue)'; document.getElementById('nr-icon').value=icon;
 }
-function pickColor(el,c,bg){
-  document.querySelectorAll('.color-opt').forEach(e=>e.style.outline='none');
-  el.style.outline='3px solid '+c;
-  document.getElementById('nr-color').value=c;
-  document.getElementById('nr-bg').value=bg;
+function pickClr(el, c, bg) {
+  document.querySelectorAll('.clr-opt').forEach(function(e){ e.style.outline='none'; });
+  el.style.outline='3px solid '+c; document.getElementById('nr-color').value=c; document.getElementById('nr-bg').value=bg;
 }
-function saveNewRole(){
-  const name=document.getElementById('nr-name')?.value?.trim();
-  const icon=document.getElementById('nr-icon')?.value||'🔑';
-  const color=document.getElementById('nr-color')?.value||'#1a6eb5';
-  const bg=document.getElementById('nr-bg')?.value||'#daeaf8';
-  if(!name){toast('يرجى إدخال اسم الدور','err');return;}
-  const perms=getCheckedPerms('nr');
-  const notifs=getCheckedNotifs('nr-n');
-  if(!perms.length){toast('اختر صلاحية واحدة على الأقل','err');return;}
-  const rid='custom_'+name.replace(/\s+/g,'_').toLowerCase()+'_'+Date.now().toString(36).slice(-4);
-  const custom=getCustomRoles();
-  custom[rid]={label:icon+' '+name,color,bg,perms,notifs};
+function doSaveNewRole() {
+  var name = document.getElementById('nr-name')?.value?.trim();
+  var icon = document.getElementById('nr-icon')?.value || '🔑';
+  var color = document.getElementById('nr-color')?.value || '#1a6eb5';
+  var bg = document.getElementById('nr-bg')?.value || '#daeaf8';
+  if(!name) { toast('يرجى إدخال اسم الدور', 'err'); return; }
+  var perms = getCheckedPerms('nr');
+  var notifs = getCheckedNotifs('nr-n');
+  if(!perms.length) { toast('اختر صلاحية واحدة على الأقل', 'err'); return; }
+  var rid = 'custom_' + Date.now().toString(36).slice(-6);
+  var custom = getCustomRoles();
+  custom[rid] = {label: icon+' '+name, color:color, bg:bg, perms:perms, notifs:notifs};
   saveCustomRoles(custom);
   toast('✅ تم إنشاء دور: '+icon+' '+name);
   openUsers();
-  setTimeout(()=>document.querySelectorAll('.adtab')[2]?.click(),100);
+  setTimeout(function(){ var tabs = document.querySelectorAll('.adtab'); if(tabs[2]) tabs[2].click(); }, 100);
 }
 
-// ── MAGIC LINK / RECOVERY HANDLER ────────────────────────────────────────────
-(async function handleToken(){
-  const hash=window.location.hash;
-  if(!hash||hash==='#')return;
-  const p=new URLSearchParams(hash.slice(1));
-  const at=p.get('access_token'),rt=p.get('refresh_token'),tp=p.get('type');
-  if(!at)return;
-  try{
-    const {data,error}=await sb.auth.setSession({access_token:at,refresh_token:rt||''});
-    history.replaceState(null,'',window.location.pathname);
-    if(error)throw error;
-    if(tp==='recovery')showRecovery(at);
-    else if(data?.user)await setupUser(data.user);
-  }catch(e){console.error('token:',e.message);}
+// ── MAGIC LINK / RECOVERY ─────────────────────────────────────────────────────
+(async function handleToken() {
+  var hash = window.location.hash;
+  if(!hash || hash === '#') return;
+  var p = new URLSearchParams(hash.slice(1));
+  var at = p.get('access_token'), rt = p.get('refresh_token'), tp = p.get('type');
+  if(!at) return;
+  try {
+    var res = await sb.auth.setSession({access_token:at, refresh_token:rt||''});
+    history.replaceState(null, '', window.location.pathname);
+    if(res.error) throw res.error;
+    if(tp === 'recovery') showRecovery();
+    else if(res.data?.user) await setupUser(res.data.user);
+  } catch(e) { console.error('token:', e.message); }
 })();
 
-function showRecovery(){
-  ['LANDING','CP','APP','LS'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
-  const div=document.createElement('div');
-  div.id='REC';div.style.cssText='min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);direction:rtl;padding:20px';
-  div.innerHTML='<div style="background:#fff;border-radius:20px;padding:36px;max-width:400px;width:100%;text-align:center">'
-    +'<div style="font-size:48px;margin-bottom:12px">🔐</div>'
-    +'<div style="font-size:20px;font-weight:800;color:var(--blue2);margin-bottom:6px">تغيير كلمة المرور</div>'
-    +'<input type="password" id="rp1" class="fi" placeholder="كلمة المرور الجديدة" style="margin-bottom:12px;direction:ltr">'
-    +'<input type="password" id="rp2" class="fi" placeholder="تأكيد كلمة المرور" style="margin-bottom:16px;direction:ltr">'
-    +'<div id="rperr" style="color:var(--danger);font-size:13px;margin-bottom:12px;min-height:18px"></div>'
-    +'<button class="btn bp" style="width:100%;justify-content:center;padding:13px" onclick="doRecovery()">✅ حفظ كلمة المرور</button>'
-    +'</div>';
+function showRecovery() {
+  ['LANDING','CP','APP','LS'].forEach(function(id){ var e = document.getElementById(id); if(e) e.style.display='none'; });
+  var div = document.createElement('div');
+  div.id = 'REC';
+  div.style.cssText = 'min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);direction:rtl;padding:20px';
+  div.innerHTML = '<div style="background:#fff;border-radius:20px;padding:36px;max-width:400px;width:100%;text-align:center">' +
+    '<div style="font-size:48px;margin-bottom:12px">🔐</div>' +
+    '<div style="font-size:20px;font-weight:800;color:var(--blue2);margin-bottom:6px">تغيير كلمة المرور</div>' +
+    '<input type="password" id="rp1" class="fi" placeholder="كلمة المرور الجديدة" style="margin-bottom:12px;direction:ltr">' +
+    '<input type="password" id="rp2" class="fi" placeholder="تأكيد" style="margin-bottom:16px;direction:ltr">' +
+    '<div id="rpe" style="color:var(--danger);font-size:13px;margin-bottom:12px;min-height:18px"></div>' +
+    '<button class="btn bp" style="width:100%;justify-content:center;padding:13px" onclick="doRecov()">✅ حفظ كلمة المرور</button>' +
+    '</div>';
   document.body.appendChild(div);
-  history.replaceState(null,'',window.location.pathname);
+  history.replaceState(null, '', window.location.pathname);
 }
 
-async function doRecovery(){
-  const pw1=document.getElementById('rp1')?.value||'',pw2=document.getElementById('rp2')?.value||'';
-  const err=document.getElementById('rperr');
-  if(pw1.length<8){err.textContent='يجب أن تكون 8 أحرف على الأقل';return;}
-  if(pw1!==pw2){err.textContent='كلمتا المرور غير متطابقتين';return;}
-  err.textContent='';
-  try{
-    const {error}=await sb.auth.updateUser({password:pw1});
-    if(error)throw error;
+async function doRecov() {
+  var pw1 = document.getElementById('rp1')?.value || '';
+  var pw2 = document.getElementById('rp2')?.value || '';
+  var err = document.getElementById('rpe');
+  if(pw1.length < 8) { err.textContent = 'يجب أن تكون 8 أحرف'; return; }
+  if(pw1 !== pw2) { err.textContent = 'كلمتا المرور غير متطابقتين'; return; }
+  err.textContent = '';
+  try {
+    var res = await sb.auth.updateUser({password:pw1});
+    if(res.error) throw res.error;
     document.getElementById('REC')?.remove();
     alert('✅ تم تغيير كلمة المرور');
     window.location.reload();
-  }catch(e){err.textContent='خطأ: '+e.message;}
+  } catch(e) { err.textContent = 'خطأ: '+e.message; }
 }
 
-// Dynamic officers loading
-async function loadOfficers(){
-  try{
-    const r=await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users?per_page=50',{headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4'}});
-    if(!r.ok)return;
-    const d=await r.json();
-    const names=(d.users||[]).map(u=>u.user_metadata?.name||u.email?.split('@')[0]||'').filter(Boolean);
-    if(names.length){OFFICERS.length=0;names.forEach(n=>OFFICERS.push(n));}
-    const sel=document.getElementById('ao');
-    if(sel)sel.innerHTML=OFFICERS.map(o=>`<option>${o}</option>`).join('');
-  }catch(e){}
+// Dynamic officers
+async function loadOfficers() {
+  try {
+    var d = await adminAPI({action:'list'});
+    var names = (d.users||[]).map(function(u){ return u.user_metadata?.name || (u.email ? u.email.split('@')[0] : ''); }).filter(Boolean);
+    if(names.length) { OFFICERS.length=0; names.forEach(function(n){ OFFICERS.push(n); }); }
+    var sel = document.getElementById('ao');
+    if(sel) sel.innerHTML = OFFICERS.map(function(o){ return '<option>'+o+'</option>'; }).join('');
+  } catch(e) {}
 }
+
+// Sidebar categories button
+document.addEventListener('DOMContentLoaded', function() {
+  var ns = Array.from(document.querySelectorAll('.ns')).find(function(el){ return el.textContent.trim() === 'التصنيفات'; });
+  if(ns) {
+    var btn = document.createElement('span');
+    btn.onclick = openManageCats;
+    btn.style.cssText = 'font-size:11px;color:var(--blue);cursor:pointer;padding:2px 7px;border-radius:4px;background:var(--blue3);font-weight:700;margin-right:auto';
+    btn.textContent = '⚙️ إدارة';
+    ns.style.display = 'flex';
+    ns.style.alignItems = 'center';
+    ns.appendChild(btn);
+  }
+});
 
 </script>
 <div style="position:fixed;bottom:0;left:0;right:0;background:rgba(15,77,130,0.95);color:rgba(255,255,255,0.6);text-align:center;padding:8px;font-size:12px;z-index:9999;pointer-events:none;direction:ltr">Powered by <strong style="color:#fff">IanTrading SAL</strong> &nbsp;·&nbsp; All rights reserved © 2026</div>
