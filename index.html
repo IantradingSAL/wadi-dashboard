@@ -328,13 +328,19 @@ const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const TL={complaint:'شكوى',welfare:'رعاية اجتماعية',permit:'ترخيص',inquiry:'استفسار'};
+function getTLabel(id){try{var c=getCats().find(function(x){return x.id===id;});if(c)return c.icon+' '+c.label;}catch(e){}return TL[id]||id;}
+
 const SL={new:'جديد','in-progress':'قيد المعالجة',review:'مراجعة','pending-approval':'ينتظر الموافقة',resolved:'منجز',closed:'مغلق'};
 const PL={high:'عالية',medium:'متوسطة',low:'منخفضة'};
 const STATUSES=['new','in-progress','review','pending-approval','resolved','closed'];
 const PRIOS=['high','medium','low'];
-const TYPES=['complaint','welfare','permit','inquiry'];
+const TYPES_DEFAULT=['complaint','welfare','permit','inquiry'];
+function getDynTypes(){try{return getCats().map(function(c){return c.id;});}catch(e){return TYPES_DEFAULT;}}
+var TYPES=TYPES_DEFAULT;
+// Init TYPES from saved cats on page load
+try{var _sc=localStorage.getItem('wadi_cats');if(_sc){var _cats=JSON.parse(_sc);TYPES.length=0;_cats.forEach(function(c){TYPES.push(c.id);});}}catch(e){}
 const NA=['permit','welfare'];
-const OFFICERS=['م. مقصود','ف. جوهر','ن. خوري','ر. سلامة','إ. حداد'];
+const OFFICERS=[];
 
 // ── ROLE DEFINITIONS ──────────────────────────────────────────────────────────
 // Roles are stored in Supabase user metadata: { role: 'mayor'|'admin'|'approver'|'officer', name: '...' }
@@ -518,6 +524,7 @@ async function setupUser(user){
   document.getElementById('UE').textContent=user.email;
   document.getElementById('UR').innerHTML=R.i+' '+R.l;
   applyRoleVisibility();
+  renderCatsNav();
   // Switch screens
   document.getElementById('LS').style.display='none';
   document.getElementById('APP').style.display='block';
@@ -656,10 +663,14 @@ function navTo(el,m){
   page=1;go();
 }
 function navType(el,t){
-  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));el.classList.add('on');
-  document.getElementById('TS').value=t;tyF=t;stF='all';srcF='all';
-  const lbl={complaint:'الشكاوى',welfare:'الرعاية',permit:'التراخيص',inquiry:'الاستفسارات'};
-  document.getElementById('PT').textContent=lbl[t];page=1;go();
+  document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('on');});
+  el.classList.add('on');
+  document.getElementById('TS').value=t;
+  tyF=t;stF='all';srcF='all';
+  var cat=getCats().find(function(c){return c.id===t;});
+  var lbl=cat?(cat.label):({complaint:'الشكاوى',welfare:'الرعاية',permit:'التراخيص',inquiry:'الاستفسارات'}[t]||t);
+  document.getElementById('PT').textContent=lbl;
+  page=1;go();
 }
 function sf(f,btn){stF=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page=1;go();}
 function go(){qF=document.getElementById('QQ').value.trim();tyF=document.getElementById('TS').value;sortM=document.getElementById('SS').value;saveViewPrefs();render();}
@@ -818,7 +829,7 @@ function openAdd(){
       <div class="fg"><div class="fl">العنوان</div><input type="text" class="fi" id="aad" placeholder="حارة، قرية…"></div>
     </div>
     <div class="g2">
-      <div class="fg"><div class="fl">نوع الطلب *</div><select class="fi" id="at" onchange="can()">${TYPES.map(t=>`<option value="${t}">${TL[t]}</option>`).join('')}</select></div>
+      <div class="fg"><div class="fl">نوع الطلب *</div><select class="fi" id="at" onchange="can()">${getDynTypes().map(function(t){var c=getCats().find(function(x){return x.id===t;});return '<option value="'+t+'">'+(c?c.icon+' '+c.label:(TL[t]||t))+'</option>';}).join('')}</select></div>
       <div class="fg"><div class="fl">الأولوية</div><select class="fi" id="ap"><option value="high">عالية</option><option value="medium" selected>متوسطة</option><option value="low">منخفضة</option></select></div>
     </div>
     <div class="fg"><div class="fl">وصف الطلب *</div><textarea class="fi" id="ad" placeholder="وصف الطلب أو الشكوى بالتفصيل…"></textarea></div>
@@ -830,6 +841,8 @@ function openAdd(){
       <button class="btn bp" style="flex:2;justify-content:center" onclick="subAdd()">✓ حفظ الطلب</button>
     </div>`;
   document.getElementById('OV').classList.add('open');
+  // Refresh assigned dropdown with real employees
+  loadOfficers();
 }
 function can(){const t=document.getElementById('at').value;document.getElementById('an2').style.display=NA.includes(t)?'flex':'none';}
 
@@ -1819,17 +1832,43 @@ function getCats() {
   try { return JSON.parse(localStorage.getItem('wadi_cats') || 'null') || WADI_CATS_DEFAULT; }
   catch(e) { return WADI_CATS_DEFAULT; }
 }
-function saveCats(c) { localStorage.setItem('wadi_cats', JSON.stringify(c)); renderCatsNav(); }
+function saveCats(c) {
+  localStorage.setItem('wadi_cats', JSON.stringify(c));
+  renderCatsNav();
+  // Update type select in add form if open
+  var sel = document.getElementById('at');
+  if(sel) {
+    sel.innerHTML = getDynTypes().map(function(t){
+      var cat=getCats().find(function(x){return x.id===t;});
+      return '<option value="'+t+'">'+(cat?cat.icon+' '+cat.label:(TL[t]||t))+'</option>';
+    }).join('');
+  }
+  // Update badges
+  if(typeof tick === 'function') setTimeout(tick, 100);
+}
 function getTLabel(id) {
   try { const c = getCats().find(function(x){ return x.id === id; }); if(c) return (c.icon ? c.icon+' ' : '') + c.label; }
   catch(e) {}
   return {complaint:'شكوى', welfare:'رعاية اجتماعية', permit:'ترخيص', inquiry:'استفسار'}[id] || id;
 }
 function renderCatsNav() {
-  const el = document.getElementById('cats-nav-list');
-  if (!el) return;
-  el.innerHTML = getCats().map(function(c) {
-    return '<div class="ni" id="nav-' + c.id + '" onclick="navType(this,\'' + c.id + '\')">' +
+  var el = document.getElementById('cats-nav-list');
+  if (!el) {
+    var sbn = document.querySelector('.sbn');
+    if (!sbn) return;
+    var found = null;
+    sbn.querySelectorAll('.ns').forEach(function(ns){ if(ns.textContent.indexOf('التصنيفات')>=0) found=ns; });
+    if (!found) return;
+    ['complaint','welfare','permit','inquiry'].forEach(function(id){
+      var old2 = document.getElementById('nav-'+id); if(old2) old2.remove();
+    });
+    el = document.createElement('div');
+    el.id = 'cats-nav-list';
+    found.parentNode.insertBefore(el, found.nextSibling);
+  }
+  var cats = getCats();
+  el.innerHTML = cats.map(function(c) {
+    return '<div class="ni" id="nav-' + c.id + '" data-type="' + c.id + '" onclick="navTypeById(this)">' +
       '<span class="nii">' + c.icon + '</span> ' + c.label +
       ' <span class="nb" id="nb-' + c.id + '">—</span></div>';
   }).join('');
@@ -2344,21 +2383,37 @@ function doSaveNewRole(){
 // ── DYNAMIC OFFICERS LOADING ──────────────────────────────────────────────────
 async function loadOfficers() {
   try {
-    var d=await adminAPI({action:'list'});
-    var names=(d.users||[]).map(function(u){return u.user_metadata&&(u.user_metadata.name||u.email.split('@')[0]);}).filter(Boolean);
-    if(names.length){OFFICERS.length=0;names.forEach(function(n){OFFICERS.push(n);});}
-    var sel=document.getElementById('ao');
-    if(sel)sel.innerHTML=OFFICERS.map(function(o){return '<option>'+o+'</option>';}).join('');
-  } catch(e) {}
+    // Load real employees from Supabase
+    const session = await sb.auth.getSession();
+    const jwt = session?.data?.session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
+    const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users?per_page=50', {
+      headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4', 'Authorization': 'Bearer ' + jwt }
+    });
+    if (!r.ok) return;
+    const d = await r.json();
+    const names = (d.users||[])
+      .filter(function(u){ return u.user_metadata && u.user_metadata.name; })
+      .map(function(u){ return u.user_metadata.name; });
+    if (names.length) {
+      OFFICERS.length = 0;
+      names.forEach(function(n){ OFFICERS.push(n); });
+    }
+    // Update any open assigned select
+    const sel = document.getElementById('ao');
+    if (sel) {
+      sel.innerHTML = OFFICERS.map(function(o){ return '<option>'+o+'</option>'; }).join('');
+    }
+  } catch(e) { console.log('loadOfficers:', e.message); }
 }
 
 // ── SIDEBAR CATEGORIES BUTTON ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
-  // Add ⚙️ إدارة button next to التصنيفات
-  var nsList = document.querySelectorAll('.ns');
+  // Add ⚙️ إدارة button next to التصنيفات header
+  var nsList = document.querySelectorAll('.sbn .ns');
   nsList.forEach(function(ns){
-    if(ns.textContent.trim()==='التصنيفات'){
+    if(ns.textContent.indexOf('التصنيفات') >= 0 && !ns.querySelector('.cats-manage-btn')){
       var btn=document.createElement('span');
+      btn.className='cats-manage-btn';
       btn.onclick=openManageCats;
       btn.style.cssText='font-size:11px;color:var(--blue);cursor:pointer;padding:2px 7px;border-radius:4px;background:var(--blue3);font-weight:700;margin-right:auto;flex-shrink:0';
       btn.textContent='⚙️ إدارة';
@@ -2366,20 +2421,15 @@ document.addEventListener('DOMContentLoaded', function() {
       ns.appendChild(btn);
     }
   });
-  // Wrap type nav items in a container
-  var cats=['complaint','welfare','permit','inquiry'];
-  var firstCat=document.getElementById('nav-'+cats[0]);
-  if(firstCat && !document.getElementById('cats-nav-list')){
-    var container=document.createElement('div');
-    container.id='cats-nav-list';
-    firstCat.parentNode.insertBefore(container,firstCat);
-    cats.forEach(function(id){
-      var el=document.getElementById('nav-'+id);
-      if(el)container.appendChild(el);
-    });
-  }
+  // Initialize categories in sidebar
+  renderCatsNav();
 });
 
+
+function navTypeById(el) {
+  var type = el.dataset.type || el.id.replace('nav-','');
+  navType(el, type);
+}
 </script>
 <div style="position:fixed;bottom:0;left:0;right:0;background:rgba(15,77,130,0.95);color:rgba(255,255,255,0.6);text-align:center;padding:8px;font-size:12px;z-index:9999;pointer-events:none;direction:ltr">Powered by <strong style="color:#fff">IanTrading SAL</strong> &nbsp;·&nbsp; All rights reserved © 2026</div>
 </body>
