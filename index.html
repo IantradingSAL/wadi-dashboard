@@ -328,19 +328,13 @@ const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const TL={complaint:'شكوى',welfare:'رعاية اجتماعية',permit:'ترخيص',inquiry:'استفسار'};
-function getTLabel(id){try{var c=getCats().find(function(x){return x.id===id;});if(c)return c.icon+' '+c.label;}catch(e){}return TL[id]||id;}
-
 const SL={new:'جديد','in-progress':'قيد المعالجة',review:'مراجعة','pending-approval':'ينتظر الموافقة',resolved:'منجز',closed:'مغلق'};
 const PL={high:'عالية',medium:'متوسطة',low:'منخفضة'};
 const STATUSES=['new','in-progress','review','pending-approval','resolved','closed'];
 const PRIOS=['high','medium','low'];
-const TYPES_DEFAULT=['complaint','welfare','permit','inquiry'];
-function getDynTypes(){try{return getCats().map(function(c){return c.id;});}catch(e){return TYPES_DEFAULT;}}
-var TYPES=TYPES_DEFAULT;
-// Init TYPES from saved cats on page load
-try{var _sc=localStorage.getItem('wadi_cats');if(_sc){var _cats=JSON.parse(_sc);TYPES.length=0;_cats.forEach(function(c){TYPES.push(c.id);});}}catch(e){}
+const TYPES=['complaint','welfare','permit','inquiry'];
 const NA=['permit','welfare'];
-const OFFICERS=[];
+const OFFICERS=['م. مقصود','ف. جوهر','ن. خوري','ر. سلامة','إ. حداد'];
 
 // ── ROLE DEFINITIONS ──────────────────────────────────────────────────────────
 // Roles are stored in Supabase user metadata: { role: 'mayor'|'admin'|'approver'|'officer', name: '...' }
@@ -354,7 +348,7 @@ const ROLE_CFG={
 
 // ── SUPABASE ──────────────────────────────────────────────────────────────────
 let sb=null,dbR=false;
-try{sb=window.supabase.createClient('https://onjbwhkmmtqnymhjnplw.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4',{realtime:{enabled:false}});dbR=true;}catch(e){console.error(e);}
+try{sb=window.supabase.createClient('https://onjbwhkmmtqnymhjnplw.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4');dbR=true;}catch(e){console.error(e);}
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let currentUser=null,userRole=null,cases=[],stF='all',tyF='all',srcF='all',sortM='date-desc',qF='',page=1;
@@ -524,10 +518,6 @@ async function setupUser(user){
   document.getElementById('UE').textContent=user.email;
   document.getElementById('UR').innerHTML=R.i+' '+R.l;
   applyRoleVisibility();
-  renderCatsNav();
-  // Add self to officers immediately as fallback
-  if(!OFFICERS.includes(userName)) OFFICERS.push(userName);
-  loadOfficers();
   // Switch screens
   document.getElementById('LS').style.display='none';
   document.getElementById('APP').style.display='block';
@@ -593,10 +583,7 @@ async function delC(id){
 }
 
 function subscribe(){
-  // Use polling instead of realtime to avoid DataCloneError
-  setInterval(async function(){
-    try { await load(); } catch(e) {}
-  }, 30000); // refresh every 30 seconds
+  sb.channel('cases').on('postgres_changes',{event:'*',schema:'public',table:'cases'},async()=>{await load();}).subscribe();
 }
 
 async function upDoc(caseId,file){
@@ -669,14 +656,10 @@ function navTo(el,m){
   page=1;go();
 }
 function navType(el,t){
-  document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('on');});
-  el.classList.add('on');
-  document.getElementById('TS').value=t;
-  tyF=t;stF='all';srcF='all';
-  var cat=getCats().find(function(c){return c.id===t;});
-  var lbl=cat?(cat.label):({complaint:'الشكاوى',welfare:'الرعاية',permit:'التراخيص',inquiry:'الاستفسارات'}[t]||t);
-  document.getElementById('PT').textContent=lbl;
-  page=1;go();
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));el.classList.add('on');
+  document.getElementById('TS').value=t;tyF=t;stF='all';srcF='all';
+  const lbl={complaint:'الشكاوى',welfare:'الرعاية',permit:'التراخيص',inquiry:'الاستفسارات'};
+  document.getElementById('PT').textContent=lbl[t];page=1;go();
 }
 function sf(f,btn){stF=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page=1;go();}
 function go(){qF=document.getElementById('QQ').value.trim();tyF=document.getElementById('TS').value;sortM=document.getElementById('SS').value;saveViewPrefs();render();}
@@ -803,13 +786,8 @@ async function uf(id,field,value,by){
   const c=cases.find(x=>String(x.id)===String(id));if(!c)return;
   const today=new Date().toISOString().slice(0,10);c[field]=value;
   const tl=[...(c.timeline||[])];
-  if(field==='status'){
-    tl.push({a:`تغيير الحالة: ${SL[value]}`,by,d:today,cls:''});
-    // Send email to citizen
-    if(c.email) sendBrevoEmail(c.email, c.name, '[بلدية وادي الست] تحديث طلبكم رقم #'+id, buildStatusEmail(id, c.name, value, c.public_note));
-  }
+  if(field==='status')tl.push({a:`تغيير الحالة: ${SL[value]}`,by,d:today,cls:''});
   if(field==='assigned')tl.push({a:`إعادة تعيين: ${value}`,by,d:today,cls:''});
-  if(field==='public_note' && c.email) sendBrevoEmail(c.email, c.name, '[بلدية وادي الست] رد البلدية على طلبكم رقم #'+id, buildStatusEmail(id, c.name, c.status, value));
   c.timeline=tl;await saveC(c);rStats();render();
 }
 
@@ -840,7 +818,7 @@ function openAdd(){
       <div class="fg"><div class="fl">العنوان</div><input type="text" class="fi" id="aad" placeholder="حارة، قرية…"></div>
     </div>
     <div class="g2">
-      <div class="fg"><div class="fl">نوع الطلب *</div><select class="fi" id="at" onchange="can()">${getDynTypes().map(function(t){var c=getCats().find(function(x){return x.id===t;});return '<option value="'+t+'">'+(c?c.icon+' '+c.label:(TL[t]||t))+'</option>';}).join('')}</select></div>
+      <div class="fg"><div class="fl">نوع الطلب *</div><select class="fi" id="at" onchange="can()">${TYPES.map(t=>`<option value="${t}">${TL[t]}</option>`).join('')}</select></div>
       <div class="fg"><div class="fl">الأولوية</div><select class="fi" id="ap"><option value="high">عالية</option><option value="medium" selected>متوسطة</option><option value="low">منخفضة</option></select></div>
     </div>
     <div class="fg"><div class="fl">وصف الطلب *</div><textarea class="fi" id="ad" placeholder="وصف الطلب أو الشكوى بالتفصيل…"></textarea></div>
@@ -852,29 +830,20 @@ function openAdd(){
       <button class="btn bp" style="flex:2;justify-content:center" onclick="subAdd()">✓ حفظ الطلب</button>
     </div>`;
   document.getElementById('OV').classList.add('open');
-  // Refresh assigned dropdown with real employees
-  loadOfficers().then(function(){
-    var sel=document.getElementById('ao');
-    if(sel && OFFICERS.length) sel.innerHTML=OFFICERS.map(function(o){return '<option>'+o+'</option>';}).join('');
-  });
 }
 function can(){const t=document.getElementById('at').value;document.getElementById('an2').style.display=NA.includes(t)?'flex':'none';}
 
 async function subAdd(){
   trackActivity('فتح إضافة طلب','بدء إنشاء طلب جديد');
   if(!guard('add','🚫 لا تملك صلاحية إضافة طلب جديد')) return;
-  const name=document.getElementById('an').value.trim(),phone=document.getElementById('aph').value.trim(),email=document.getElementById('aem').value.trim(),address=document.getElementById('aad').value.trim(),type=getDbType(document.getElementById('at').value),description=document.getElementById('ad').value.trim(),priority=document.getElementById('ap').value,assigned=document.getElementById('ao').value,notes=document.getElementById('ano').value.trim();
+  const name=document.getElementById('an').value.trim(),phone=document.getElementById('aph').value.trim(),email=document.getElementById('aem').value.trim(),address=document.getElementById('aad').value.trim(),type=document.getElementById('at').value,description=document.getElementById('ad').value.trim(),priority=document.getElementById('ap').value,assigned=document.getElementById('ao').value,notes=document.getElementById('ano').value.trim();
   if(!name||!description){alert('يرجى إدخال الاسم والوصف');return;}
   const today=new Date().toISOString().slice(0,10);const na=NA.includes(type);
   const by=currentUser?.user_metadata?.name||currentUser?.email||'—';
   const nc={name,phone,email,address,type,description,priority,assigned,notes,status:na?'pending-approval':'new',approval_state:na?'pending':null,approval_by:null,approval_date:null,timeline:[{a:'تم فتح الطلب',by,d:today,cls:''}],documents:[],source:'staff'};
   if(!dbR){nc.id=Date.now();nc.created_at=new Date().toISOString();cases.unshift(nc);closeM();rStats();render();toast('⚠️ تم الحفظ محلياً فقط','err');return;}
   sv(true);
-  try{const{data,error}=await sb.from('cases').insert([nc]).select().single();if(error)throw error;cases.unshift(data);
-    // Send confirmation email to citizen
-    if(data && data.email) sendBrevoEmail(data.email, data.name, '[بلدية وادي الست] تم استلام طلبكم رقم #'+(data.id||''), buildCitizenEmail(data.id, data.name, data.type, data.status));
-    logAudit('case','create',data?.id||'—',`إنشاء طلب جديد: ${type}`); trackActivity('إضافة طلب',`طلب جديد رقم ${data?.id||'—'}`); maybeWhatsAppNotify('admin','تم إنشاء طلب جديد',data?.id||'—');
-        setTimeout(function(){ sendStaffNotifEmails(data||nc,'new_case'); }, 200); closeM();rStats();render();toast('✓ تم إضافة الطلب');}
+  try{const{data,error}=await sb.from('cases').insert([nc]).select().single();if(error)throw error;cases.unshift(data); logAudit('case','create',data?.id||'—',`إنشاء طلب جديد: ${type}`); trackActivity('إضافة طلب',`طلب جديد رقم ${data?.id||'—'}`); maybeWhatsAppNotify('admin','تم إنشاء طلب جديد',data?.id||'—'); closeM();rStats();render();toast('✓ تم إضافة الطلب');}
   catch(e){toast('خطأ: '+e.message,'err');}finally{sv(false);}
 }
 
@@ -1241,8 +1210,11 @@ function mc(e){if(e.target===document.getElementById('OV'))closeM();}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:13px">
         <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">نوع الطلب *</div>
           <select id="c-type" class="fi" style="appearance:none;-webkit-appearance:none">
-            ${(typeof getCats==='function'?getCats():[{id:'complaint',icon:'⚠️',label:'شكوى'},{id:'welfare',icon:'🤝',label:'رعاية اجتماعية'},{id:'permit',icon:'🏗️',label:'ترخيص'},{id:'inquiry',icon:'❓',label:'استفسار'}]).map(function(c){return '<option value="'+c.id+'">'+c.icon+' '+c.label+'</option>';}).join('')}
-            </select></div>
+            <option value="complaint">⚠️ شكوى</option>
+            <option value="welfare">🤝 رعاية اجتماعية</option>
+            <option value="permit">🏗️ ترخيص</option>
+            <option value="inquiry">❓ استفسار</option>
+          </select></div>
         <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">العنوان</div>
           <input type="text" id="c-addr" class="fi" placeholder="حارة، منطقة…"></div>
       </div>
@@ -1341,7 +1313,6 @@ function showLanding(){
   document.getElementById('APP').style.display='none';
 }
 function showCitizenPortal(){
-  updateCitizenTypeSelect();
   document.getElementById('LANDING').style.display='none';
   document.getElementById('CP').style.display='block';
   document.getElementById('LS').style.display='none';
@@ -1526,8 +1497,7 @@ async function doSubmitCit(){
   const name=document.getElementById('c-name').value.trim();
   const phone=document.getElementById('c-phone').value.trim();
   const email=document.getElementById('c-email').value.trim();
-  const typeRaw=document.getElementById('c-type').value;
-  const type=getDbType(typeRaw);
+  const type=document.getElementById('c-type').value;
   const addr=document.getElementById('c-addr').value.trim();
   const desc=document.getElementById('c-desc').value.trim();
   const err=document.getElementById('c-err');
@@ -1540,8 +1510,8 @@ async function doSubmitCit(){
   btn.disabled=true;btn.textContent='⏳ جاري الإرسال…';
   const today=new Date().toISOString().slice(0,10);
   const na=['permit','welfare'].includes(type);
-  const nc={name,phone,email,address:addr,type:type,description:desc,priority:'medium',
-    assigned:OFFICERS[0]||'',status:na?'pending-approval':'new',
+  const nc={name,phone,email,address:addr,type,description:desc,priority:'medium',
+    assigned:'م. مقصود',status:na?'pending-approval':'new',
     approval_state:na?'pending':null,approval_by:null,approval_date:null,
     timeline:[{a:'تم تقديم الطلب عبر الموقع الإلكتروني',by:name,d:today,cls:''}],
     documents:[],source:'website'};
@@ -1550,13 +1520,6 @@ async function doSubmitCit(){
     if(error)throw error;
     const newCaseId = data.id;
     document.getElementById('c-ref').textContent = newCaseId;
-    // Send confirmation email (non-blocking)
-    const citEmail=document.getElementById('c-email')?.value?.trim();
-    const citName=document.getElementById('c-name')?.value?.trim();
-    const citTypeVal=document.getElementById('c-type')?.value;
-    if(citEmail) setTimeout(function(){
-      sendBrevoEmail(citEmail, citName, '[بلدية وادي الست] تم استلام طلبكم رقم #'+newCaseId, buildCitizenEmail(newCaseId, citName, citTypeVal, 'new'));
-    }, 100);
     if (citFiles.length > 0) {
       const pw=document.getElementById('c-prog-wrap');
       const pb=document.getElementById('c-prog-bar');
@@ -1856,44 +1819,17 @@ function getCats() {
   try { return JSON.parse(localStorage.getItem('wadi_cats') || 'null') || WADI_CATS_DEFAULT; }
   catch(e) { return WADI_CATS_DEFAULT; }
 }
-function saveCats(c) {
-  localStorage.setItem('wadi_cats', JSON.stringify(c));
-  renderCatsNav();
-  // Update type select in add form if open
-  var sel = document.getElementById('at');
-  if(sel) {
-    sel.innerHTML = getDynTypes().map(function(t){
-      var cat=getCats().find(function(x){return x.id===t;});
-      return '<option value="'+t+'">'+(cat?cat.icon+' '+cat.label:(TL[t]||t))+'</option>';
-    }).join('');
-  }
-  // Update badges
-  if(typeof tick === 'function') setTimeout(tick, 100);
-  updateCitizenTypeSelect();
-}
+function saveCats(c) { localStorage.setItem('wadi_cats', JSON.stringify(c)); renderCatsNav(); }
 function getTLabel(id) {
   try { const c = getCats().find(function(x){ return x.id === id; }); if(c) return (c.icon ? c.icon+' ' : '') + c.label; }
   catch(e) {}
   return {complaint:'شكوى', welfare:'رعاية اجتماعية', permit:'ترخيص', inquiry:'استفسار'}[id] || id;
 }
 function renderCatsNav() {
-  var el = document.getElementById('cats-nav-list');
-  if (!el) {
-    var sbn = document.querySelector('.sbn');
-    if (!sbn) return;
-    var found = null;
-    sbn.querySelectorAll('.ns').forEach(function(ns){ if(ns.textContent.indexOf('التصنيفات')>=0) found=ns; });
-    if (!found) return;
-    ['complaint','welfare','permit','inquiry'].forEach(function(id){
-      var old2 = document.getElementById('nav-'+id); if(old2) old2.remove();
-    });
-    el = document.createElement('div');
-    el.id = 'cats-nav-list';
-    found.parentNode.insertBefore(el, found.nextSibling);
-  }
-  var cats = getCats();
-  el.innerHTML = cats.map(function(c) {
-    return '<div class="ni" id="nav-' + c.id + '" data-type="' + c.id + '" onclick="navTypeById(this)">' +
+  const el = document.getElementById('cats-nav-list');
+  if (!el) return;
+  el.innerHTML = getCats().map(function(c) {
+    return '<div class="ni" id="nav-' + c.id + '" onclick="navType(this,\'' + c.id + '\')">' +
       '<span class="nii">' + c.icon + '</span> ' + c.label +
       ' <span class="nb" id="nb-' + c.id + '">—</span></div>';
   }).join('');
@@ -2407,41 +2343,22 @@ function doSaveNewRole(){
 
 // ── DYNAMIC OFFICERS LOADING ──────────────────────────────────────────────────
 async function loadOfficers() {
-  OFFICERS.length = 0; // clear old names first
   try {
-    const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/functions/v1/admin-user', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4'},
-      body: JSON.stringify({action:'list'})
-    });
-    if (r.ok) {
-      const d = await r.json();
-      (d.users||[]).forEach(function(u) {
-        const name = u.user_metadata && u.user_metadata.name;
-        if (name && !OFFICERS.includes(name)) OFFICERS.push(name);
-      });
-    }
+    var d=await adminAPI({action:'list'});
+    var names=(d.users||[]).map(function(u){return u.user_metadata&&(u.user_metadata.name||u.email.split('@')[0]);}).filter(Boolean);
+    if(names.length){OFFICERS.length=0;names.forEach(function(n){OFFICERS.push(n);});}
+    var sel=document.getElementById('ao');
+    if(sel)sel.innerHTML=OFFICERS.map(function(o){return '<option>'+o+'</option>';}).join('');
   } catch(e) {}
-  // Always include current user
-  if (currentUser) {
-    const me = (currentUser.user_metadata && currentUser.user_metadata.name) || currentUser.email.split('@')[0];
-    if (me && !OFFICERS.includes(me)) OFFICERS.unshift(me);
-  }
-  // Update select if open
-  const sel = document.getElementById('ao');
-  if (sel) sel.innerHTML = OFFICERS.map(function(o){return '<option>'+o+'</option>';}).join('');
 }
 
 // ── SIDEBAR CATEGORIES BUTTON ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
-  // Update citizen type select with dynamic categories
-  updateCitizenTypeSelect();
-  // Add ⚙️ إدارة button next to التصنيفات header
-  var nsList = document.querySelectorAll('.sbn .ns');
+  // Add ⚙️ إدارة button next to التصنيفات
+  var nsList = document.querySelectorAll('.ns');
   nsList.forEach(function(ns){
-    if(ns.textContent.indexOf('التصنيفات') >= 0 && !ns.querySelector('.cats-manage-btn')){
+    if(ns.textContent.trim()==='التصنيفات'){
       var btn=document.createElement('span');
-      btn.className='cats-manage-btn';
       btn.onclick=openManageCats;
       btn.style.cssText='font-size:11px;color:var(--blue);cursor:pointer;padding:2px 7px;border-radius:4px;background:var(--blue3);font-weight:700;margin-right:auto;flex-shrink:0';
       btn.textContent='⚙️ إدارة';
@@ -2449,134 +2366,19 @@ document.addEventListener('DOMContentLoaded', function() {
       ns.appendChild(btn);
     }
   });
-  // Initialize categories in sidebar
-  renderCatsNav();
-});
-
-
-function navTypeById(el) {
-  var type = el.dataset.type || el.id.replace('nav-','');
-  navType(el, type);
-}
-
-// ── EMAIL NOTIFICATIONS VIA BREVO ────────────────────────────────────────────
-async function sendStaffNotifEmails(caseData, eventType) {
-  // Trigger notify-citizen Edge Function — it handles Brevo sending server-side
-  // API key is stored securely in Supabase Secrets, never in frontend code
-  try {
-    await fetch('{}'.replace('{}','https://onjbwhkmmtqnymhjnplw.supabase.co/functions/v1/notify-citizen'), {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4'},
-      body: JSON.stringify({
-        type: eventType === 'new_case' ? 'INSERT' : 'UPDATE',
-        record: caseData,
-        old_record: eventType !== 'new_case' ? {} : null
-      })
+  // Wrap type nav items in a container
+  var cats=['complaint','welfare','permit','inquiry'];
+  var firstCat=document.getElementById('nav-'+cats[0]);
+  if(firstCat && !document.getElementById('cats-nav-list')){
+    var container=document.createElement('div');
+    container.id='cats-nav-list';
+    firstCat.parentNode.insertBefore(container,firstCat);
+    cats.forEach(function(id){
+      var el=document.getElementById('nav-'+id);
+      if(el)container.appendChild(el);
     });
-  } catch(e) { console.log('notify trigger:', e.message); }
-}
-
-
-
-
-
-
-// Map any cat ID to a valid DB type (constraint: complaint/welfare/permit/inquiry)
-function getDbType(catId) {
-  const base = ['complaint','welfare','permit','inquiry'];
-  if (base.includes(catId)) return catId;
-  // Custom cats: try to guess from label, else default to 'complaint'
-  const cat = getCats().find(function(c){ return c.id === catId; });
-  if (!cat) return 'complaint';
-  const label = (cat.label || '').toLowerCase();
-  if (label.includes('شكو') || label.includes('شكاو')) return 'complaint';
-  if (label.includes('رعاي') || label.includes('اجتماع')) return 'welfare';
-  if (label.includes('رخص') || label.includes('ترخيص')) return 'permit';
-  if (label.includes('استفس') || label.includes('سؤال')) return 'inquiry';
-  return 'complaint'; // default fallback
-}
-
-
-// Update citizen type select with saved categories
-function updateCitizenTypeSelect() {
-  var sel = document.getElementById('c-type');
-  if (!sel) return;
-  var cats = getCats();
-  sel.innerHTML = cats.map(function(c) {
-    return '<option value="' + c.id + '">' + c.icon + ' ' + c.label + '</option>';
-  }).join('');
-}
-
-
-// ── BREVO EMAIL (direct from browser) ────────────────────────────────────────
-async function sendBrevoEmail(toEmail, toName, subject, htmlBody) {
-  if (!toEmail) return;
-  const BKEY = 'xsmtpsib-0421702005db0037488fcf8571d71affe52db33a95300e80847392294f871b55-fxFDF0zqQLSVMDAA';
-  const payload = JSON.stringify({
-    sender: { name: 'بلدية وادي الست', email: 'noreply@municipality-wadi-el-sitt.org' },
-    to: [{ email: toEmail, name: toName || 'المواطن' }],
-    subject: subject,
-    htmlContent: htmlBody
-  });
-  try {
-    const r = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: { 'api-key': BKEY, 'Content-Type': 'application/json' },
-      body: payload
-    });
-    const status = r.status;
-    console.log('Brevo:', status, toEmail);
-    return status === 201 || status === 200;
-  } catch(e) {
-    console.log('sendBrevoEmail error:', e.message);
-    return false;
   }
-}
-
-function buildCitizenEmail(caseId, name, type, status) {
-  const typeLabel = getTLabel ? getTLabel(type) : type;
-  const statusLabel = {new:'جديد','in-progress':'قيد المعالجة',resolved:'منجز ✅',closed:'مغلق'}[status] || status;
-  return `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><style>
-    body{font-family:Tahoma,Arial,sans-serif;background:#f0f2f7;margin:0;padding:16px;direction:rtl}
-    .card{background:#fff;border-radius:14px;max-width:560px;margin:0 auto;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1)}
-    .hdr{background:linear-gradient(120deg,#0f4d82,#1a6eb5);color:#fff;padding:20px 24px;text-align:center}
-    .body{padding:22px 26px;font-size:15px;line-height:1.9;color:#333}
-    .ref{background:#daeaf8;color:#0f4d82;padding:10px 18px;border-radius:10px;font-size:24px;font-weight:800;display:inline-block;margin:10px 0}
-    .ft{background:#f8f9fb;padding:12px;font-size:12px;color:#999;text-align:center;border-top:1px solid #eee}
-  </style></head><body><div class="card">
-    <div class="hdr"><h2 style="margin:0;font-size:18px">🏛 بلدية وادي الست</h2><p style="margin:4px 0 0;opacity:.8;font-size:13px">نظام متابعة الطلبات والشكاوى</p></div>
-    <div class="body">
-      <p>السيد/ة <strong>${name}</strong>،</p>
-      <p>تم استلام طلبكم وقيده في نظامنا بنجاح. رقمكم المرجعي:</p>
-      <div style="text-align:center"><span class="ref">#${caseId}</span></div>
-      <table style="width:100%;border-collapse:collapse;margin:14px 0;font-size:14px">
-        <tr><td style="padding:7px 10px;border-bottom:1px solid #eee;color:#666">نوع الطلب</td><td style="padding:7px 10px;border-bottom:1px solid #eee"><strong>${typeLabel}</strong></td></tr>
-        <tr><td style="padding:7px 10px;border-bottom:1px solid #eee;color:#666">الحالة</td><td style="padding:7px 10px;border-bottom:1px solid #eee"><strong>${statusLabel}</strong></td></tr>
-      </table>
-      <p style="font-size:13px;color:#666">احتفظ بالرقم المرجعي لمتابعة طلبك لاحقاً.</p>
-    </div>
-    <div class="ft">بلدية وادي الست · قضاء الشوف · جبل لبنان<br>Powered by IanTrading SAL © 2026</div>
-  </div></body></html>`;
-}
-
-function buildStatusEmail(caseId, name, newStatus, publicNote) {
-  const statusLabel = {new:'جديد','in-progress':'قيد المعالجة',resolved:'منجز ✅',closed:'مغلق','pending-approval':'ينتظر الموافقة'}[newStatus] || newStatus;
-  return `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><style>
-    body{font-family:Tahoma,Arial,sans-serif;background:#f0f2f7;margin:0;padding:16px;direction:rtl}
-    .card{background:#fff;border-radius:14px;max-width:560px;margin:0 auto;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1)}
-    .hdr{background:linear-gradient(120deg,#1e5429,#2d7a3e);color:#fff;padding:18px 22px;text-align:center}
-    .body{padding:22px 26px;font-size:15px;line-height:1.9;color:#333}
-    .ft{background:#f8f9fb;padding:12px;font-size:12px;color:#999;text-align:center;border-top:1px solid #eee}
-  </style></head><body><div class="card">
-    <div class="hdr"><h2 style="margin:0;font-size:17px">🔄 تحديث حالة الطلب #${caseId}</h2></div>
-    <div class="body">
-      <p>السيد/ة <strong>${name}</strong>،</p>
-      <p>تم تحديث حالة طلبكم إلى: <strong style="color:#1e5429;font-size:17px">${statusLabel}</strong></p>
-      ${publicNote ? `<div style="background:#f0f8ea;border:2px solid #a8d9b4;border-radius:10px;padding:14px;margin-top:12px"><strong style="color:#1e5429">📢 رد البلدية:</strong><br>${publicNote}</div>` : ''}
-    </div>
-    <div class="ft">بلدية وادي الست · Powered by IanTrading SAL © 2026</div>
-  </div></body></html>`;
-}
+});
 
 </script>
 <div style="position:fixed;bottom:0;left:0;right:0;background:rgba(15,77,130,0.95);color:rgba(255,255,255,0.6);text-align:center;padding:8px;font-size:12px;z-index:9999;pointer-events:none;direction:ltr">Powered by <strong style="color:#fff">IanTrading SAL</strong> &nbsp;·&nbsp; All rights reserved © 2026</div>
