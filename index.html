@@ -16,7 +16,7 @@
   --purple:#6535a8;--purple-bg:#ede8f8;--font:'Tajawal',sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.65;direction:rtl;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.65;direction:rtl;}body.dark-mode{filter:invert(1) hue-rotate(180deg);}body.dark-mode img{filter:invert(1) hue-rotate(180deg);}
 
 /* ── LOGIN ── */
 .ls{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,var(--blue2),var(--blue) 50%,var(--green2));padding:24px;}
@@ -183,6 +183,26 @@ select.fi{cursor:pointer;appearance:none;-webkit-appearance:none;}
 .user-name{font-weight:700;font-size:14px;}
 .user-email{font-size:12px;color:var(--text3);}
 .user-role-tag{padding:2px 10px;border-radius:20px;font-size:12px;font-weight:600;background:var(--blue3);color:var(--blue);}
+.profile-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-bottom:18px;}
+.profile-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:18px;}
+.profile-head{display:flex;align-items:center;gap:14px;margin-bottom:12px;}
+.profile-avatar{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;}
+.log-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;}
+.log-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:18px;}
+.log-list{display:flex;flex-direction:column;gap:10px;max-height:340px;overflow:auto;}
+.log-item{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:#fafbfe;}
+.log-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px;}
+.log-meta{font-size:11.5px;color:var(--text3);line-height:1.8;}
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0 6px;}
+.kpi-box{border:1px solid var(--border);border-radius:12px;padding:12px;background:#fafbfe;}
+.kpi-num{font-size:22px;font-weight:800;color:var(--blue2);line-height:1.1;}
+.kpi-lbl{font-size:12px;color:var(--text3);margin-top:2px;}
+.perm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;}
+.perm-item{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:var(--surface2);font-size:13px;}
+.perm-item strong{display:block;font-size:12px;margin-bottom:3px;color:var(--text2);}
+.perm-yes{color:var(--green2);font-weight:800;}
+.perm-no{color:var(--danger);font-weight:800;}
+.role-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:var(--blue3);color:var(--blue);font-size:12px;font-weight:800;}
 @keyframes popIn{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
 </style>
 </head>
@@ -237,7 +257,7 @@ select.fi{cursor:pointer;appearance:none;-webkit-appearance:none;}
       <div class="ni" id="nav-audit" onclick="openAuditLog()" style="display:none"><span class="nii">🧾</span> سجل التعديلات</div>
       <div class="ni" id="nav-wa" onclick="openWhatsAppRoles()" style="display:none"><span class="nii">📱</span> إشعارات واتساب</div>
       <div class="ni" onclick="openProfile()"><span class="nii">🪪</span> ملفي الوظيفي</div>
-      <div class="ni" onclick="exportCSV()"><span class="nii">⬇️</span> تصدير CSV</div>
+      <div class="ni feature-export" onclick="exportCSV()"><span class="nii">⬇️</span> تصدير CSV</div>
     </div>
     <div class="sb-ft">
       <div>نظام متابعة المواطنين v5.0</div>
@@ -256,7 +276,12 @@ select.fi{cursor:pointer;appearance:none;-webkit-appearance:none;}
       <div class="tbt" id="PT">جميع الطلبات</div>
       <span class="sv" id="SV">⏳ جاري الحفظ…</span>
       <div class="sw"><span class="si">🔍</span><input type="text" id="QQ" placeholder="ابحث…" oninput="go()"></div>
-      <button class="btn bg" onclick="exportCSV()">⬇ تصدير</button>
+      <button class="btn bg" onclick="openProfile()">🪪 الملف الوظيفي</button>
+      <button class="btn bg" onclick="refreshData()">↻ تحديث</button>
+      <button class="btn bg" onclick="printFiltered()">🖨 طباعة</button>
+      <button class="btn bg" onclick="exportJSON()">🗂 JSON</button>
+      <button class="btn bg" onclick="exportCSV()">⬇ CSV</button>
+      <button class="btn bg" id="THEME_BTN" onclick="toggleTheme()">🌙 الوضع الليلي</button>
       <button class="btn bp" id="BADD" onclick="openAdd()">+ طلب جديد</button>
     </div>
     <div class="ct" id="MAIN_CT">
@@ -314,10 +339,11 @@ const OFFICERS=['م. مقصود','ف. جوهر','ن. خوري','ر. سلامة',
 // ── ROLE DEFINITIONS ──────────────────────────────────────────────────────────
 // Roles are stored in Supabase user metadata: { role: 'mayor'|'admin'|'approver'|'officer', name: '...' }
 const ROLE_CFG={
-  mayor:   {l:'رئيس البلدية',  i:'👑', A:true,  add:true,  del:true,  edit:true,  admin:true},
-  admin:   {l:'المدير',        i:'⚙️', A:false, add:true,  del:true,  edit:true,  admin:false},
-  approver:{l:'مسؤول الموافقات',i:'✅', A:true,  add:false, del:false, edit:false, admin:false},
-  officer: {l:'موظف المتابعة', i:'👤', A:false, add:true,  del:false, edit:true,  admin:false},
+  mayor:   {l:'رئيس البلدية',   i:'👑', A:true,  add:true,  del:true,  edit:true,  admin:true,  export:true, print:true, settings:true, profile:true, activity:true, audit:true, wa:true},
+  admin:   {l:'المدير',         i:'⚙️', A:false, add:true,  del:true,  edit:true,  admin:true,  export:true, print:true, settings:true, profile:true, activity:true, audit:true, wa:true},
+  approver:{l:'مسؤول الموافقات', i:'✅', A:true,  add:false, del:false, edit:false, admin:false, export:false, print:true, settings:false, profile:true, activity:false, audit:true, wa:false},
+  officer: {l:'موظف المتابعة',  i:'👤', A:false, add:true,  del:false, edit:true,  admin:false, export:false, print:true, settings:false, profile:true, activity:false, audit:false, wa:false},
+  viewer:  {l:'عرض فقط',        i:'👁️', A:false, add:false, del:false, edit:false, admin:false, export:false, print:false, settings:false, profile:true, activity:false, audit:false, wa:false},
 };
 
 // ── SUPABASE ──────────────────────────────────────────────────────────────────
@@ -333,6 +359,125 @@ function toast(m,t='ok'){const el=document.getElementById('toast');el.textConten
 function sv(s){document.getElementById('SV').classList.toggle('show',s);}
 function tick(){document.getElementById('LD').textContent=new Date().toLocaleString('ar-LB',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}
 function getRoleCfg(){return ROLE_CFG[userRole]||ROLE_CFG.officer;}
+function canDo(action){return !!getRoleCfg()[action];}
+function guard(action,msg){
+  if(canDo(action)) return true;
+  toast(msg || '🚫 ليس لديك صلاحية لهذه العملية','err');
+  return false;
+}
+function applyRoleVisibility(){
+  const R=getRoleCfg();
+  const show=(sel,ok,mode='')=>document.querySelectorAll(sel).forEach(el=>el.style.display=ok?(mode||''):'none');
+  show('#nav-pend',R.A,'flex');
+  show('#nav-add',R.add,'flex');
+  show('#BADD',R.add,'inline-flex');
+  show('#nav-users',R.admin,'flex');
+  show('#nav-activity',R.activity,'flex');
+  show('#nav-audit',R.audit,'flex');
+  show('#nav-wa',R.wa,'flex');
+  show('.feature-export',R.export,'inline-flex');
+  document.querySelectorAll('[onclick="printFiltered()"]').forEach(el=>el.style.display=R.print?'inline-flex':'none');
+}
+function getPermissionRows(){
+  const R=getRoleCfg();
+  return [
+    ['تعديل الطلبات', R.edit],
+    ['إضافة طلب جديد', R.add],
+    ['حذف الطلبات', R.del],
+    ['الموافقات الرسمية', R.A],
+    ['إدارة المستخدمين', R.admin],
+    ['تصدير البيانات', R.export],
+    ['الطباعة', R.print],
+    ['إعدادات النظام', R.settings],
+    ['تتبع نشاط الموظفين', R.activity],
+    ['سجل التدقيق والتعديلات', R.audit],
+    ['إشعارات واتساب حسب الدور', R.wa]
+  ];
+}
+
+
+const APP_ACTIVITY_KEY='wadi_user_activity_v1';
+const APP_AUDIT_KEY='wadi_audit_log_v1';
+const APP_WA_KEY='wadi_whatsapp_roles_v1';
+
+function appUserName(){return currentUser?.user_metadata?.name||currentUser?.email||'مستخدم';}
+function readLS(k,fallback=[]){try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(fallback));}catch{return fallback;}}
+function writeLS(k,v){localStorage.setItem(k,JSON.stringify(v));}
+function nowISO(){return new Date().toISOString();}
+function fmtDT(v){if(!v) return '—'; const d=new Date(v); return d.toLocaleString('ar-LB');}
+function trackActivity(action, details=''){
+  const rows=readLS(APP_ACTIVITY_KEY,[]);
+  rows.unshift({id:Date.now()+Math.random(), user:appUserName(), role:userRole, action, details, at:nowISO()});
+  writeLS(APP_ACTIVITY_KEY, rows.slice(0,300));
+}
+function logAudit(entity, action, ref='—', details=''){
+  const rows=readLS(APP_AUDIT_KEY,[]);
+  rows.unshift({id:Date.now()+Math.random(), user:appUserName(), role:userRole, entity, action, ref, details, at:nowISO()});
+  writeLS(APP_AUDIT_KEY, rows.slice(0,500));
+}
+function getWhatsAppSettings(){
+  const base={
+    mayor:{enabled:true, phones:'', template:'إشعار جديد لرئيس البلدية: {event}'},
+    admin:{enabled:true, phones:'', template:'إشعار إداري: {event}'},
+    approver:{enabled:true, phones:'', template:'طلب يحتاج موافقة: {event}'},
+    officer:{enabled:false, phones:'', template:'تحديث مهمة: {event}'},
+    viewer:{enabled:false, phones:'', template:'تنبيه عرض فقط: {event}'}
+  };
+  const saved=readLS(APP_WA_KEY, null);
+  return saved ? {...base, ...saved} : base;
+}
+function saveWhatsAppSettings(data){writeLS(APP_WA_KEY,data); trackActivity('حفظ إعدادات واتساب','تم تحديث إعدادات الإشعارات حسب الدور'); logAudit('whatsapp_roles','update','roles','تعديل إعدادات واتساب حسب الدور');}
+function maybeWhatsAppNotify(targetRole,eventName,caseRef='—'){
+  const cfg=getWhatsAppSettings()[targetRole];
+  if(!cfg||!cfg.enabled) return;
+  const rows=readLS(APP_AUDIT_KEY,[]);
+  rows.unshift({id:Date.now()+Math.random(), user:appUserName(), role:userRole, entity:'whatsapp_notification', action:'queued', ref:caseRef, details:`إشعار واتساب مجدول للدور ${targetRole}: ${eventName}`, at:nowISO()});
+  writeLS(APP_AUDIT_KEY, rows.slice(0,500));
+}
+function getActivityStats(){
+  const rows=readLS(APP_ACTIVITY_KEY,[]);
+  const today=new Date().toDateString();
+  const todayRows=rows.filter(r=>new Date(r.at).toDateString()===today);
+  const uniq=new Set(rows.map(r=>r.user));
+  return {total:rows.length, today:todayRows.length, users:uniq.size};
+}
+function openActivityTracking(){
+  if(!guard('activity','🚫 هذه الصفحة متاحة للإدارة فقط')) return;
+  const rows=readLS(APP_ACTIVITY_KEY,[]);
+  const stats=getActivityStats();
+  const last=rows.slice(0,20).map(r=>`<div class="log-item"><div class="log-title">${r.action}</div><div class="log-meta">👤 ${r.user} — ${r.role}<br>📝 ${r.details||'—'}<br>🕒 ${fmtDT(r.at)}</div></div>`).join('') || '<div class="em">لا يوجد نشاط بعد</div>';
+  const users={}; rows.forEach(r=>{users[r.user]=(users[r.user]||0)+1;});
+  const top=Object.entries(users).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([u,c])=>`<div class="log-item"><div class="log-title">${u}</div><div class="log-meta">عدد الأنشطة المسجّلة: ${c}</div></div>`).join('') || '<div class="em">لا بيانات</div>';
+  document.getElementById('MT').textContent='📊 تتبع نشاط الموظفين';
+  document.getElementById('MB').innerHTML=`<div class="kpi-strip"><div class="kpi-box"><div class="kpi-num">${stats.total}</div><div class="kpi-lbl">إجمالي الأنشطة</div></div><div class="kpi-box"><div class="kpi-num">${stats.today}</div><div class="kpi-lbl">نشاط اليوم</div></div><div class="kpi-box"><div class="kpi-num">${stats.users}</div><div class="kpi-lbl">الموظفون النشطون</div></div><div class="kpi-box"><div class="kpi-num">20</div><div class="kpi-lbl">آخر السجلات المعروضة</div></div></div><div class="log-grid"><div class="log-card"><div class="admin-header">آخر نشاطات النظام</div><div class="log-list">${last}</div></div><div class="log-card"><div class="admin-header">الأكثر نشاطاً</div><div class="log-list">${top}</div></div></div><div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px"><button class="btn bg" onclick="closeM()">إغلاق</button><button class="btn bp" onclick="exportActivityJSON()">تصدير نشاط المستخدمين</button></div>`;
+  document.getElementById('OV').classList.add('open');
+}
+function openAuditLog(){
+  if(!guard('audit','🚫 سجل التدقيق غير متاح لهذا الدور')) return;
+  const rows=readLS(APP_AUDIT_KEY,[]);
+  const list=rows.slice(0,30).map(r=>`<div class="log-item"><div class="log-title">${r.action} — ${r.entity}</div><div class="log-meta">👤 ${r.user} — ${r.role}<br>📎 المرجع: ${r.ref||'—'}<br>📝 ${r.details||'—'}<br>🕒 ${fmtDT(r.at)}</div></div>`).join('') || '<div class="em">لا يوجد سجل تدقيق بعد</div>';
+  document.getElementById('MT').textContent='🧾 سجل التدقيق والتعديلات';
+  document.getElementById('MB').innerHTML=`<div class="log-card"><div class="admin-header">آخر 30 عملية مسجلة</div><div class="log-list">${list}</div></div><div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px"><button class="btn bg" onclick="closeM()">إغلاق</button><button class="btn bp" onclick="exportAuditJSON()">تصدير سجل التدقيق</button></div>`;
+  document.getElementById('OV').classList.add('open');
+}
+function openWhatsAppRoles(){
+  if(!guard('wa','🚫 إعدادات واتساب حسب الدور متاحة للإدارة فقط')) return;
+  const cfg=getWhatsAppSettings();
+  const roles=['mayor','admin','approver','officer','viewer'];
+  const labels={mayor:'👑 رئيس البلدية',admin:'⚙️ المدير',approver:'✅ مسؤول الموافقات',officer:'👤 موظف المتابعة',viewer:'👁️ عرض فقط'};
+  const rows=roles.map(r=>`<div class="log-item"><div class="log-title">${labels[r]}</div><div class="g2"><div class="fg"><div class="fl">تفعيل</div><select class="fi" id="wa-enabled-${r}"><option value="1" ${cfg[r].enabled?'selected':''}>مفعّل</option><option value="0" ${!cfg[r].enabled?'selected':''}>متوقف</option></select></div><div class="fg"><div class="fl">أرقام واتساب</div><input class="fi" id="wa-phones-${r}" value="${cfg[r].phones||''}" placeholder="961... , 33..." style="direction:ltr"></div></div><div class="fg"><div class="fl">نص الرسالة</div><textarea class="fi" id="wa-template-${r}" placeholder="استخدم {event}">${cfg[r].template||''}</textarea></div></div>`).join('');
+  document.getElementById('MT').textContent='📱 إشعارات واتساب حسب الدور';
+  document.getElementById('MB').innerHTML=`<div class="admin-section"><div class="admin-header">إعداد الأرقام والرسائل لكل دور</div><div style="font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:12px">هذه النسخة تضيف إدارة الإعدادات داخل اللوحة. الربط الفعلي مع WhatsApp API يتم لاحقاً عبر Supabase Edge Functions أو مزوّد مثل Twilio أو Meta Cloud API.</div><div class="log-list">${rows}</div><div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px"><button class="btn bg" onclick="closeM()">إغلاق</button><button class="btn bp" onclick="saveWhatsAppRolesFromModal()">حفظ الإعدادات</button></div></div>`;
+  document.getElementById('OV').classList.add('open');
+}
+function saveWhatsAppRolesFromModal(){
+  const roles=['mayor','admin','approver','officer','viewer'];
+  const data={};
+  roles.forEach(r=>{data[r]={enabled:document.getElementById(`wa-enabled-${r}`).value==='1', phones:document.getElementById(`wa-phones-${r}`).value.trim(), template:document.getElementById(`wa-template-${r}`).value.trim()};});
+  saveWhatsAppSettings(data); toast('✓ تم حفظ إعدادات واتساب حسب الدور'); closeM();
+}
+function exportActivityJSON(){const blob=new Blob([JSON.stringify(readLS(APP_ACTIVITY_KEY,[]),null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='user_activity.json';a.click();URL.revokeObjectURL(a.href);}
+function exportAuditJSON(){const blob=new Blob([JSON.stringify(readLS(APP_AUDIT_KEY,[]),null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='audit_log.json';a.click();URL.revokeObjectURL(a.href);}
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 async function doLogin(){
@@ -372,13 +517,12 @@ async function setupUser(user){
   document.getElementById('UN').textContent=userName;
   document.getElementById('UE').textContent=user.email;
   document.getElementById('UR').innerHTML=R.i+' '+R.l;
-  // Show/hide nav items
-  if(R.A)document.getElementById('nav-pend').style.display='flex';
-  if(!R.add){document.getElementById('BADD').style.display='none';document.getElementById('nav-add').style.display='none';}
-  if(R.admin)document.getElementById('nav-users').style.display='flex';
+  applyRoleVisibility();
   // Switch screens
   document.getElementById('LS').style.display='none';
   document.getElementById('APP').style.display='block';
+  loadViewPrefs();
+  applyPrefsToUI();
   await load();
   tick();setInterval(tick,60000);
   if(dbR)subscribe();
@@ -425,6 +569,7 @@ async function saveC(c){
 }
 
 async function delC(id){
+  if(!guard('del','🚫 لا تملك صلاحية حذف الطلبات')) return;
   if(!dbR)return;sv(true);
   try{
     const c=cases.find(x=>String(x.id)===String(id));
@@ -455,17 +600,19 @@ async function upDoc(caseId,file){
 }
 
 async function addDoc(caseId,file){
+  if(!guard('edit','🚫 لا تملك صلاحية تعديل الطلبات')) return;
   const c=cases.find(x=>String(x.id)===String(caseId));if(!c)return;
   const info=await upDoc(caseId,file);if(!info)return;
   const docs=[...(c.documents||[]),info];c.documents=docs;
   const tl=[...(c.timeline||[]),{a:`تم إرفاق: ${file.name}`,by:currentUser.user_metadata?.name||currentUser.email,d:new Date().toISOString().slice(0,10),cls:''}];
   c.timeline=tl;sv(true);
-  try{const{error}=await sb.from('cases').update({documents:docs,timeline:tl}).eq('id',caseId);if(error)throw error;toast('📎 تم رفع الملف');}
+  try{const{error}=await sb.from('cases').update({documents:docs,timeline:tl}).eq('id',caseId);if(error)throw error; logAudit('case_document','upload',caseId,`رفع ${newFiles.length} ملف/ملفات`); trackActivity('رفع ملف',`تم رفع مرفقات للطلب ${caseId}`); toast('📎 تم رفع الملف');}
   catch(e){toast('خطأ: '+e.message,'err');}finally{sv(false);}
   openDetail(caseId);
 }
 
 async function rmDoc(caseId,path){
+  if(!guard('edit','🚫 لا تملك صلاحية تعديل الطلبات')) return;
   const c=cases.find(x=>String(x.id)===String(caseId));if(!c||!confirm('حذف هذا المستند؟'))return;
   sv(true);
   try{
@@ -515,7 +662,7 @@ function navType(el,t){
   document.getElementById('PT').textContent=lbl[t];page=1;go();
 }
 function sf(f,btn){stF=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page=1;go();}
-function go(){qF=document.getElementById('QQ').value.trim();tyF=document.getElementById('TS').value;sortM=document.getElementById('SS').value;render();}
+function go(){qF=document.getElementById('QQ').value.trim();tyF=document.getElementById('TS').value;sortM=document.getElementById('SS').value;saveViewPrefs();render();}
 
 function filtered(){
   let d=[...cases];
@@ -623,7 +770,8 @@ function openDetail(id){
     <div class="fl" style="margin-bottom:12px">سجل النشاط</div>
     <div class="tl">${tl.length?tl.slice().reverse().map(t=>`<div class="tli"><div class="tld ${t.cls||''}"></div><div class="tlln"></div><div><div class="tla">${t.a}</div><div class="tlm">${t.by||''} · <span class="ltr">${t.d||''}</span></div></div></div>`).join(''):'<div style="color:var(--text3);font-size:13px">لا يوجد نشاط</div>'}</div>
     <div class="dv"></div>
-    <div style="display:flex;gap:9px">
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <button class="btn bg" style="flex:1;justify-content:center" onclick="copyCaseSummary('${id}')">📋 نسخ الملخص</button>
       <button class="btn bg" style="flex:1;justify-content:center" onclick="closeM()">إغلاق</button>
       ${R.del?`<button class="btn bd2" style="flex:1;justify-content:center" onclick="cd('${id}')">🗑 حذف</button>`:''}
     </div>`;
@@ -634,6 +782,7 @@ function hf(files,id){Array.from(files).forEach(f=>addDoc(id,f));}
 function hd(e,id){e.preventDefault();document.getElementById('uz'+id)?.classList.remove('drag');hf(e.dataTransfer.files,id);}
 
 async function uf(id,field,value,by){
+  if(!guard('edit','🚫 لا تملك صلاحية تعديل الطلبات')) return;
   const c=cases.find(x=>String(x.id)===String(id));if(!c)return;
   const today=new Date().toISOString().slice(0,10);c[field]=value;
   const tl=[...(c.timeline||[])];
@@ -643,6 +792,7 @@ async function uf(id,field,value,by){
 }
 
 async function doApprove(id,dec){
+  if(!guard('A','🚫 لا تملك صلاحية الموافقات الرسمية')) return;
   const c=cases.find(x=>String(x.id)===String(id));if(!c)return;
   const today=new Date().toISOString().slice(0,10);
   const by=currentUser?.user_metadata?.name||currentUser?.email||'—';
@@ -656,6 +806,7 @@ async function cd(id){if(!confirm('حذف هذا الطلب نهائياً؟'))r
 
 // ── ADD ───────────────────────────────────────────────────────────────────────
 function openAdd(){
+  if(!guard('add','🚫 لا تملك صلاحية إضافة طلب جديد')) return;
   document.getElementById('MT').textContent='إضافة طلب جديد';
   document.getElementById('MB').innerHTML=`
     <div class="g2">
@@ -683,6 +834,8 @@ function openAdd(){
 function can(){const t=document.getElementById('at').value;document.getElementById('an2').style.display=NA.includes(t)?'flex':'none';}
 
 async function subAdd(){
+  trackActivity('فتح إضافة طلب','بدء إنشاء طلب جديد');
+  if(!guard('add','🚫 لا تملك صلاحية إضافة طلب جديد')) return;
   const name=document.getElementById('an').value.trim(),phone=document.getElementById('aph').value.trim(),email=document.getElementById('aem').value.trim(),address=document.getElementById('aad').value.trim(),type=document.getElementById('at').value,description=document.getElementById('ad').value.trim(),priority=document.getElementById('ap').value,assigned=document.getElementById('ao').value,notes=document.getElementById('ano').value.trim();
   if(!name||!description){alert('يرجى إدخال الاسم والوصف');return;}
   const today=new Date().toISOString().slice(0,10);const na=NA.includes(type);
@@ -690,8 +843,60 @@ async function subAdd(){
   const nc={name,phone,email,address,type,description,priority,assigned,notes,status:na?'pending-approval':'new',approval_state:na?'pending':null,approval_by:null,approval_date:null,timeline:[{a:'تم فتح الطلب',by,d:today,cls:''}],documents:[],source:'staff'};
   if(!dbR){nc.id=Date.now();nc.created_at=new Date().toISOString();cases.unshift(nc);closeM();rStats();render();toast('⚠️ تم الحفظ محلياً فقط','err');return;}
   sv(true);
-  try{const{data,error}=await sb.from('cases').insert([nc]).select().single();if(error)throw error;cases.unshift(data);closeM();rStats();render();toast('✓ تم إضافة الطلب');}
+  try{const{data,error}=await sb.from('cases').insert([nc]).select().single();if(error)throw error;cases.unshift(data); logAudit('case','create',data?.id||'—',`إنشاء طلب جديد: ${type}`); trackActivity('إضافة طلب',`طلب جديد رقم ${data?.id||'—'}`); maybeWhatsAppNotify('admin','تم إنشاء طلب جديد',data?.id||'—'); closeM();rStats();render();toast('✓ تم إضافة الطلب');}
   catch(e){toast('خطأ: '+e.message,'err');}finally{sv(false);}
+}
+
+function openProfile(){
+  const R=getRoleCfg();
+  const nm=currentUser?.user_metadata?.name||currentUser?.email?.split('@')[0]||'—';
+  const em=currentUser?.email||'—';
+  const [fc,bc]=avc(nm);
+  const perms=getPermissionRows().map(([label,ok])=>`<div class="perm-item"><strong>${label}</strong><span class="${ok?'perm-yes':'perm-no'}">${ok?'مفعّل':'غير متاح'}</span></div>`).join('');
+  document.getElementById('MT').textContent='الملف الوظيفي والصلاحيات';
+  document.getElementById('MB').innerHTML=`
+    <div class="profile-grid">
+      <div class="profile-card">
+        <div class="profile-head">
+          <div class="profile-avatar" style="background:${bc};color:${fc}">${ini(nm)}</div>
+          <div style="flex:1">
+            <div style="font-size:18px;font-weight:800">${nm}</div>
+            <div style="font-size:12px;color:var(--text3);direction:ltr;text-align:right">${em}</div>
+            <div style="margin-top:8px"><span class="role-chip">${R.i} ${R.l}</span></div>
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.9">
+          هذه البطاقة توضّح دورك الحالي في النظام وما يمكنك رؤيته أو تعديله.
+          أي ميزة غير متاحة يتم إخفاؤها تلقائياً أو فتحها بوضع القراءة فقط.
+        </div>
+        <div class="perm-grid">${perms}</div>
+      </div>
+      <div class="profile-card">
+        <div style="font-size:15px;font-weight:800;color:var(--blue2);margin-bottom:10px">ماذا يعني دورك؟</div>
+        <div style="font-size:13px;color:var(--text2);line-height:2">
+          ${userRole==='viewer' ? 'أنت في وضع عرض فقط. يمكنك رؤية الطلبات ومتابعتها من دون تعديل أو حذف أو تصدير.' :
+            userRole==='officer' ? 'أنت موظف متابعة. يمكنك فتح الطلبات وتعديل الحالة والملاحظات وإضافة طلبات جديدة.' :
+            userRole==='approver' ? 'أنت مسؤول الموافقات. يمكنك مراجعة الطلبات التي تحتاج قراراً رسمياً، لكن دون تعديل كامل لكل الحقول.' :
+            userRole==='admin' ? 'أنت مدير النظام. لديك صلاحيات تشغيلية كاملة بما فيها إدارة المستخدمين والتصدير.' :
+            'أنت رئيس البلدية. لديك أعلى مستوى من الصلاحيات والموافقات والإدارة.'}
+        </div>
+        <div class="dv"></div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:8px">ملخص الوصول</div>
+        <div style="font-size:13px;color:var(--text2);line-height:2">
+          • الطلبات: ${R.edit?'تعديل مسموح':'عرض فقط'}<br>
+          • المستخدمون: ${R.admin?'إدارة كاملة':'غير متاح'}<br>
+          • التصدير: ${R.export?'مسموح':'غير متاح'}<br>
+          • الطباعة: ${R.print?'مسموح':'غير متاح'}<br>
+          • تتبع النشاط: ${R.activity?'مسموح':'غير متاح'}<br>
+          • سجل التدقيق: ${R.audit?'مسموح':'غير متاح'}<br>
+          • إشعارات واتساب: ${R.wa?'مسموح':'غير متاح'}
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <button class="btn bg" style="flex:1;justify-content:center" onclick="closeM()">إغلاق</button>
+    </div>`;
+  document.getElementById('OV').classList.add('open');
 }
 
 // ── USER MANAGEMENT (Admin only) ──────────────────────────────────────────────
@@ -729,34 +934,34 @@ function openUsers(){
 }
 
 async function createUser(){
-  const name=document.getElementById('nu-name').value.trim();
-  const email=document.getElementById('nu-email').value.trim();
-  const pw=document.getElementById('nu-pw').value;
-  const role=document.getElementById('nu-role').value;
-  const msg=document.getElementById('cu-msg');
-  if(!name||!email||!pw){msg.style.color='var(--danger)';msg.textContent='يرجى ملء جميع الحقول';return;}
-  if(pw.length<8){msg.style.color='var(--danger)';msg.textContent='كلمة المرور يجب أن تكون 8 أحرف على الأقل';return;}
-  if(!dbR){msg.style.color='var(--danger)';msg.textContent='Supabase غير مُعد';return;}
-  msg.style.color='var(--text3)';msg.textContent='⏳ جاري إنشاء الحساب…';
+  const name=document.getElementById("nu-name")?.value?.trim();
+  const email=document.getElementById("nu-email")?.value?.trim();
+  const pw=document.getElementById("nu-pw")?.value;
+  const role=document.getElementById("nu-role")?.value||"officer";
+  const msg=document.getElementById("cu-msg");
+  if(!name||!email||!pw){msg.style.color="var(--danger)";msg.textContent="يرجى ملء جميع الحقول";return;}
+  if(pw.length<8){msg.style.color="var(--danger)";msg.textContent="كلمة المرور 8 أحرف على الأقل";return;}
+  msg.style.color="var(--text3)";msg.textContent="⏳ جاري إنشاء الحساب…";
   try{
-    const{data,error}=await sb.auth.admin?
-      sb.auth.admin.createUser({email,password:pw,user_metadata:{name,role},email_confirm:true}):
-      // Fallback: use signUp (will send confirmation email)
-      await sb.auth.signUp({email,password:pw,options:{data:{name,role}}});
-    if(error)throw error;
-    msg.style.color='var(--green2)';
-    msg.textContent=`✅ تم إنشاء حساب ${name} بنجاح!`;
-    document.getElementById('nu-name').value='';
-    document.getElementById('nu-email').value='';
-    document.getElementById('nu-pw').value='';
-  }catch(e){
-    msg.style.color='var(--danger)';
-    msg.textContent='خطأ: '+e.message;
-  }
+    const session=await sb.auth.getSession();
+    const jwt=session?.data?.session?.access_token||"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4";
+    const r=await fetch("https://onjbwhkmmtqnymhjnplw.supabase.co/functions/v1/admin-user",{
+      method:"POST",
+      headers:{"apikey":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4","Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
+      body:JSON.stringify({action:"create",email:email,password:pw,name:name,role:role})
+    });
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error||d.message||d.msg||"فشل إنشاء الحساب");
+    msg.style.color="var(--green2)";
+    msg.textContent="✅ تم إنشاء حساب "+name+" بنجاح!";
+    ["nu-name","nu-email","nu-pw"].forEach(function(id){var el=document.getElementById(id);if(el)el.value="";});
+    setTimeout(function(){loadEmp();},800);
+  }catch(e){msg.style.color="var(--danger)";msg.textContent="خطأ: "+e.message;}
 }
 
 // ── EXPORT ────────────────────────────────────────────────────────────────────
 function exportCSV(){
+  if(!guard('export','🚫 لا تملك صلاحية تصدير البيانات')) return;
   const h=['الرقم','الاسم','الهاتف','البريد','العنوان','النوع','الوصف','المسؤول','التاريخ','الحالة','الأولوية','الموافقة','ملفات','المصدر'];
   const rows=cases.map(c=>[c.id,c.name,c.phone||'',c.email||'',c.address||'',TL[c.type]||c.type,c.description,c.assigned,(c.created_at||'').slice(0,10),SL[c.status]||c.status,PL[c.priority]||c.priority,c.approval_state||'—',(c.documents||[]).length,c.source==='website'?'موقع':'موظف']);
   const csv='\uFEFF'+[h,...rows].map(r=>r.map(x=>`"${x||''}"`).join(',')).join('\n');
@@ -779,9 +984,9 @@ async function loadEmp() {
       headers: { apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4' }
     });
     const j = await r.json();
-    const users = (j.users || []).filter(u => ['mayor','admin','approver','officer'].includes(u.user_metadata?.role));
+    const users = (j.users || []).filter(u => ['mayor','admin','approver','officer','viewer'].includes(u.user_metadata?.role));
     if (!users.length) { el.innerHTML = '<div style="text-align:center;padding:14px;color:var(--text3)">لا يوجد موظفون بعد</div>'; return; }
-    const RL = { mayor: '👑 رئيس البلدية', admin: '⚙️ المدير', approver: '✅ مسؤول الموافقات', officer: '👤 موظف المتابعة' };
+    const RL = { mayor: '👑 رئيس البلدية', admin: '⚙️ المدير', approver: '✅ مسؤول الموافقات', officer: '👤 موظف المتابعة', viewer:'👁️ عرض فقط' };
     const CL = [['#1a6eb5','#d6e9f8'],['#8a6200','#f5edca'],['#bf2424','#fdeaea'],['#6535a8','#ede8f8'],['#1e5429','#d4edda']];
     function gc2(n) { if (!n) return CL[0]; let h = 0; for (let c of n) h = (h*31 + c.charCodeAt(0)) & 0xffff; return CL[h % CL.length]; }
     function gi2(n) { if (!n) return '?'; return n.trim().split(/ +/).slice(0,2).map(w => w[0]).join(''); }
@@ -789,7 +994,7 @@ async function loadEmp() {
       const nm = u.user_metadata?.name || u.email.split('@')[0];
       const rl = u.user_metadata?.role || 'officer';
       const [fc, bc] = gc2(nm);
-      const opts = ['officer','approver','admin','mayor'].map(r =>
+      const opts = ['viewer','officer','approver','admin','mayor'].map(r =>
         `<option value="${r}"${r === rl ? ' selected' : ''}>${RL[r]}</option>`).join('');
       return `<div style="border:1px solid var(--border);border-radius:12px;padding:13px;margin-bottom:9px"
         data-uid="${u.id}" data-nm="${nm.replace(/"/g,'')}" data-rl="${rl}">
@@ -811,6 +1016,7 @@ async function loadEmp() {
 }
 
 async function chRole(sel) {
+  if(!guard('admin','🚫 تعديل الأدوار متاح للإدارة فقط')) return;
   const uid = sel.dataset.uid, name = sel.dataset.nm, role = sel.value;
   try {
     const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/' + uid, {
@@ -826,11 +1032,12 @@ async function chRole(sel) {
 }
 
 function editEmp(btn) {
+  if(!guard('admin','🚫 تعديل الموظفين متاح للإدارة فقط')) return;
   const uid = btn.dataset.uid, name = btn.dataset.nm, role = btn.dataset.rl;
-  const RL = { mayor: '👑 رئيس البلدية', admin: '⚙️ المدير', approver: '✅ مسؤول الموافقات', officer: '👤 موظف المتابعة' };
+  const RL = { mayor: '👑 رئيس البلدية', admin: '⚙️ المدير', approver: '✅ مسؤول الموافقات', officer: '👤 موظف المتابعة', viewer:'👁️ عرض فقط' };
   const old = document.getElementById('edit-emp-form');
   if (old) old.remove();
-  const opts = ['officer','approver','admin','mayor'].map(r =>
+  const opts = ['viewer','officer','approver','admin','mayor'].map(r =>
     `<option value="${r}"${r === role ? ' selected' : ''}>${RL[r]}</option>`).join('');
   document.getElementById('emp-list').insertAdjacentHTML('afterbegin', `
     <div id="edit-emp-form" style="background:var(--blue3);border:1.5px solid var(--blue);border-radius:12px;padding:16px;margin-bottom:14px">
@@ -845,6 +1052,7 @@ function editEmp(btn) {
 }
 
 async function saveEmp(uid) {
+  if(!guard('admin','🚫 تعديل الموظفين متاح للإدارة فقط')) return;
   const nm = document.getElementById('edit-nm').value.trim();
   const rl = document.getElementById('edit-rl').value;
   if (!nm) { toast('يرجى إدخال الاسم', 'err'); return; }
@@ -862,6 +1070,7 @@ async function saveEmp(uid) {
 }
 
 async function delEmp(btn) {
+  if(!guard('admin','🚫 حذف الموظفين متاح للإدارة فقط')) return;
   const uid = btn.dataset.uid, name = btn.dataset.nm;
   if (!confirm('حذف ' + name + '؟')) return;
   try {
@@ -872,6 +1081,89 @@ async function delEmp(btn) {
     if (r.status === 200 || r.status === 204) { toast('🗑 تم حذف ' + name); setTimeout(loadEmp, 700); }
     else throw new Error('فشل الحذف');
   } catch(e) { toast('⚠️ ' + e.message, 'err'); }
+}
+
+
+// ── VIEW / LOCAL UI UTILITIES ────────────────────────────────────────────────
+function loadViewPrefs(){
+  try{
+    const ui=JSON.parse(localStorage.getItem('wadi_ui_prefs')||'{}');
+    qF=ui.qF||'';
+    tyF=ui.tyF||'all';
+    sortM=ui.sortM||'date-desc';
+    const dark=!!ui.dark;
+    document.body.classList.toggle('dark-mode',dark);
+    const tb=document.getElementById('THEME_BTN');
+    if(tb)tb.textContent=dark?'☀️ الوضع النهاري':'🌙 الوضع الليلي';
+  }catch(e){}
+}
+function applyPrefsToUI(){
+  const q=document.getElementById('QQ'), ts=document.getElementById('TS'), ss=document.getElementById('SS');
+  if(q)q.value=qF||'';
+  if(ts)ts.value=tyF||'all';
+  if(ss)ss.value=sortM||'date-desc';
+}
+function saveViewPrefs(){
+  try{
+    localStorage.setItem('wadi_ui_prefs',JSON.stringify({
+      qF,tyF,sortM,
+      dark:document.body.classList.contains('dark-mode')
+    }));
+  }catch(e){}
+}
+function toggleTheme(){
+  const on=document.body.classList.toggle('dark-mode');
+  const tb=document.getElementById('THEME_BTN');
+  if(tb)tb.textContent=on?'☀️ الوضع النهاري':'🌙 الوضع الليلي';
+  saveViewPrefs();
+}
+async function refreshData(){
+  await load();
+  toast('↻ تم تحديث البيانات');
+}
+function printFiltered(){
+  if(!guard('print','🚫 لا تملك صلاحية الطباعة')) return;
+  const rows=filtered().map(c=>`
+    <tr>
+      <td>${String(c.id).slice(-4)}</td>
+      <td>${c.name||''}</td>
+      <td>${TL[c.type]||c.type}</td>
+      <td>${SL[c.status]||c.status}</td>
+      <td>${c.assigned||'—'}</td>
+      <td>${(c.created_at||'').slice(0,10)}</td>
+    </tr>`).join('');
+  const w=window.open('','_blank');
+  w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>طباعة</title>
+  <style>body{font-family:Tajawal,Arial,sans-serif;padding:24px}h2{margin-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:8px;text-align:right}th{background:#f3f5f8}</style>
+  </head><body><h2>بلدية وادي الست — قائمة الطلبات</h2><table><thead><tr><th>#</th><th>الاسم</th><th>النوع</th><th>الحالة</th><th>المسؤول</th><th>التاريخ</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+  w.document.close();
+  w.focus();
+  w.print();
+}
+function exportJSON(){
+  if(!guard('export','🚫 لا تملك صلاحية تصدير البيانات')) return;
+  const blob=new Blob([JSON.stringify(filtered(),null,2)],{type:'application/json;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='wadi-cases.json';
+  a.click();
+}
+function openSettings(){
+  if(!guard('settings','🚫 إعدادات النظام متاحة للإدارة فقط')) return;
+  document.getElementById('MT').textContent='إعدادات الاتصال';
+  document.getElementById('MB').innerHTML=`
+    <div class="admin-section">
+      <div class="admin-header">معلومات الاتصال الحالية</div>
+      <div style="font-size:13px;color:var(--text2);line-height:2">
+        <strong>Supabase URL:</strong><br><span class="ltr">${SUPABASE_URL}</span><br><br>
+        <strong>مفتاح الربط:</strong><br><span class="ltr">${SUPABASE_ANON_KEY.slice(0,28)}...</span>
+      </div>
+      <div class="ron" style="margin-top:14px">هذه النافذة للعرض فقط داخل هذا الإصدار الثابت من الملف.</div>
+      <div style="display:flex;gap:9px;margin-top:12px">
+        <button class="btn bg" style="flex:1;justify-content:center" onclick="closeM()">إغلاق</button>
+      </div>
+    </div>`;
+  document.getElementById('OV').classList.add('open');
 }
 
 function closeM(){document.getElementById('OV').classList.remove('open');}
@@ -1518,7 +1810,7 @@ window.addEventListener('load',async()=>{
     const{data:{session}}=await sb.auth.getSession();
     if(session&&session.user){
       const role=session.user?.user_metadata?.role||'';
-      if(['mayor','admin','approver','officer'].includes(role)){
+      if(['mayor','admin','approver','officer','viewer'].includes(role)){
         document.getElementById('LANDING').style.display='none';
         await setupUser(session.user);
         return;
@@ -1527,1083 +1819,6 @@ window.addEventListener('load',async()=>{
   }catch(e){console.error('Session check error:',e);}
   document.getElementById('LANDING').style.display='flex';
 });
-
-
-
-const APP_ACTIVITY_KEY='wadi_user_activity_v1';
-const APP_AUDIT_KEY='wadi_audit_log_v1';
-const APP_WA_KEY='wadi_whatsapp_roles_v1';
-
-function appUserName(){return currentUser?.user_metadata?.name||currentUser?.email||'مستخدم';}
-function readLS(k,fallback=[]){try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(fallback));}catch{return fallback;}}
-function writeLS(k,v){localStorage.setItem(k,JSON.stringify(v));}
-function nowISO(){return new Date().toISOString();}
-function fmtDT(v){if(!v) return '—'; const d=new Date(v); return d.toLocaleString('ar-LB');}
-function trackActivity(action, details=''){
-  const rows=readLS(APP_ACTIVITY_KEY,[]);
-  rows.unshift({id:Date.now()+Math.random(), user:appUserName(), role:userRole, action, details, at:nowISO()});
-  writeLS(APP_ACTIVITY_KEY, rows.slice(0,300));
-}
-function logAudit(entity, action, ref='—', details=''){
-  const rows=readLS(APP_AUDIT_KEY,[]);
-  rows.unshift({id:Date.now()+Math.random(), user:appUserName(), role:userRole, entity, action, ref, details, at:nowISO()});
-  writeLS(APP_AUDIT_KEY, rows.slice(0,500));
-}
-function getWhatsAppSettings(){
-  const base={
-    mayor:{enabled:true, phones:'', template:'إشعار جديد لرئيس البلدية: {event}'},
-    admin:{enabled:true, phones:'', template:'إشعار إداري: {event}'},
-    approver:{enabled:true, phones:'', template:'طلب يحتاج موافقة: {event}'},
-    officer:{enabled:false, phones:'', template:'تحديث مهمة: {event}'},
-    viewer:{enabled:false, phones:'', template:'تنبيه عرض فقط: {event}'}
-  };
-  const saved=readLS(APP_WA_KEY, null);
-  return saved ? {...base, ...saved} : base;
-}
-function saveWhatsAppSettings(data){writeLS(APP_WA_KEY,data); trackActivity('حفظ إعدادات واتساب','تم تحديث إعدادات الإشعارات حسب الدور'); logAudit('whatsapp_roles','update','roles','تعديل إعدادات واتساب حسب الدور');}
-function maybeWhatsAppNotify(targetRole,eventName,caseRef='—'){
-  const cfg=getWhatsAppSettings()[targetRole];
-  if(!cfg||!cfg.enabled) return;
-  const rows=readLS(APP_AUDIT_KEY,[]);
-  rows.unshift({id:Date.now()+Math.random(), user:appUserName(), role:userRole, entity:'whatsapp_notification', action:'queued', ref:caseRef, details:`إشعار واتساب مجدول للدور ${targetRole}: ${eventName}`, at:nowISO()});
-  writeLS(APP_AUDIT_KEY, rows.slice(0,500));
-}
-function getActivityStats(){
-  const rows=readLS(APP_ACTIVITY_KEY,[]);
-  const today=new Date().toDateString();
-  const todayRows=rows.filter(r=>new Date(r.at).toDateString()===today);
-  const uniq=new Set(rows.map(r=>r.user));
-  return {total:rows.length, today:todayRows.length, users:uniq.size};
-}
-function openActivityTracking(){
-  if(!guard('activity','🚫 هذه الصفحة متاحة للإدارة فقط')) return;
-  const rows=readLS(APP_ACTIVITY_KEY,[]);
-  const stats=getActivityStats();
-  const last=rows.slice(0,20).map(r=>`<div class="log-item"><div class="log-title">${r.action}</div><div class="log-meta">👤 ${r.user} — ${r.role}<br>📝 ${r.details||'—'}<br>🕒 ${fmtDT(r.at)}</div></div>`).join('') || '<div class="em">لا يوجد نشاط بعد</div>';
-  const users={}; rows.forEach(r=>{users[r.user]=(users[r.user]||0)+1;});
-  const top=Object.entries(users).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([u,c])=>`<div class="log-item"><div class="log-title">${u}</div><div class="log-meta">عدد الأنشطة المسجّلة: ${c}</div></div>`).join('') || '<div class="em">لا بيانات</div>';
-  document.getElementById('MT').textContent='📊 تتبع نشاط الموظفين';
-  document.getElementById('MB').innerHTML=`<div class="kpi-strip"><div class="kpi-box"><div class="kpi-num">${stats.total}</div><div class="kpi-lbl">إجمالي الأنشطة</div></div><div class="kpi-box"><div class="kpi-num">${stats.today}</div><div class="kpi-lbl">نشاط اليوم</div></div><div class="kpi-box"><div class="kpi-num">${stats.users}</div><div class="kpi-lbl">الموظفون النشطون</div></div><div class="kpi-box"><div class="kpi-num">20</div><div class="kpi-lbl">آخر السجلات المعروضة</div></div></div><div class="log-grid"><div class="log-card"><div class="admin-header">آخر نشاطات النظام</div><div class="log-list">${last}</div></div><div class="log-card"><div class="admin-header">الأكثر نشاطاً</div><div class="log-list">${top}</div></div></div><div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px"><button class="btn bg" onclick="closeM()">إغلاق</button><button class="btn bp" onclick="exportActivityJSON()">تصدير نشاط المستخدمين</button></div>`;
-  document.getElementById('OV').classList.add('open');
-}
-function openAuditLog(){
-  if(!guard('audit','🚫 سجل التدقيق غير متاح لهذا الدور')) return;
-  const rows=readLS(APP_AUDIT_KEY,[]);
-  const list=rows.slice(0,30).map(r=>`<div class="log-item"><div class="log-title">${r.action} — ${r.entity}</div><div class="log-meta">👤 ${r.user} — ${r.role}<br>📎 المرجع: ${r.ref||'—'}<br>📝 ${r.details||'—'}<br>🕒 ${fmtDT(r.at)}</div></div>`).join('') || '<div class="em">لا يوجد سجل تدقيق بعد</div>';
-  document.getElementById('MT').textContent='🧾 سجل التدقيق والتعديلات';
-  document.getElementById('MB').innerHTML=`<div class="log-card"><div class="admin-header">آخر 30 عملية مسجلة</div><div class="log-list">${list}</div></div><div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px"><button class="btn bg" onclick="closeM()">إغلاق</button><button class="btn bp" onclick="exportAuditJSON()">تصدير سجل التدقيق</button></div>`;
-  document.getElementById('OV').classList.add('open');
-}
-function openWhatsAppRoles(){
-  if(!guard('wa','🚫 إعدادات واتساب حسب الدور متاحة للإدارة فقط')) return;
-  const cfg=getWhatsAppSettings();
-  const roles=['mayor','admin','approver','officer','viewer'];
-  const labels={mayor:'👑 رئيس البلدية',admin:'⚙️ المدير',approver:'✅ مسؤول الموافقات',officer:'👤 موظف المتابعة',viewer:'👁️ عرض فقط'};
-  const rows=roles.map(r=>`<div class="log-item"><div class="log-title">${labels[r]}</div><div class="g2"><div class="fg"><div class="fl">تفعيل</div><select class="fi" id="wa-enabled-${r}"><option value="1" ${cfg[r].enabled?'selected':''}>مفعّل</option><option value="0" ${!cfg[r].enabled?'selected':''}>متوقف</option></select></div><div class="fg"><div class="fl">أرقام واتساب</div><input class="fi" id="wa-phones-${r}" value="${cfg[r].phones||''}" placeholder="961... , 33..." style="direction:ltr"></div></div><div class="fg"><div class="fl">نص الرسالة</div><textarea class="fi" id="wa-template-${r}" placeholder="استخدم {event}">${cfg[r].template||''}</textarea></div></div>`).join('');
-  document.getElementById('MT').textContent='📱 إشعارات واتساب حسب الدور';
-  document.getElementById('MB').innerHTML=`<div class="admin-section"><div class="admin-header">إعداد الأرقام والرسائل لكل دور</div><div style="font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:12px">هذه النسخة تضيف إدارة الإعدادات داخل اللوحة. الربط الفعلي مع WhatsApp API يتم لاحقاً عبر Supabase Edge Functions أو مزوّد مثل Twilio أو Meta Cloud API.</div><div class="log-list">${rows}</div><div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px"><button class="btn bg" onclick="closeM()">إغلاق</button><button class="btn bp" onclick="saveWhatsAppRolesFromModal()">حفظ الإعدادات</button></div></div>`;
-  document.getElementById('OV').classList.add('open');
-}
-function saveWhatsAppRolesFromModal(){
-  const roles=['mayor','admin','approver','officer','viewer'];
-  const data={};
-  roles.forEach(r=>{data[r]={enabled:document.getElementById(`wa-enabled-${r}`).value==='1', phones:document.getElementById(`wa-phones-${r}`).value.trim(), template:document.getElementById(`wa-template-${r}`).value.trim()};});
-  saveWhatsAppSettings(data); toast('✓ تم حفظ إعدادات واتساب حسب الدور'); closeM();
-}
-function exportActivityJSON(){const blob=new Blob([JSON.stringify(readLS(APP_ACTIVITY_KEY,[]),null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='user_activity.json';a.click();URL.revokeObjectURL(a.href);}
-function exportAuditJSON(){const blob=new Blob([JSON.stringify(readLS(APP_AUDIT_KEY,[]),null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='audit_log.json';a.click();URL.revokeObjectURL(a.href);}
-
-// ── AUTH ──────────────────────────────────────────────────────────────────────
-async function doLogin(){
-  const email=document.getElementById('EM').value.trim();
-  const pw=document.getElementById('PW').value;
-  const errEl=document.getElementById('LERR');
-  errEl.textContent='';
-  if(!email||!pw){errEl.textContent='يرجى إدخال البريد الإلكتروني وكلمة المرور';return;}
-  const btn=document.getElementById('LB');
-  btn.disabled=true;btn.textContent='⏳ جاري التحقق…';
-  if(!dbR){errEl.textContent='⚠️ لم يتم إعداد Supabase في config.js';btn.disabled=false;btn.textContent='🔐 تسجيل الدخول';return;}
-  try{
-    const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
-    if(error)throw error;
-    await setupUser(data.user);
-  }catch(e){
-    errEl.textContent='البريد الإلكتروني أو كلمة المرور غير صحيحة ❌';
-    btn.disabled=false;btn.textContent='🔐 تسجيل الدخول';
-  }
-}
-
-async function doReset(){
-  const email=document.getElementById('EM').value.trim();
-  if(!email){document.getElementById('LERR').textContent='أدخل بريدك الإلكتروني أولاً';return;}
-  if(!dbR)return;
-  const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});
-  if(error){document.getElementById('LERR').textContent='خطأ: '+error.message;}
-  else{document.getElementById('LERR').style.color='var(--green)';document.getElementById('LERR').textContent='✅ تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك';}
-}
-
-async function setupUser(user){
-  currentUser=user;
-  userRole=(user.user_metadata&&user.user_metadata.role)||'officer';
-  const userName=(user.user_metadata&&user.user_metadata.name)||user.email.split('@')[0];
-  const R=getRoleCfg();
-  // Update sidebar
-  document.getElementById('UN').textContent=userName;
-  document.getElementById('UE').textContent=user.email;
-  document.getElementById('UR').innerHTML=R.i+' '+R.l;
-  applyRoleVisibility();
-  // Switch screens
-  document.getElementById('LS').style.display='none';
-  document.getElementById('APP').style.display='block';
-  loadViewPrefs();
-  applyPrefsToUI();
-  await load();
-  tick();setInterval(tick,60000);
-  if(dbR)subscribe();
-}
-
-async function doLogout(){
-  if(dbR)await sb.auth.signOut();
-  currentUser=null;userRole=null;cases=[];
-  document.getElementById('APP').style.display='none';
-  document.getElementById('LS').style.display='flex';
-  document.getElementById('EM').value='';
-  document.getElementById('PW').value='';
-  document.getElementById('LERR').textContent='';
-  document.getElementById('LB').disabled=false;
-  document.getElementById('LB').textContent='🔐 تسجيل الدخول';
-}
-
-// Load handled by citizen portal section
-
-// ── DATA ──────────────────────────────────────────────────────────────────────
-async function load(){
-  document.getElementById('TB').innerHTML='<div class="em"><div style="font-size:32px;margin-bottom:10px">⏳</div><div>جاري التحميل…</div></div>';
-  if(!dbR){cases=[];rStats();render();return;}
-  try{
-    const{data,error}=await sb.from('cases').select('*').order('created_at',{ascending:false});
-    if(error)throw error;
-    cases=data||[];rStats();render();
-  }catch(e){toast('خطأ في التحميل: '+e.message,'err');cases=[];rStats();render();}
-}
-
-async function saveC(c){
-  if(!dbR)return false;sv(true);
-  try{
-    const{error}=await sb.from('cases').upsert({
-      id:c.id,name:c.name,phone:c.phone||'',email:c.email||'',address:c.address||'',
-      type:c.type,description:c.description,assigned:c.assigned,status:c.status,
-      priority:c.priority,notes:c.notes||'',public_note:c.public_note||null,approval_state:c.approval_state||null,
-      approval_by:c.approval_by||null,approval_date:c.approval_date||null,
-      timeline:c.timeline||[],documents:c.documents||[],source:c.source||'staff'
-    });
-    if(error)throw error;toast('✓ تم الحفظ');return true;
-  }catch(e){toast('خطأ: '+e.message,'err');return false;}
-  finally{sv(false);}
-}
-
-async function delC(id){
-  if(!guard('del','🚫 لا تملك صلاحية حذف الطلبات')) return;
-  if(!dbR)return;sv(true);
-  try{
-    const c=cases.find(x=>String(x.id)===String(id));
-    if(c&&(c.documents||[]).length)await sb.storage.from('case-documents').remove(c.documents.map(d=>d.path));
-    const{error}=await sb.from('cases').delete().eq('id',id);
-    if(error)throw error;
-    cases=cases.filter(x=>String(x.id)!==String(id));
-    toast('🗑 تم الحذف');rStats();render();
-  }catch(e){toast('خطأ: '+e.message,'err');}
-  finally{sv(false);}
-}
-
-function subscribe(){
-  sb.channel('cases').on('postgres_changes',{event:'*',schema:'public',table:'cases'},async()=>{await load();}).subscribe();
-}
-
-async function upDoc(caseId,file){
-  if(!dbR||file.size>10*1024*1024){toast('الملف أكبر من 10MB','err');return null;}
-  const ext=file.name.split('.').pop().toLowerCase();
-  const path=`${caseId}/${Date.now()}.${ext}`;sv(true);
-  try{
-    const{error}=await sb.storage.from('case-documents').upload(path,file,{upsert:false});
-    if(error)throw error;
-    const{data}=sb.storage.from('case-documents').getPublicUrl(path);
-    return{name:file.name,path,url:data.publicUrl,type:ext,size:file.size};
-  }catch(e){toast('خطأ رفع: '+e.message,'err');return null;}
-  finally{sv(false);}
-}
-
-async function addDoc(caseId,file){
-  if(!guard('edit','🚫 لا تملك صلاحية تعديل الطلبات')) return;
-  const c=cases.find(x=>String(x.id)===String(caseId));if(!c)return;
-  const info=await upDoc(caseId,file);if(!info)return;
-  const docs=[...(c.documents||[]),info];c.documents=docs;
-  const tl=[...(c.timeline||[]),{a:`تم إرفاق: ${file.name}`,by:currentUser.user_metadata?.name||currentUser.email,d:new Date().toISOString().slice(0,10),cls:''}];
-  c.timeline=tl;sv(true);
-  try{const{error}=await sb.from('cases').update({documents:docs,timeline:tl}).eq('id',caseId);if(error)throw error; logAudit('case_document','upload',caseId,`رفع ${newFiles.length} ملف/ملفات`); trackActivity('رفع ملف',`تم رفع مرفقات للطلب ${caseId}`); toast('📎 تم رفع الملف');}
-  catch(e){toast('خطأ: '+e.message,'err');}finally{sv(false);}
-  openDetail(caseId);
-}
-
-async function rmDoc(caseId,path){
-  if(!guard('edit','🚫 لا تملك صلاحية تعديل الطلبات')) return;
-  const c=cases.find(x=>String(x.id)===String(caseId));if(!c||!confirm('حذف هذا المستند؟'))return;
-  sv(true);
-  try{
-    if(dbR)await sb.storage.from('case-documents').remove([path]);
-    c.documents=(c.documents||[]).filter(d=>d.path!==path);
-    if(dbR){const{error}=await sb.from('cases').update({documents:c.documents}).eq('id',caseId);if(error)throw error;}
-    toast('🗑 تم حذف المستند');
-  }catch(e){toast('خطأ: '+e.message,'err');}finally{sv(false);}
-  openDetail(caseId);
-}
-
-// ── RENDER ────────────────────────────────────────────────────────────────────
-function rStats(){
-  document.getElementById('ST').textContent=cases.length;
-  document.getElementById('SP').textContent=cases.filter(c=>c.status==='in-progress').length;
-  document.getElementById('SH').textContent=cases.filter(c=>c.priority==='high'&&!['resolved','closed'].includes(c.status)).length;
-  document.getElementById('SR').textContent=cases.filter(c=>['resolved','closed'].includes(c.status)).length;
-  document.getElementById('nb-all').textContent=cases.length;
-  document.getElementById('nb-web').textContent=cases.filter(c=>c.source==='website').length;
-  document.getElementById('nb-pend').textContent=cases.filter(c=>c.approval_state==='pending').length;
-  TYPES.forEach(t=>{const el=document.getElementById('nb-'+t);if(el)el.textContent=cases.filter(c=>c.type===t).length;});
-}
-
-
-function avc(n){if(!n)return AVS[0];let h=0;for(let c of n)h=(h*31+c.charCodeAt(0))&0xffff;return AVS[h%AVS.length];}
-function ini(n){if(!n)return'?';return n.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('');}
-function bH(s){const m={new:'bn','in-progress':'bip',review:'br2','pending-approval':'bpa',resolved:'bdo',closed:'bc'};return`<span class="badge ${m[s]||'bc'}"><span class="bd"></span>${SL[s]||s}</span>`;}
-function pH(p){const c={high:'ph',medium:'pm',low:'pl'};const i={high:'▲',medium:'●',low:'▼'};return`<span class="pr2 ${c[p]||'pm'}">${i[p]||'●'} ${PL[p]||p}</span>`;}
-function tH(t){const cl={complaint:'tc',welfare:'tw2',permit:'tp',inquiry:'ti'};return`<span class="tt ${cl[t]||''}">${TL[t]||t}</span>`;}
-function aH(c){if(!NA.includes(c.type)||!c.approval_state||c.approval_state==='none')return`<span class="ac ana">—</span>`;
-if(c.approval_state==='pending')return`<span class="ac ap">⏳</span>`;
-if(c.approval_state==='approved')return`<span class="ac ay">✓</span>`;
-return`<span class="ac an2">✗</span>`;}
-
-function navTo(el,m){
-  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));el.classList.add('on');
-  srcF=m==='web'?'website':'all';stF=m==='pend'?'pending-approval':'all';
-  tyF='all';document.getElementById('TS').value='all';
-  const lbl={all:'جميع الطلبات',web:'طلبات الموقع',pend:'تنتظر الموافقة'};
-  document.getElementById('PT').textContent=lbl[m]||'الطلبات';
-  page=1;go();
-}
-function navType(el,t){
-  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));el.classList.add('on');
-  document.getElementById('TS').value=t;tyF=t;stF='all';srcF='all';
-  const lbl={complaint:'الشكاوى',welfare:'الرعاية',permit:'التراخيص',inquiry:'الاستفسارات'};
-  document.getElementById('PT').textContent=lbl[t];page=1;go();
-}
-function sf(f,btn){stF=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page=1;go();}
-function go(){qF=document.getElementById('QQ').value.trim();tyF=document.getElementById('TS').value;sortM=document.getElementById('SS').value;saveViewPrefs();render();}
-
-function filtered(){
-  let d=[...cases];
-  if(srcF!=='all')d=d.filter(c=>c.source===srcF);
-  if(stF!=='all')d=d.filter(c=>c.status===stF);
-  if(tyF!=='all')d=d.filter(c=>c.type===tyF);
-  if(qF){const q=qF;d=d.filter(c=>(c.name||'').includes(q)||(c.id||'').toString().includes(q)||(c.description||'').includes(q)||(c.phone||'').includes(q));}
-  const po={high:0,medium:1,low:2};
-  if(sortM==='date-desc')d.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
-  else if(sortM==='date-asc')d.sort((a,b)=>new Date(a.created_at||0)-new Date(b.created_at||0));
-  else if(sortM==='priority')d.sort((a,b)=>po[a.priority]-po[b.priority]);
-  else d.sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
-  return d;
-}
-
-function render(){
-  const f=filtered(),tot=f.length,pages=Math.max(1,Math.ceil(tot/PER));
-  if(page>pages)page=1;const s=(page-1)*PER,sl=f.slice(s,s+PER);
-  const tb=document.getElementById('TB');
-  if(!sl.length){tb.innerHTML='<div class="em"><div style="font-size:36px;margin-bottom:10px">📭</div><div>لا توجد طلبات</div></div>';}
-  else{tb.innerHTML=sl.map(c=>{
-    const[fc,bc]=avc(c.name);
-    const sh=(c.description||'').slice(0,33)+((c.description||'').length>33?'…':'');
-    const pr=c.approval_state==='pending'?' pr':'';
-    const ws=c.source==='website'?' ws':'';
-    const dc=(c.documents||[]).length;
-    const wsrc=c.source==='website'?'<span class="web-src">🌐</span>':'';
-    return`<div class="tr${pr}${ws}" onclick="openDetail('${c.id}')">
-      <div style="font-size:11px;color:var(--text3);text-align:center;direction:ltr">${String(c.id).slice(-4)}</div>
-      <div class="pc"><div class="av" style="background:${bc};color:${fc}">${ini(c.name)}</div>
-        <div><div class="pn">${wsrc}${c.name||''}</div><div class="pi">${sh}</div></div></div>
-      <div>${tH(c.type)}</div>
-      <div style="font-size:13px;color:var(--text2)">${c.assigned||'—'}</div>
-      <div style="font-size:11.5px;color:var(--text3);direction:ltr">${(c.created_at||'').slice(0,10)}</div>
-      <div>${bH(c.status)}</div>
-      <div>${dc>0?`<span class="dp">📎 ${dc}</span>`:'<span style="color:var(--text3);font-size:12px">—</span>'}</div>
-      <div>${aH(c)}</div>
-    </div>`;}).join('');}
-  document.getElementById('PI').textContent=`عرض ${Math.min(s+1,tot)}–${Math.min(s+PER,tot)} من ${tot}`;
-  const pb=document.getElementById('PB');pb.innerHTML='';
-  for(let p=1;p<=pages;p++){const b=document.createElement('button');b.className='pb'+(p===page?' on':'');b.textContent=p;b.onclick=()=>{page=p;render();};pb.appendChild(b);}
-}
-
-// ── DETAIL ────────────────────────────────────────────────────────────────────
-function openDetail(id){
-  const c=cases.find(x=>String(x.id)===String(id));if(!c)return;
-  const R=getRoleCfg();
-  document.getElementById('MT').textContent='طلب #'+String(id).slice(-4);
-  const[fc,bc]=avc(c.name);
-  const na=NA.includes(c.type),ip=c.approval_state==='pending';
-  const tl=Array.isArray(c.timeline)?c.timeline:[];
-  const docs=Array.isArray(c.documents)?c.documents:[];
-  const userName=currentUser?.user_metadata?.name||currentUser?.email||'—';
-  let ab='';
-  if(R.A&&na&&ip){ab=`<div class="ab"><div class="abt">⏳ هذا الطلب يحتاج إلى موافقتك</div><div class="abs">يستوجب موافقة رسمية قبل المتابعة</div><div class="abbs"><button class="btn bgr" style="flex:1;justify-content:center" onclick="doApprove('${id}','approved')">✓ منح الموافقة</button><button class="btn bd2" style="flex:1;justify-content:center" onclick="doApprove('${id}','rejected')">✗ رفض</button></div></div>`;}
-  const isImg=ext=>['jpg','jpeg','png','gif','webp'].includes((ext||'').toLowerCase());
-  const docsH=docs.length?docs.map(d=>`<div class="dcd">
-    ${isImg(d.type)?`<img class="dth" src="${d.url}" onclick="window.open('${d.url}','_blank')">`:`<div class="dpdf" onclick="window.open('${d.url}','_blank')">📄</div>`}
-    <div class="ddi"><span class="ddn" title="${d.name}">${d.name}</span><a href="${d.url}" download="${d.name}" target="_blank" style="color:var(--blue);font-size:13px;text-decoration:none;margin-left:4px" title="تحميل">⬇️</a>${R.edit?`<button class="ddrm" onclick="event.stopPropagation();rmDoc('${id}','${d.path}')">🗑</button>`:''}</div>
-  </div>`).join(''):'<div style="color:var(--text3);font-size:13px;padding:4px 0">لا توجد مستندات مرفقة</div>';
-  const uz=R.edit?`<div class="uz" id="uz${id}" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="hd(event,'${id}')"><input type="file" multiple accept="image/*,video/*,.pdf" onchange="hf(this.files,'${id}')"><div class="uzi">📎</div><div class="uzt">اسحب الملفات أو اضغط للاختيار</div><div class="uzs">صور JPG/PNG وPDF — حتى 10MB</div></div>`:'';
-  document.getElementById('MB').innerHTML=`
-    ${ab}${!R.edit?'<div class="ron">👁 وضع القراءة فقط</div>':''}
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
-      <div class="av" style="width:48px;height:48px;font-size:17px;background:${bc};color:${fc}">${ini(c.name)}</div>
-      <div style="flex:1">
-        <div style="font-size:17px;font-weight:800">${c.name}${c.source==='website'?' <span class="web-src">🌐 موقع</span>':''}</div>
-        ${c.phone?`<div style="font-size:12px;color:var(--text3);direction:ltr;text-align:right">${c.phone}</div>`:''}
-        ${c.email?`<div style="font-size:12px;color:var(--text3)">${c.email}</div>`:''}
-        ${c.address?`<div style="font-size:12px;color:var(--text3)">📍 ${c.address}</div>`:''}
-      </div>${bH(c.status)}</div>
-    <div class="fg"><div class="fl">وصف الطلب</div><div class="fv" style="white-space:pre-wrap">${c.description||'—'}</div></div>
-    <div class="g2">
-      <div><div class="fl">نوع الطلب</div>${tH(c.type)}</div>
-      <div><div class="fl">الأولوية</div>${pH(c.priority)}</div>
-      <div><div class="fl">المسؤول</div><div class="fv">${c.assigned||'—'}</div></div>
-      <div><div class="fl">التاريخ</div><div class="fv ltr">${(c.created_at||'').slice(0,10)}</div></div>
-    </div>
-    ${na?`<div class="fg"><div class="fl">حالة الموافقة</div><div style="display:flex;align-items:center;gap:9px">${aH(c)}${c.approval_by?`<span style="font-size:12px;color:var(--text3)">· ${c.approval_by} · <span class="ltr">${c.approval_date||''}</span></span>`:''}</div></div>`:''}
-    <div class="fg"><div class="fl">تحديث الحالة</div>
-      <select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','status',this.value,\`${userName}\`)">${STATUSES.map(s=>`<option value="${s}"${s===c.status?' selected':''}>${SL[s]}</option>`).join('')}</select></div>
-    <div class="g2">
-      <div class="fg"><div class="fl">المسؤول</div><select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','assigned',this.value,\`${userName}\`)">${OFFICERS.map(o=>`<option${o===c.assigned?' selected':''}>${o}</option>`).join('')}</select></div>
-      <div class="fg"><div class="fl">الأولوية</div><select class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','priority',this.value,\`${userName}\`)">${PRIOS.map(p=>`<option value="${p}"${p===c.priority?' selected':''}>${PL[p]}</option>`).join('')}</select></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:4px">
-      <div>
-        <div class="fl" style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
-          🔒 ملاحظة داخلية
-          <span style="font-size:10px;background:#fff4e0;color:#b97000;padding:2px 7px;border-radius:4px;font-weight:700">للموظفين فقط</span>
-        </div>
-        <textarea class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','notes',this.value,'${userName}')" placeholder="ملاحظة داخلية — لا يراها المواطن أبداً…" style="min-height:90px">${c.notes||''}</textarea>
-      </div>
-      <div>
-        <div class="fl" style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
-          📢 رد البلدية للمواطن
-          <span style="font-size:10px;background:#d4edda;color:#1e5429;padding:2px 7px;border-radius:4px;font-weight:700">يظهر للمواطن</span>
-        </div>
-        <textarea class="fi" ${R.edit?'':'disabled'} onchange="uf('${id}','public_note',this.value,'${userName}')" placeholder="رسالة ترد بها البلدية على المواطن…" style="min-height:90px">${c.public_note||''}</textarea>
-      </div>
-    </div>
-    <div class="dv"></div>
-    <div class="fg"><div class="fl">المستندات (${docs.length})</div><div class="dg">${docsH}</div><div style="margin-top:10px">${uz}</div></div>
-    <div class="dv"></div>
-    <div class="fl" style="margin-bottom:12px">سجل النشاط</div>
-    <div class="tl">${tl.length?tl.slice().reverse().map(t=>`<div class="tli"><div class="tld ${t.cls||''}"></div><div class="tlln"></div><div><div class="tla">${t.a}</div><div class="tlm">${t.by||''} · <span class="ltr">${t.d||''}</span></div></div></div>`).join(''):'<div style="color:var(--text3);font-size:13px">لا يوجد نشاط</div>'}</div>
-    <div class="dv"></div>
-    <div style="display:flex;gap:9px;flex-wrap:wrap">
-      <button class="btn bg" style="flex:1;justify-content:center" onclick="copyCaseSummary('${id}')">📋 نسخ الملخص</button>
-      <button class="btn bg" style="flex:1;justify-content:center" onclick="closeM()">إغلاق</button>
-      ${R.del?`<button class="btn bd2" style="flex:1;justify-content:center" onclick="cd('${id}')">🗑 حذف</button>`:''}
-    </div>`;
-  document.getElementById('OV').classList.add('open');
-}
-
-function hf(files,id){Array.from(files).forEach(f=>addDoc(id,f));}
-function hd(e,id){e.preventDefault();document.getElementById('uz'+id)?.classList.remove('drag');hf(e.dataTransfer.files,id);}
-
-async function uf(id,field,value,by){
-  if(!guard('edit','🚫 لا تملك صلاحية تعديل الطلبات')) return;
-  const c=cases.find(x=>String(x.id)===String(id));if(!c)return;
-  const today=new Date().toISOString().slice(0,10);c[field]=value;
-  const tl=[...(c.timeline||[])];
-  if(field==='status')tl.push({a:`تغيير الحالة: ${SL[value]}`,by,d:today,cls:''});
-  if(field==='assigned')tl.push({a:`إعادة تعيين: ${value}`,by,d:today,cls:''});
-  c.timeline=tl;await saveC(c);rStats();render();
-}
-
-async function doApprove(id,dec){
-  if(!guard('A','🚫 لا تملك صلاحية الموافقات الرسمية')) return;
-  const c=cases.find(x=>String(x.id)===String(id));if(!c)return;
-  const today=new Date().toISOString().slice(0,10);
-  const by=currentUser?.user_metadata?.name||currentUser?.email||'—';
-  c.approval_state=dec;c.approval_by=by;c.approval_date=today;
-  if(dec==='approved')c.status='resolved';else c.status='closed';
-  const tl=[...(c.timeline||[]),{a:dec==='approved'?'تمت الموافقة الرسمية':'تم رفض الطلب',by,d:today,cls:dec==='approved'?'g':'r'}];
-  c.timeline=tl;await saveC(c);closeM();rStats();render();
-}
-
-async function cd(id){if(!confirm('حذف هذا الطلب نهائياً؟'))return;await delC(id);closeM();}
-
-// ── ADD ───────────────────────────────────────────────────────────────────────
-function openAdd(){
-  if(!guard('add','🚫 لا تملك صلاحية إضافة طلب جديد')) return;
-  document.getElementById('MT').textContent='إضافة طلب جديد';
-  document.getElementById('MB').innerHTML=`
-    <div class="g2">
-      <div class="fg"><div class="fl">الاسم الكامل *</div><input type="text" class="fi" id="an" placeholder="اسم المواطن"></div>
-      <div class="fg"><div class="fl">رقم الهاتف</div><input type="tel" class="fi" id="aph" placeholder="03xxxxxx" style="direction:ltr"></div>
-    </div>
-    <div class="g2">
-      <div class="fg"><div class="fl">البريد الإلكتروني</div><input type="email" class="fi" id="aem" placeholder="email@example.com" style="direction:ltr"></div>
-      <div class="fg"><div class="fl">العنوان</div><input type="text" class="fi" id="aad" placeholder="حارة، قرية…"></div>
-    </div>
-    <div class="g2">
-      <div class="fg"><div class="fl">نوع الطلب *</div><select class="fi" id="at" onchange="can()">${TYPES.map(t=>`<option value="${t}">${TL[t]}</option>`).join('')}</select></div>
-      <div class="fg"><div class="fl">الأولوية</div><select class="fi" id="ap"><option value="high">عالية</option><option value="medium" selected>متوسطة</option><option value="low">منخفضة</option></select></div>
-    </div>
-    <div class="fg"><div class="fl">وصف الطلب *</div><textarea class="fi" id="ad" placeholder="وصف الطلب أو الشكوى بالتفصيل…"></textarea></div>
-    <div class="fg"><div class="fl">تعيين المسؤول</div><select class="fi" id="ao">${OFFICERS.map(o=>`<option>${o}</option>`).join('')}</select></div>
-    <div id="an2" style="display:none" class="ron">⚠️ هذا النوع يستوجب موافقة رسمية</div>
-    <div class="fg"><div class="fl">ملاحظات</div><textarea class="fi" id="ano" placeholder="ملاحظات أولية…"></textarea></div>
-    <div style="display:flex;gap:9px;margin-top:8px">
-      <button class="btn bg" style="flex:1;justify-content:center" onclick="closeM()">إلغاء</button>
-      <button class="btn bp" style="flex:2;justify-content:center" onclick="subAdd()">✓ حفظ الطلب</button>
-    </div>`;
-  document.getElementById('OV').classList.add('open');
-}
-function can(){const t=document.getElementById('at').value;document.getElementById('an2').style.display=NA.includes(t)?'flex':'none';}
-
-async function subAdd(){
-  trackActivity('فتح إضافة طلب','بدء إنشاء طلب جديد');
-  if(!guard('add','🚫 لا تملك صلاحية إضافة طلب جديد')) return;
-  const name=document.getElementById('an').value.trim(),phone=document.getElementById('aph').value.trim(),email=document.getElementById('aem').value.trim(),address=document.getElementById('aad').value.trim(),type=document.getElementById('at').value,description=document.getElementById('ad').value.trim(),priority=document.getElementById('ap').value,assigned=document.getElementById('ao').value,notes=document.getElementById('ano').value.trim();
-  if(!name||!description){alert('يرجى إدخال الاسم والوصف');return;}
-  const today=new Date().toISOString().slice(0,10);const na=NA.includes(type);
-  const by=currentUser?.user_metadata?.name||currentUser?.email||'—';
-  const nc={name,phone,email,address,type,description,priority,assigned,notes,status:na?'pending-approval':'new',approval_state:na?'pending':null,approval_by:null,approval_date:null,timeline:[{a:'تم فتح الطلب',by,d:today,cls:''}],documents:[],source:'staff'};
-  if(!dbR){nc.id=Date.now();nc.created_at=new Date().toISOString();cases.unshift(nc);closeM();rStats();render();toast('⚠️ تم الحفظ محلياً فقط','err');return;}
-  sv(true);
-  try{const{data,error}=await sb.from('cases').insert([nc]).select().single();if(error)throw error;cases.unshift(data); logAudit('case','create',data?.id||'—',`إنشاء طلب جديد: ${type}`); trackActivity('إضافة طلب',`طلب جديد رقم ${data?.id||'—'}`); maybeWhatsAppNotify('admin','تم إنشاء طلب جديد',data?.id||'—'); closeM();rStats();render();toast('✓ تم إضافة الطلب');}
-  catch(e){toast('خطأ: '+e.message,'err');}finally{sv(false);}
-}
-
-function openProfile(){
-  const R=getRoleCfg();
-  const nm=currentUser?.user_metadata?.name||currentUser?.email?.split('@')[0]||'—';
-  const em=currentUser?.email||'—';
-  const [fc,bc]=avc(nm);
-  const perms=getPermissionRows().map(([label,ok])=>`<div class="perm-item"><strong>${label}</strong><span class="${ok?'perm-yes':'perm-no'}">${ok?'مفعّل':'غير متاح'}</span></div>`).join('');
-  document.getElementById('MT').textContent='الملف الوظيفي والصلاحيات';
-  document.getElementById('MB').innerHTML=`
-    <div class="profile-grid">
-      <div class="profile-card">
-        <div class="profile-head">
-          <div class="profile-avatar" style="background:${bc};color:${fc}">${ini(nm)}</div>
-          <div style="flex:1">
-            <div style="font-size:18px;font-weight:800">${nm}</div>
-            <div style="font-size:12px;color:var(--text3);direction:ltr;text-align:right">${em}</div>
-            <div style="margin-top:8px"><span class="role-chip">${R.i} ${R.l}</span></div>
-          </div>
-        </div>
-        <div style="font-size:13px;color:var(--text2);line-height:1.9">
-          هذه البطاقة توضّح دورك الحالي في النظام وما يمكنك رؤيته أو تعديله.
-          أي ميزة غير متاحة يتم إخفاؤها تلقائياً أو فتحها بوضع القراءة فقط.
-        </div>
-        <div class="perm-grid">${perms}</div>
-      </div>
-      <div class="profile-card">
-        <div style="font-size:15px;font-weight:800;color:var(--blue2);margin-bottom:10px">ماذا يعني دورك؟</div>
-        <div style="font-size:13px;color:var(--text2);line-height:2">
-          ${userRole==='viewer' ? 'أنت في وضع عرض فقط. يمكنك رؤية الطلبات ومتابعتها من دون تعديل أو حذف أو تصدير.' :
-            userRole==='officer' ? 'أنت موظف متابعة. يمكنك فتح الطلبات وتعديل الحالة والملاحظات وإضافة طلبات جديدة.' :
-            userRole==='approver' ? 'أنت مسؤول الموافقات. يمكنك مراجعة الطلبات التي تحتاج قراراً رسمياً، لكن دون تعديل كامل لكل الحقول.' :
-            userRole==='admin' ? 'أنت مدير النظام. لديك صلاحيات تشغيلية كاملة بما فيها إدارة المستخدمين والتصدير.' :
-            'أنت رئيس البلدية. لديك أعلى مستوى من الصلاحيات والموافقات والإدارة.'}
-        </div>
-        <div class="dv"></div>
-        <div style="font-size:14px;font-weight:700;margin-bottom:8px">ملخص الوصول</div>
-        <div style="font-size:13px;color:var(--text2);line-height:2">
-          • الطلبات: ${R.edit?'تعديل مسموح':'عرض فقط'}<br>
-          • المستخدمون: ${R.admin?'إدارة كاملة':'غير متاح'}<br>
-          • التصدير: ${R.export?'مسموح':'غير متاح'}<br>
-          • الطباعة: ${R.print?'مسموح':'غير متاح'}<br>
-          • تتبع النشاط: ${R.activity?'مسموح':'غير متاح'}<br>
-          • سجل التدقيق: ${R.audit?'مسموح':'غير متاح'}<br>
-          • إشعارات واتساب: ${R.wa?'مسموح':'غير متاح'}
-        </div>
-      </div>
-    </div>
-    <div style="display:flex;gap:9px;flex-wrap:wrap">
-      <button class="btn bg" style="flex:1;justify-content:center" onclick="closeM()">إغلاق</button>
-    </div>`;
-  document.getElementById('OV').classList.add('open');
-}
-
-// ── USER MANAGEMENT (Admin only) ──────────────────────────────────────────────
-function openUsers(){
-  if(!guard('admin','🚫 هذه الصفحة متاحة للإدارة فقط')) return;
-  document.getElementById('MT').textContent='إدارة المستخدمين';
-  document.getElementById('MB').innerHTML=`
-    <div class="admin-section">
-      <div class="admin-header">➕ إضافة موظف جديد</div>
-      <div class="fg"><div class="fl">الاسم الكامل *</div><input type="text" class="fi" id="nu-name" placeholder="اسم الموظف"></div>
-      <div class="fg"><div class="fl">البريد الإلكتروني *</div><input type="email" class="fi" id="nu-email" placeholder="employee@municipality.lb" style="direction:ltr"></div>
-      <div class="fg"><div class="fl">كلمة المرور *</div><input type="password" class="fi" id="nu-pw" placeholder="8 أحرف على الأقل" style="direction:ltr"></div>
-      <div class="fg"><div class="fl">الدور / الصلاحية</div>
-        <select class="fi" id="nu-role">
-          <option value="viewer">👁️ عرض فقط</option>
-          <option value="officer">👤 موظف المتابعة</option>
-          <option value="approver">✅ مسؤول الموافقات</option>
-          <option value="admin">⚙️ المدير</option>
-          <option value="mayor">👑 رئيس البلدية</option>
-        </select>
-      </div>
-      <button class="btn bp" style="width:100%;justify-content:center" onclick="createUser()">✓ إنشاء الحساب</button>
-      <div id="cu-msg" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px"></div>
-    </div>
-    <div class="admin-section">
-      <div class="admin-header">📋 تعليمات مهمة</div>
-      <div style="font-size:13.5px;color:var(--text2);line-height:2">
-        ✅ بعد إنشاء الحساب، يصل الموظف رابط تفعيل على بريده<br>
-        ✅ يدخل الموظف بالبريد الإلكتروني وكلمة المرور التي اخترتها<br>
-        ✅ يمكن تغيير كلمة المرور لاحقاً من "نسيت كلمة المرور"<br>
-        ✅ رابط لوحة التحكم: <strong>iantradingsal.github.io/wadi-dashboard/</strong>
-      </div>
-    </div>`;
-  document.getElementById('OV').classList.add('open');
-}
-
-async function createUser(){
-  if(!guard('admin','🚫 إنشاء المستخدمين متاح للإدارة فقط')) return;
-  const name=document.getElementById('nu-name').value.trim();
-  const email=document.getElementById('nu-email').value.trim();
-  const pw=document.getElementById('nu-pw').value;
-  const role=document.getElementById('nu-role').value;
-  const msg=document.getElementById('cu-msg');
-  if(!name||!email||!pw){msg.style.color='var(--danger)';msg.textContent='يرجى ملء جميع الحقول';return;}
-  if(pw.length<8){msg.style.color='var(--danger)';msg.textContent='كلمة المرور يجب أن تكون 8 أحرف على الأقل';return;}
-  if(!dbR){msg.style.color='var(--danger)';msg.textContent='Supabase غير مُعد';return;}
-  msg.style.color='var(--text3)';msg.textContent='⏳ جاري إنشاء الحساب…';
-  try{
-    const{data,error}=await sb.auth.admin?
-      sb.auth.admin.createUser({email,password:pw,user_metadata:{name,role},email_confirm:true}):
-      // Fallback: use signUp (will send confirmation email)
-      await sb.auth.signUp({email,password:pw,options:{data:{name,role}}});
-    if(error)throw error;
-    msg.style.color='var(--green2)';
-    msg.textContent=`✅ تم إنشاء حساب ${name} بنجاح!`;
-    document.getElementById('nu-name').value='';
-    document.getElementById('nu-email').value='';
-    document.getElementById('nu-pw').value='';
-  }catch(e){
-    msg.style.color='var(--danger)';
-    msg.textContent='خطأ: '+e.message;
-  }
-}
-
-// ── EXPORT ────────────────────────────────────────────────────────────────────
-function exportCSV(){
-  if(!guard('export','🚫 لا تملك صلاحية تصدير البيانات')) return;
-  const h=['الرقم','الاسم','الهاتف','البريد','العنوان','النوع','الوصف','المسؤول','التاريخ','الحالة','الأولوية','الموافقة','ملفات','المصدر'];
-  const rows=cases.map(c=>[c.id,c.name,c.phone||'',c.email||'',c.address||'',TL[c.type]||c.type,c.description,c.assigned,(c.created_at||'').slice(0,10),SL[c.status]||c.status,PL[c.priority]||c.priority,c.approval_state||'—',(c.documents||[]).length,c.source==='website'?'موقع':'موظف']);
-  const csv='\uFEFF'+[h,...rows].map(r=>r.map(x=>`"${x||''}"`).join(',')).join('\n');
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));a.download='بلدية_وادي_الست.csv';a.click();
-}
-
-
-
-
-
-
-
-
-
-async function loadEmp() {
-  const el = document.getElementById('emp-list');
-  if (!el || !dbR) return;
-  try {
-    const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users?per_page=50', {
-      headers: { apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4' }
-    });
-    const j = await r.json();
-    const users = (j.users || []).filter(u => ['mayor','admin','approver','officer','viewer'].includes(u.user_metadata?.role));
-    if (!users.length) { el.innerHTML = '<div style="text-align:center;padding:14px;color:var(--text3)">لا يوجد موظفون بعد</div>'; return; }
-    const RL = { mayor: '👑 رئيس البلدية', admin: '⚙️ المدير', approver: '✅ مسؤول الموافقات', officer: '👤 موظف المتابعة', viewer:'👁️ عرض فقط' };
-    const CL = [['#1a6eb5','#d6e9f8'],['#8a6200','#f5edca'],['#bf2424','#fdeaea'],['#6535a8','#ede8f8'],['#1e5429','#d4edda']];
-    function gc2(n) { if (!n) return CL[0]; let h = 0; for (let c of n) h = (h*31 + c.charCodeAt(0)) & 0xffff; return CL[h % CL.length]; }
-    function gi2(n) { if (!n) return '?'; return n.trim().split(/ +/).slice(0,2).map(w => w[0]).join(''); }
-    el.innerHTML = users.map(u => {
-      const nm = u.user_metadata?.name || u.email.split('@')[0];
-      const rl = u.user_metadata?.role || 'officer';
-      const [fc, bc] = gc2(nm);
-      const opts = ['viewer','officer','approver','admin','mayor'].map(r =>
-        `<option value="${r}"${r === rl ? ' selected' : ''}>${RL[r]}</option>`).join('');
-      return `<div style="border:1px solid var(--border);border-radius:12px;padding:13px;margin-bottom:9px"
-        data-uid="${u.id}" data-nm="${nm.replace(/"/g,'')}" data-rl="${rl}">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <div style="width:38px;height:38px;border-radius:50%;background:${bc};color:${fc};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">${gi2(nm)}</div>
-          <div style="flex:1"><div style="font-weight:700;font-size:14px">${nm}</div>
-          <div style="font-size:11px;color:var(--text3)">${u.email}</div></div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px">
-          <select onchange="chRole(this)" data-uid="${u.id}" data-nm="${nm.replace(/"/g,'')}"
-            style="padding:7px;border:1px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;cursor:pointer;background:#fff">${opts}</select>
-          <button onclick="editEmp(this)" data-uid="${u.id}" data-nm="${nm.replace(/"/g,'')}" data-rl="${rl}"
-            style="padding:7px 12px;background:var(--blue3);color:var(--blue);border:1px solid var(--blue);border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">✏️ تعديل</button>
-          <button onclick="delEmp(this)" data-uid="${u.id}" data-nm="${nm.replace(/"/g,'')}"
-            style="padding:7px 12px;background:var(--danger-bg);color:var(--danger);border:1px solid #f2bcbc;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">🗑 حذف</button>
-        </div></div>`;
-    }).join('');
-  } catch(e) { el.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:12px">⚠️ يمكن إدارة الموظفين من Supabase مباشرة</div>'; }
-}
-
-async function chRole(sel) {
-  if(!guard('admin','🚫 تعديل الأدوار متاح للإدارة فقط')) return;
-  const uid = sel.dataset.uid, name = sel.dataset.nm, role = sel.value;
-  try {
-    const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/' + uid, {
-      method: 'PUT',
-      headers: { apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_metadata: { role } })
-    });
-    const d = await r.json();
-    if (d.error) throw new Error(d.msg || JSON.stringify(d.error));
-    toast('✅ تم تغيير دور ' + name);
-    setTimeout(loadEmp, 700);
-  } catch(e) { toast('⚠️ ' + e.message, 'err'); }
-}
-
-function editEmp(btn) {
-  if(!guard('admin','🚫 تعديل الموظفين متاح للإدارة فقط')) return;
-  const uid = btn.dataset.uid, name = btn.dataset.nm, role = btn.dataset.rl;
-  const RL = { mayor: '👑 رئيس البلدية', admin: '⚙️ المدير', approver: '✅ مسؤول الموافقات', officer: '👤 موظف المتابعة', viewer:'👁️ عرض فقط' };
-  const old = document.getElementById('edit-emp-form');
-  if (old) old.remove();
-  const opts = ['viewer','officer','approver','admin','mayor'].map(r =>
-    `<option value="${r}"${r === role ? ' selected' : ''}>${RL[r]}</option>`).join('');
-  document.getElementById('emp-list').insertAdjacentHTML('afterbegin', `
-    <div id="edit-emp-form" style="background:var(--blue3);border:1.5px solid var(--blue);border-radius:12px;padding:16px;margin-bottom:14px">
-      <div style="font-size:14px;font-weight:700;color:var(--blue2);margin-bottom:12px">✏️ تعديل: ${name}</div>
-      <div class="fg"><div class="fl">الاسم</div><input type="text" id="edit-nm" class="fi" value="${name}"></div>
-      <div class="fg"><div class="fl">الدور</div><select id="edit-rl" class="fi">${opts}</select></div>
-      <div style="display:flex;gap:8px">
-        <button onclick="saveEmp('${uid}')" class="btn bp" style="flex:2;justify-content:center">✓ حفظ</button>
-        <button onclick="document.getElementById('edit-emp-form').remove()" class="btn bg" style="flex:1;justify-content:center">إلغاء</button>
-      </div>
-    </div>`);
-}
-
-async function saveEmp(uid) {
-  if(!guard('admin','🚫 تعديل الموظفين متاح للإدارة فقط')) return;
-  const nm = document.getElementById('edit-nm').value.trim();
-  const rl = document.getElementById('edit-rl').value;
-  if (!nm) { toast('يرجى إدخال الاسم', 'err'); return; }
-  try {
-    const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/' + uid, {
-      method: 'PUT',
-      headers: { apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_metadata: { name: nm, role: rl } })
-    });
-    const d = await r.json();
-    if (d.error) throw new Error(d.msg || JSON.stringify(d.error));
-    toast('✅ تم حفظ التعديلات');
-    setTimeout(loadEmp, 700);
-  } catch(e) { toast('⚠️ ' + e.message, 'err'); }
-}
-
-async function delEmp(btn) {
-  if(!guard('admin','🚫 حذف الموظفين متاح للإدارة فقط')) return;
-  const uid = btn.dataset.uid, name = btn.dataset.nm;
-  if (!confirm('حذف ' + name + '؟')) return;
-  try {
-    const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users/' + uid, {
-      method: 'DELETE',
-      headers: { apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4' }
-    });
-    if (r.status === 200 || r.status === 204) { toast('🗑 تم حذف ' + name); setTimeout(loadEmp, 700); }
-    else throw new Error('فشل الحذف');
-  } catch(e) { toast('⚠️ ' + e.message, 'err'); }
-}
-
-
-// ── VIEW / LOCAL UI UTILITIES ────────────────────────────────────────────────
-function loadViewPrefs(){
-  try{
-    const ui=JSON.parse(localStorage.getItem('wadi_ui_prefs')||'{}');
-    qF=ui.qF||'';
-    tyF=ui.tyF||'all';
-    sortM=ui.sortM||'date-desc';
-    const dark=!!ui.dark;
-    document.body.classList.toggle('dark-mode',dark);
-    const tb=document.getElementById('THEME_BTN');
-    if(tb)tb.textContent=dark?'☀️ الوضع النهاري':'🌙 الوضع الليلي';
-  }catch(e){}
-}
-function applyPrefsToUI(){
-  const q=document.getElementById('QQ'), ts=document.getElementById('TS'), ss=document.getElementById('SS');
-  if(q)q.value=qF||'';
-  if(ts)ts.value=tyF||'all';
-  if(ss)ss.value=sortM||'date-desc';
-}
-function saveViewPrefs(){
-  try{
-    localStorage.setItem('wadi_ui_prefs',JSON.stringify({
-      qF,tyF,sortM,
-      dark:document.body.classList.contains('dark-mode')
-    }));
-  }catch(e){}
-}
-function toggleTheme(){
-  const on=document.body.classList.toggle('dark-mode');
-  const tb=document.getElementById('THEME_BTN');
-  if(tb)tb.textContent=on?'☀️ الوضع النهاري':'🌙 الوضع الليلي';
-  saveViewPrefs();
-}
-async function refreshData(){
-  await load();
-  toast('↻ تم تحديث البيانات');
-}
-function printFiltered(){
-  if(!guard('print','🚫 لا تملك صلاحية الطباعة')) return;
-  const rows=filtered().map(c=>`
-    <tr>
-      <td>${String(c.id).slice(-4)}</td>
-      <td>${c.name||''}</td>
-      <td>${TL[c.type]||c.type}</td>
-      <td>${SL[c.status]||c.status}</td>
-      <td>${c.assigned||'—'}</td>
-      <td>${(c.created_at||'').slice(0,10)}</td>
-    </tr>`).join('');
-  const w=window.open('','_blank');
-  w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>طباعة</title>
-  <style>body{font-family:Tajawal,Arial,sans-serif;padding:24px}h2{margin-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:8px;text-align:right}th{background:#f3f5f8}</style>
-  </head><body><h2>بلدية وادي الست — قائمة الطلبات</h2><table><thead><tr><th>#</th><th>الاسم</th><th>النوع</th><th>الحالة</th><th>المسؤول</th><th>التاريخ</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
-  w.document.close();
-  w.focus();
-  w.print();
-}
-function exportJSON(){
-  if(!guard('export','🚫 لا تملك صلاحية تصدير البيانات')) return;
-  const blob=new Blob([JSON.stringify(filtered(),null,2)],{type:'application/json;charset=utf-8'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='wadi-cases.json';
-  a.click();
-}
-function openSettings(){
-  if(!guard('settings','🚫 إعدادات النظام متاحة للإدارة فقط')) return;
-  document.getElementById('MT').textContent='إعدادات الاتصال';
-  document.getElementById('MB').innerHTML=`
-    <div class="admin-section">
-      <div class="admin-header">معلومات الاتصال الحالية</div>
-      <div style="font-size:13px;color:var(--text2);line-height:2">
-        <strong>Supabase URL:</strong><br><span class="ltr">${SUPABASE_URL}</span><br><br>
-        <strong>مفتاح الربط:</strong><br><span class="ltr">${SUPABASE_ANON_KEY.slice(0,28)}...</span>
-      </div>
-      <div class="ron" style="margin-top:14px">هذه النافذة للعرض فقط داخل هذا الإصدار الثابت من الملف.</div>
-      <div style="display:flex;gap:9px;margin-top:12px">
-        <button class="btn bg" style="flex:1;justify-content:center" onclick="closeM()">إغلاق</button>
-      </div>
-    </div>`;
-  document.getElementById('OV').classList.add('open');
-}
-
-function closeM(){document.getElementById('OV').classList.remove('open');}
-function mc(e){if(e.target===document.getElementById('OV'))closeM();}
-
-
-
-function applyRoleVisibility(){
-  const R=getRoleCfg();
-  const show=(sel,ok,mode='')=>document.querySelectorAll(sel).forEach(el=>el.style.display=ok?(mode||''):'none');
-  show('#nav-pend',R.A,'flex');
-  show('#nav-add',R.add,'flex');
-  show('#BADD',R.add,'inline-flex');
-  show('#nav-users',R.admin,'flex');
-  show('#nav-activity',R.activity,'flex');
-  show('#nav-audit',R.audit,'flex');
-  show('#nav-wa',R.wa,'flex');
-  show('.feature-export',R.export,'inline-flex');
-  document.querySelectorAll('[onclick="printFiltered()"]').forEach(el=>el.style.display=R.print?'inline-flex':'none');
-}
-
-
-// ── NEW FEATURES (نشاط، سجل، واتساب، ملفي) ─────────────────────────
-
-function appUserName(){return currentUser?.user_metadata?.name||currentUser?.email||'مستخدم';}
-
-function applyPrefsToUI(){
-  const q=document.getElementById('QQ'), ts=document.getElementById('TS'), ss=document.getElementById('SS');
-  if(q)q.value=qF||'';
-  if(ts)ts.value=tyF||'all';
-  if(ss)ss.value=sortM||'date-desc';
-}
-
-function applyRoleVisibility(){
-  const R=getRoleCfg();
-  const show=(sel,ok,mode='')=>document.querySelectorAll(sel).forEach(el=>el.style.display=ok?(mode||''):'none');
-  show('#nav-pend',R.A,'flex');
-  show('#nav-add',R.add,'flex');
-  show('#BADD',R.add,'inline-flex');
-  show('#nav-users',R.admin,'flex');
-  show('#nav-activity',R.activity,'flex');
-  show('#nav-audit',R.audit,'flex');
-  show('#nav-wa',R.wa,'flex');
-  show('.feature-export',R.export,'inline-flex');
-  document.querySelectorAll('[onclick="printFiltered()"]').forEach(el=>el.style.display=R.print?'inline-flex':'none');
-}
-
-function canDo(action){return !!getRoleCfg()[action];}
-
-function exportActivityJSON(){const blob=new Blob([JSON.stringify(readLS(APP_ACTIVITY_KEY,[]),null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='user_activity.json';a.click();URL.revokeObjectURL(a.href);}
-
-function exportAuditJSON(){const blob=new Blob([JSON.stringify(readLS(APP_AUDIT_KEY,[]),null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='audit_log.json';a.click();URL.revokeObjectURL(a.href);}
-
-function exportJSON(){
-  if(!guard('export','🚫 لا تملك صلاحية تصدير البيانات')) return;
-  const blob=new Blob([JSON.stringify(filtered(),null,2)],{type:'application/json;charset=utf-8'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='wadi-cases.json';
-  a.click();
-}
-
-function fmtDT(v){if(!v) return '—'; const d=new Date(v); return d.toLocaleString('ar-LB');}
-
-function getActivityStats(){
-  const rows=readLS(APP_ACTIVITY_KEY,[]);
-  const today=new Date().toDateString();
-  const todayRows=rows.filter(r=>new Date(r.at).toDateString()===today);
-  const uniq=new Set(rows.map(r=>r.user));
-  return {total:rows.length, today:todayRows.length, users:uniq.size};
-}
-
-function getPermissionRows(){
-  const R=getRoleCfg();
-  return [
-    ['تعديل الطلبات', R.edit],
-    ['إضافة طلب جديد', R.add],
-    ['حذف الطلبات', R.del],
-    ['الموافقات الرسمية', R.A],
-    ['إدارة المستخدمين', R.admin],
-    ['تصدير البيانات', R.export],
-    ['الطباعة', R.print],
-    ['إعدادات النظام', R.settings],
-    ['تتبع نشاط الموظفين', R.activity],
-    ['سجل التدقيق والتعديلات', R.audit],
-    ['إشعارات واتساب حسب الدور', R.wa]
-  ];
-}
-
-function getWhatsAppSettings(){
-  const base={
-    mayor:{enabled:true, phones:'', template:'إشعار جديد لرئيس البلدية: {event}'},
-    admin:{enabled:true, phones:'', template:'إشعار إداري: {event}'},
-    approver:{enabled:true, phones:'', template:'طلب يحتاج موافقة: {event}'},
-    officer:{enabled:false, phones:'', template:'تحديث مهمة: {event}'},
-    viewer:{enabled:false, phones:'', template:'تنبيه عرض فقط: {event}'}
-  };
-  const saved=readLS(APP_WA_KEY, null);
-  return saved ? {...base, ...saved} : base;
-}
-
-function guard(action,msg){
-  if(canDo(action)) return true;
-  toast(msg || '🚫 ليس لديك صلاحية لهذه العملية','err');
-  return false;
-}
-
-function loadViewPrefs(){
-  try{
-    const ui=JSON.parse(localStorage.getItem('wadi_ui_prefs')||'{}');
-    qF=ui.qF||'';
-    tyF=ui.tyF||'all';
-    sortM=ui.sortM||'date-desc';
-    const dark=!!ui.dark;
-    document.body.classList.toggle('dark-mode',dark);
-    const tb=document.getElementById('THEME_BTN');
-    if(tb)tb.textContent=dark?'☀️ الوضع النهاري':'🌙 الوضع الليلي';
-  }catch(e){}
-}
-
-function logAudit(entity, action, ref='—', details=''){
-  const rows=readLS(APP_AUDIT_KEY,[]);
-  rows.unshift({id:Date.now()+Math.random(), user:appUserName(), role:userRole, entity, action, ref, details, at:nowISO()});
-  writeLS(APP_AUDIT_KEY, rows.slice(0,500));
-}
-
-function maybeWhatsAppNotify(targetRole,eventName,caseRef='—'){
-  const cfg=getWhatsAppSettings()[targetRole];
-  if(!cfg||!cfg.enabled) return;
-  const rows=readLS(APP_AUDIT_KEY,[]);
-  rows.unshift({id:Date.now()+Math.random(), user:appUserName(), role:userRole, entity:'whatsapp_notification', action:'queued', ref:caseRef, details:`إشعار واتساب مجدول للدور ${targetRole}: ${eventName}`, at:nowISO()});
-  writeLS(APP_AUDIT_KEY, rows.slice(0,500));
-}
-
-function nowISO(){return new Date().toISOString();}
-
-function openActivityTracking(){
-  if(!guard('activity','🚫 هذه الصفحة متاحة للإدارة فقط')) return;
-  const rows=readLS(APP_ACTIVITY_KEY,[]);
-  const stats=getActivityStats();
-  const last=rows.slice(0,20).map(r=>`<div class="log-item"><div class="log-title">${r.action}</div><div class="log-meta">👤 ${r.user} — ${r.role}<br>📝 ${r.details||'—'}<br>🕒 ${fmtDT(r.at)}</div></div>`).join('') || '<div class="em">لا يوجد نشاط بعد</div>';
-  const users={}; rows.forEach(r=>{users[r.user]=(users[r.user]||0)+1;});
-  const top=Object.entries(users).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([u,c])=>`<div class="log-item"><div class="log-title">${u}</div><div class="log-meta">عدد الأنشطة المسجّلة: ${c}</div></div>`).join('') || '<div class="em">لا بيانات</div>';
-  document.getElementById('MT').textContent='📊 تتبع نشاط الموظفين';
-  document.getElementById('MB').innerHTML=`<div class="kpi-strip"><div class="kpi-box"><div class="kpi-num">${stats.total}</div><div class="kpi-lbl">إجمالي الأنشطة</div></div><div class="kpi-box"><div class="kpi-num">${stats.today}</div><div class="kpi-lbl">نشاط اليوم</div></div><div class="kpi-box"><div class="kpi-num">${stats.users}</div><div class="kpi-lbl">الموظفون النشطون</div></div><div class="kpi-box"><div class="kpi-num">20</div><div class="kpi-lbl">آخر السجلات المعروضة</div></div></div><div class="log-grid"><div class="log-card"><div class="admin-header">آخر نشاطات النظام</div><div class="log-list">${last}</div></div><div class="log-card"><div class="admin-header">الأكثر نشاطاً</div><div class="log-list">${top}</div></div></div><div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px"><button class="btn bg" onclick="closeM()">إغلاق</button><button class="btn bp" onclick="exportActivityJSON()">تصدير نشاط المستخدمين</button></div>`;
-  document.getElementById('OV').classList.add('open');
-}
-
-function openAuditLog(){
-  if(!guard('audit','🚫 سجل التدقيق غير متاح لهذا الدور')) return;
-  const rows=readLS(APP_AUDIT_KEY,[]);
-  const list=rows.slice(0,30).map(r=>`<div class="log-item"><div class="log-title">${r.action} — ${r.entity}</div><div class="log-meta">👤 ${r.user} — ${r.role}<br>📎 المرجع: ${r.ref||'—'}<br>📝 ${r.details||'—'}<br>🕒 ${fmtDT(r.at)}</div></div>`).join('') || '<div class="em">لا يوجد سجل تدقيق بعد</div>';
-  document.getElementById('MT').textContent='🧾 سجل التدقيق والتعديلات';
-  document.getElementById('MB').innerHTML=`<div class="log-card"><div class="admin-header">آخر 30 عملية مسجلة</div><div class="log-list">${list}</div></div><div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px"><button class="btn bg" onclick="closeM()">إغلاق</button><button class="btn bp" onclick="exportAuditJSON()">تصدير سجل التدقيق</button></div>`;
-  document.getElementById('OV').classList.add('open');
-}
-
-function openProfile(){
-  const R=getRoleCfg();
-  const nm=currentUser?.user_metadata?.name||currentUser?.email?.split('@')[0]||'—';
-  const em=currentUser?.email||'—';
-  const [fc,bc]=avc(nm);
-  const perms=getPermissionRows().map(([label,ok])=>`<div class="perm-item"><strong>${label}</strong><span class="${ok?'perm-yes':'perm-no'}">${ok?'مفعّل':'غير متاح'}</span></div>`).join('');
-  document.getElementById('MT').textContent='الملف الوظيفي والصلاحيات';
-  document.getElementById('MB').innerHTML=`
-    <div class="profile-grid">
-      <div class="profile-card">
-        <div class="profile-head">
-          <div class="profile-avatar" style="background:${bc};color:${fc}">${ini(nm)}</div>
-          <div style="flex:1">
-            <div style="font-size:18px;font-weight:800">${nm}</div>
-            <div style="font-size:12px;color:var(--text3);direction:ltr;text-align:right">${em}</div>
-            <div style="margin-top:8px"><span class="role-chip">${R.i} ${R.l}</span></div>
-          </div>
-        </div>
-        <div style="font-size:13px;color:var(--text2);line-height:1.9">
-          هذه البطاقة توضّح دورك الحالي في النظام وما يمكنك رؤيته أو تعديله.
-          أي ميزة غير متاحة يتم إخفاؤها تلقائياً أو فتحها بوضع القراءة فقط.
-        </div>
-        <div class="perm-grid">${perms}</div>
-      </div>
-      <div class="profile-card">
-        <div style="font-size:15px;font-weight:800;color:var(--blue2);margin-bottom:10px">ماذا يعني دورك؟</div>
-        <div style="font-size:13px;color:var(--text2);line-height:2">
-          ${userRole==='viewer' ? 'أنت في وضع عرض فقط. يمكنك رؤية الطلبات ومتابعتها من دون تعديل أو حذف أو تصدير.' :
-            userRole==='officer' ? 'أنت موظف متابعة. يمكنك فتح الطلبات وتعديل الحالة والملاحظات وإضافة طلبات جديدة.' :
-            userRole==='approver' ? 'أنت مسؤول الموافقات. يمكنك مراجعة الطلبات التي تحتاج قراراً رسمياً، لكن دون تعديل كامل لكل الحقول.' :
-            userRole==='admin' ? 'أنت مدير النظام. لديك صلاحيات تشغيلية كاملة بما فيها إدارة المستخدمين والتصدير.' :
-            'أنت رئيس البلدية. لديك أعلى مستوى من الصلاحيات والموافقات والإدارة.'}
-        </div>
-        <div class="dv"></div>
-        <div style="font-size:14px;font-weight:700;margin-bottom:8px">ملخص الوصول</div>
-        <div style="font-size:13px;color:var(--text2);line-height:2">
-          • الطلبات: ${R.edit?'تعديل مسموح':'عرض فقط'}<br>
-          • المستخدمون: ${R.admin?'إدارة كاملة':'غير متاح'}<br>
-          • التصدير: ${R.export?'مسموح':'غير متاح'}<br>
-          • الطباعة: ${R.print?'مسموح':'غير متاح'}<br>
-          • تتبع النشاط: ${R.activity?'مسموح':'غير متاح'}<br>
-          • سجل التدقيق: ${R.audit?'مسموح':'غير متاح'}<br>
-          • إشعارات واتساب: ${R.wa?'مسموح':'غير متاح'}
-        </div>
-      </div>
-    </div>
-    <div style="display:flex;gap:9px;flex-wrap:wrap">
-      <button class="btn bg" style="flex:1;justify-content:center" onclick="closeM()">إغلاق</button>
-    </div>`;
-  document.getElementById('OV').classList.add('open');
-}
-
-function openWhatsAppRoles(){
-  if(!guard('wa','🚫 إعدادات واتساب حسب الدور متاحة للإدارة فقط')) return;
-  const cfg=getWhatsAppSettings();
-  const roles=['mayor','admin','approver','officer','viewer'];
-  const labels={mayor:'👑 رئيس البلدية',admin:'⚙️ المدير',approver:'✅ مسؤول الموافقات',officer:'👤 موظف المتابعة',viewer:'👁️ عرض فقط'};
-  const rows=roles.map(r=>`<div class="log-item"><div class="log-title">${labels[r]}</div><div class="g2"><div class="fg"><div class="fl">تفعيل</div><select class="fi" id="wa-enabled-${r}"><option value="1" ${cfg[r].enabled?'selected':''}>مفعّل</option><option value="0" ${!cfg[r].enabled?'selected':''}>متوقف</option></select></div><div class="fg"><div class="fl">أرقام واتساب</div><input class="fi" id="wa-phones-${r}" value="${cfg[r].phones||''}" placeholder="961... , 33..." style="direction:ltr"></div></div><div class="fg"><div class="fl">نص الرسالة</div><textarea class="fi" id="wa-template-${r}" placeholder="استخدم {event}">${cfg[r].template||''}</textarea></div></div>`).join('');
-  document.getElementById('MT').textContent='📱 إشعارات واتساب حسب الدور';
-  document.getElementById('MB').innerHTML=`<div class="admin-section"><div class="admin-header">إعداد الأرقام والرسائل لكل دور</div><div style="font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:12px">هذه النسخة تضيف إدارة الإعدادات داخل اللوحة. الربط الفعلي مع WhatsApp API يتم لاحقاً عبر Supabase Edge Functions أو مزوّد مثل Twilio أو Meta Cloud API.</div><div class="log-list">${rows}</div><div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px"><button class="btn bg" onclick="closeM()">إغلاق</button><button class="btn bp" onclick="saveWhatsAppRolesFromModal()">حفظ الإعدادات</button></div></div>`;
-  document.getElementById('OV').classList.add('open');
-}
-
-function printFiltered(){
-  if(!guard('print','🚫 لا تملك صلاحية الطباعة')) return;
-  const rows=filtered().map(c=>`
-    <tr>
-      <td>${String(c.id).slice(-4)}</td>
-      <td>${c.name||''}</td>
-      <td>${TL[c.type]||c.type}</td>
-      <td>${SL[c.status]||c.status}</td>
-      <td>${c.assigned||'—'}</td>
-      <td>${(c.created_at||'').slice(0,10)}</td>
-    </tr>`).join('');
-  const w=window.open('','_blank');
-  w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>طباعة</title>
-  <style>body{font-family:Tajawal,Arial,sans-serif;padding:24px}h2{margin-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:8px;text-align:right}th{background:#f3f5f8}</style>
-  </head><body><h2>بلدية وادي الست — قائمة الطلبات</h2><table><thead><tr><th>#</th><th>الاسم</th><th>النوع</th><th>الحالة</th><th>المسؤول</th><th>التاريخ</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
-  w.document.close();
-  w.focus();
-  w.print();
-}
-
-function readLS(k,fallback=[]){try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(fallback));}catch{return fallback;}}
-
-async function refreshData(){
-  await load();
-  toast('↻ تم تحديث البيانات');
-}
-
-function saveViewPrefs(){
-  try{
-    localStorage.setItem('wadi_ui_prefs',JSON.stringify({
-      qF,tyF,sortM,
-      dark:document.body.classList.contains('dark-mode')
-    }));
-  }catch(e){}
-}
-
-function saveWhatsAppRolesFromModal(){
-  const roles=['mayor','admin','approver','officer','viewer'];
-  const data={};
-  roles.forEach(r=>{data[r]={enabled:document.getElementById(`wa-enabled-${r}`).value==='1', phones:document.getElementById(`wa-phones-${r}`).value.trim(), template:document.getElementById(`wa-template-${r}`).value.trim()};});
-  saveWhatsAppSettings(data); toast('✓ تم حفظ إعدادات واتساب حسب الدور'); closeM();
-}
-
-function saveWhatsAppSettings(data){writeLS(APP_WA_KEY,data); trackActivity('حفظ إعدادات واتساب','تم تحديث إعدادات الإشعارات حسب الدور'); logAudit('whatsapp_roles','update','roles','تعديل إعدادات واتساب حسب الدور');}
-
-function toggleTheme(){
-  const on=document.body.classList.toggle('dark-mode');
-  const tb=document.getElementById('THEME_BTN');
-  if(tb)tb.textContent=on?'☀️ الوضع النهاري':'🌙 الوضع الليلي';
-  saveViewPrefs();
-}
-
-function trackActivity(action, details=''){
-  const rows=readLS(APP_ACTIVITY_KEY,[]);
-  rows.unshift({id:Date.now()+Math.random(), user:appUserName(), role:userRole, action, details, at:nowISO()});
-  writeLS(APP_ACTIVITY_KEY, rows.slice(0,300));
-}
-
-function writeLS(k,v){localStorage.setItem(k,JSON.stringify(v));}
-
-
-function canDo(action){return !!getRoleCfg()[action];}
-function guard(action,msg){
-  if(canDo(action)) return true;
-  toast(msg || '🚫 ليس لديك صلاحية لهذه العملية','err');
-  return false;
-}
-function getPermissionRows(){
-  const R=getRoleCfg();
-  return [
-    ['تعديل الطلبات', R.edit],
-    ['إضافة طلب جديد', R.add],
-    ['حذف الطلبات', R.del],
-    ['الموافقات الرسمية', R.A],
-    ['إدارة المستخدمين', R.admin],
-    ['تصدير البيانات', R.export],
-    ['الطباعة', R.print],
-    ['إعدادات النظام', R.settings],
-    ['تتبع نشاط الموظفين', R.activity],
-    ['سجل التدقيق والتعديلات', R.audit],
-    ['إشعارات واتساب حسب الدور', R.wa]
-  ];
-}
-function appUserName(){return currentUser?.user_metadata?.name||currentUser?.email||'مستخدم';}
 
 </script>
 <div style="position:fixed;bottom:0;left:0;right:0;background:rgba(15,77,130,0.95);color:rgba(255,255,255,0.6);text-align:center;padding:8px;font-size:12px;z-index:9999;pointer-events:none;direction:ltr">Powered by <strong style="color:#fff">IanTrading SAL</strong> &nbsp;·&nbsp; All rights reserved © 2026</div>
