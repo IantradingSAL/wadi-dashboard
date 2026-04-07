@@ -1793,23 +1793,54 @@ window.addEventListener('load',async()=>{
 const SB_ADM = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
 
 async function adminAPI(payload) {
+  // Use current user's JWT for admin operations
   const session = await sb.auth.getSession();
-  const jwt = session?.data?.session?.access_token || SB_ADM;
-  if (payload.action === 'list') {
-    try {
-      const r2 = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users?per_page=50', {
-        headers: { 'apikey': SB_ADM, 'Authorization': 'Bearer ' + jwt }
+  const jwt = session?.data?.session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
+  const BASE_URL = 'https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users';
+  const HEADERS = {
+    'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4',
+    'Authorization': 'Bearer ' + jwt,
+    'Content-Type': 'application/json'
+  };
+
+  let r;
+  switch(payload.action) {
+    case 'list':
+      r = await fetch(BASE_URL + '?per_page=50', { headers: HEADERS });
+      break;
+    case 'create':
+      r = await fetch(BASE_URL, {
+        method: 'POST', headers: HEADERS,
+        body: JSON.stringify({
+          email: payload.email,
+          password: payload.password,
+          email_confirm: true,
+          user_metadata: { name: payload.name, role: payload.role }
+        })
       });
-      if (r2.ok) return await r2.json();
-    } catch(e2) {}
+      break;
+    case 'update':
+      r = await fetch(BASE_URL + '/' + payload.uid, {
+        method: 'PUT', headers: HEADERS,
+        body: JSON.stringify(payload.updates)
+      });
+      break;
+    case 'delete':
+      r = await fetch(BASE_URL + '/' + payload.uid, {
+        method: 'DELETE', headers: HEADERS
+      });
+      if(r.status === 204) return { success: true };
+      break;
+    default:
+      throw new Error('Unknown action: ' + payload.action);
   }
-  const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/functions/v1/admin-user', {
-    method: 'POST',
-    headers: { 'apikey': SB_ADM, 'Authorization': 'Bearer ' + jwt, 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  let d; try { d = await r.json(); } catch(e) { d = {}; }
-  if (!r.ok) throw new Error(d.error || d.message || d.msg || 'فشل (' + r.status + ')');
+
+  let d;
+  try { d = await r.json(); } catch(e) { d = {}; }
+  if (!r.ok) {
+    const msg = d.error_description || d.message || d.msg || d.error || ('HTTP ' + r.status);
+    throw new Error(msg);
+  }
   return d;
 }
 
