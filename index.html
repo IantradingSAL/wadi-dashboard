@@ -354,7 +354,7 @@ const ROLE_CFG={
 
 // ── SUPABASE ──────────────────────────────────────────────────────────────────
 let sb=null,dbR=false;
-try{sb=window.supabase.createClient('https://onjbwhkmmtqnymhjnplw.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4');dbR=true;}catch(e){console.error(e);}
+try{sb=window.supabase.createClient('https://onjbwhkmmtqnymhjnplw.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4',{realtime:{enabled:false}});dbR=true;}catch(e){console.error(e);}
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let currentUser=null,userRole=null,cases=[],stF='all',tyF='all',srcF='all',sortM='date-desc',qF='',page=1;
@@ -593,7 +593,10 @@ async function delC(id){
 }
 
 function subscribe(){
-  sb.channel('cases').on('postgres_changes',{event:'*',schema:'public',table:'cases'},async()=>{await load();}).subscribe();
+  // Use polling instead of realtime to avoid DataCloneError
+  setInterval(async function(){
+    try { await load(); } catch(e) {}
+  }, 30000); // refresh every 30 seconds
 }
 
 async function upDoc(caseId,file){
@@ -800,8 +803,13 @@ async function uf(id,field,value,by){
   const c=cases.find(x=>String(x.id)===String(id));if(!c)return;
   const today=new Date().toISOString().slice(0,10);c[field]=value;
   const tl=[...(c.timeline||[])];
-  if(field==='status')tl.push({a:`تغيير الحالة: ${SL[value]}`,by,d:today,cls:''});
+  if(field==='status'){
+    tl.push({a:`تغيير الحالة: ${SL[value]}`,by,d:today,cls:''});
+    // Send email to citizen
+    if(c.email) sendBrevoEmail(c.email, c.name, '[بلدية وادي الست] تحديث طلبكم رقم #'+id, buildStatusEmail(id, c.name, value, c.public_note));
+  }
   if(field==='assigned')tl.push({a:`إعادة تعيين: ${value}`,by,d:today,cls:''});
+  if(field==='public_note' && c.email) sendBrevoEmail(c.email, c.name, '[بلدية وادي الست] رد البلدية على طلبكم رقم #'+id, buildStatusEmail(id, c.name, c.status, value));
   c.timeline=tl;await saveC(c);rStats();render();
 }
 
@@ -862,8 +870,11 @@ async function subAdd(){
   const nc={name,phone,email,address,type,description,priority,assigned,notes,status:na?'pending-approval':'new',approval_state:na?'pending':null,approval_by:null,approval_date:null,timeline:[{a:'تم فتح الطلب',by,d:today,cls:''}],documents:[],source:'staff'};
   if(!dbR){nc.id=Date.now();nc.created_at=new Date().toISOString();cases.unshift(nc);closeM();rStats();render();toast('⚠️ تم الحفظ محلياً فقط','err');return;}
   sv(true);
-  try{const{data,error}=await sb.from('cases').insert([nc]).select().single();if(error)throw error;cases.unshift(data); logAudit('case','create',data?.id||'—',`إنشاء طلب جديد: ${type}`); trackActivity('إضافة طلب',`طلب جديد رقم ${data?.id||'—'}`); maybeWhatsAppNotify('admin','تم إنشاء طلب جديد',data?.id||'—');
-        sendStaffNotifEmails(data||nc,'new_case'); closeM();rStats();render();toast('✓ تم إضافة الطلب');}
+  try{const{data,error}=await sb.from('cases').insert([nc]).select().single();if(error)throw error;cases.unshift(data);
+    // Send confirmation email to citizen
+    if(data && data.email) sendBrevoEmail(data.email, data.name, '[بلدية وادي الست] تم استلام طلبكم رقم #'+(data.id||''), buildCitizenEmail(data.id, data.name, data.type, data.status));
+    logAudit('case','create',data?.id||'—',`إنشاء طلب جديد: ${type}`); trackActivity('إضافة طلب',`طلب جديد رقم ${data?.id||'—'}`); maybeWhatsAppNotify('admin','تم إنشاء طلب جديد',data?.id||'—');
+        setTimeout(function(){ sendStaffNotifEmails(data||nc,'new_case'); }, 200); closeM();rStats();render();toast('✓ تم إضافة الطلب');}
   catch(e){toast('خطأ: '+e.message,'err');}finally{sv(false);}
 }
 
@@ -1230,10 +1241,7 @@ function mc(e){if(e.target===document.getElementById('OV'))closeM();}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:13px">
         <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">نوع الطلب *</div>
           <select id="c-type" class="fi" style="appearance:none;-webkit-appearance:none">
-            <option value="complaint">⚠️ شكوى</option>
-            <option value="welfare">🤝 رعاية اجتماعية</option>
-            <option value="permit">🏗️ ترخيص</option>
-            <option value="inquiry">❓ استفسار</option>
+            ${(typeof getCats==='function'?getCats():[{id:'complaint',icon:'⚠️',label:'شكوى'},{id:'welfare',icon:'🤝',label:'رعاية اجتماعية'},{id:'permit',icon:'🏗️',label:'ترخيص'},{id:'inquiry',icon:'❓',label:'استفسار'}]).map(function(c){return '<option value="'+c.id+'">'+c.icon+' '+c.label+'</option>';}).join('')}
             </select></div>
         <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">العنوان</div>
           <input type="text" id="c-addr" class="fi" placeholder="حارة، منطقة…"></div>
@@ -1518,9 +1526,8 @@ async function doSubmitCit(){
   const name=document.getElementById('c-name').value.trim();
   const phone=document.getElementById('c-phone').value.trim();
   const email=document.getElementById('c-email').value.trim();
-  const type=document.getElementById('c-type').value;
-  // getDbType maps custom cats to valid DB types
-  type=getDbType(type);
+  const typeRaw=document.getElementById('c-type').value;
+  const type=getDbType(typeRaw);
   const addr=document.getElementById('c-addr').value.trim();
   const desc=document.getElementById('c-desc').value.trim();
   const err=document.getElementById('c-err');
@@ -1543,6 +1550,13 @@ async function doSubmitCit(){
     if(error)throw error;
     const newCaseId = data.id;
     document.getElementById('c-ref').textContent = newCaseId;
+    // Send confirmation email (non-blocking)
+    const citEmail=document.getElementById('c-email')?.value?.trim();
+    const citName=document.getElementById('c-name')?.value?.trim();
+    const citTypeVal=document.getElementById('c-type')?.value;
+    if(citEmail) setTimeout(function(){
+      sendBrevoEmail(citEmail, citName, '[بلدية وادي الست] تم استلام طلبكم رقم #'+newCaseId, buildCitizenEmail(newCaseId, citName, citTypeVal, 'new'));
+    }, 100);
     if (citFiles.length > 0) {
       const pw=document.getElementById('c-prog-wrap');
       const pb=document.getElementById('c-prog-bar');
@@ -2491,6 +2505,77 @@ function updateCitizenTypeSelect() {
   sel.innerHTML = cats.map(function(c) {
     return '<option value="' + c.id + '">' + c.icon + ' ' + c.label + '</option>';
   }).join('');
+}
+
+
+// ── BREVO EMAIL (direct from browser) ────────────────────────────────────────
+async function sendBrevoEmail(toEmail, toName, subject, htmlBody) {
+  if (!toEmail) return;
+  const BKEY = 'xsmtpsib-0421702005db0037488fcf8571d71affe52db33a95300e80847392294f871b55-fxFDF0zqQLSVMDAA';
+  const payload = JSON.stringify({
+    sender: { name: 'بلدية وادي الست', email: 'noreply@municipality-wadi-el-sitt.org' },
+    to: [{ email: toEmail, name: toName || 'المواطن' }],
+    subject: subject,
+    htmlContent: htmlBody
+  });
+  try {
+    const r = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'api-key': BKEY, 'Content-Type': 'application/json' },
+      body: payload
+    });
+    const status = r.status;
+    console.log('Brevo:', status, toEmail);
+    return status === 201 || status === 200;
+  } catch(e) {
+    console.log('sendBrevoEmail error:', e.message);
+    return false;
+  }
+}
+
+function buildCitizenEmail(caseId, name, type, status) {
+  const typeLabel = getTLabel ? getTLabel(type) : type;
+  const statusLabel = {new:'جديد','in-progress':'قيد المعالجة',resolved:'منجز ✅',closed:'مغلق'}[status] || status;
+  return `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><style>
+    body{font-family:Tahoma,Arial,sans-serif;background:#f0f2f7;margin:0;padding:16px;direction:rtl}
+    .card{background:#fff;border-radius:14px;max-width:560px;margin:0 auto;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1)}
+    .hdr{background:linear-gradient(120deg,#0f4d82,#1a6eb5);color:#fff;padding:20px 24px;text-align:center}
+    .body{padding:22px 26px;font-size:15px;line-height:1.9;color:#333}
+    .ref{background:#daeaf8;color:#0f4d82;padding:10px 18px;border-radius:10px;font-size:24px;font-weight:800;display:inline-block;margin:10px 0}
+    .ft{background:#f8f9fb;padding:12px;font-size:12px;color:#999;text-align:center;border-top:1px solid #eee}
+  </style></head><body><div class="card">
+    <div class="hdr"><h2 style="margin:0;font-size:18px">🏛 بلدية وادي الست</h2><p style="margin:4px 0 0;opacity:.8;font-size:13px">نظام متابعة الطلبات والشكاوى</p></div>
+    <div class="body">
+      <p>السيد/ة <strong>${name}</strong>،</p>
+      <p>تم استلام طلبكم وقيده في نظامنا بنجاح. رقمكم المرجعي:</p>
+      <div style="text-align:center"><span class="ref">#${caseId}</span></div>
+      <table style="width:100%;border-collapse:collapse;margin:14px 0;font-size:14px">
+        <tr><td style="padding:7px 10px;border-bottom:1px solid #eee;color:#666">نوع الطلب</td><td style="padding:7px 10px;border-bottom:1px solid #eee"><strong>${typeLabel}</strong></td></tr>
+        <tr><td style="padding:7px 10px;border-bottom:1px solid #eee;color:#666">الحالة</td><td style="padding:7px 10px;border-bottom:1px solid #eee"><strong>${statusLabel}</strong></td></tr>
+      </table>
+      <p style="font-size:13px;color:#666">احتفظ بالرقم المرجعي لمتابعة طلبك لاحقاً.</p>
+    </div>
+    <div class="ft">بلدية وادي الست · قضاء الشوف · جبل لبنان<br>Powered by IanTrading SAL © 2026</div>
+  </div></body></html>`;
+}
+
+function buildStatusEmail(caseId, name, newStatus, publicNote) {
+  const statusLabel = {new:'جديد','in-progress':'قيد المعالجة',resolved:'منجز ✅',closed:'مغلق','pending-approval':'ينتظر الموافقة'}[newStatus] || newStatus;
+  return `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><style>
+    body{font-family:Tahoma,Arial,sans-serif;background:#f0f2f7;margin:0;padding:16px;direction:rtl}
+    .card{background:#fff;border-radius:14px;max-width:560px;margin:0 auto;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1)}
+    .hdr{background:linear-gradient(120deg,#1e5429,#2d7a3e);color:#fff;padding:18px 22px;text-align:center}
+    .body{padding:22px 26px;font-size:15px;line-height:1.9;color:#333}
+    .ft{background:#f8f9fb;padding:12px;font-size:12px;color:#999;text-align:center;border-top:1px solid #eee}
+  </style></head><body><div class="card">
+    <div class="hdr"><h2 style="margin:0;font-size:17px">🔄 تحديث حالة الطلب #${caseId}</h2></div>
+    <div class="body">
+      <p>السيد/ة <strong>${name}</strong>،</p>
+      <p>تم تحديث حالة طلبكم إلى: <strong style="color:#1e5429;font-size:17px">${statusLabel}</strong></p>
+      ${publicNote ? `<div style="background:#f0f8ea;border:2px solid #a8d9b4;border-radius:10px;padding:14px;margin-top:12px"><strong style="color:#1e5429">📢 رد البلدية:</strong><br>${publicNote}</div>` : ''}
+    </div>
+    <div class="ft">بلدية وادي الست · Powered by IanTrading SAL © 2026</div>
+  </div></body></html>`;
 }
 
 </script>
