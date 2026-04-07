@@ -525,6 +525,9 @@ async function setupUser(user){
   document.getElementById('UR').innerHTML=R.i+' '+R.l;
   applyRoleVisibility();
   renderCatsNav();
+  // Add self to officers immediately as fallback
+  if(!OFFICERS.includes(userName)) OFFICERS.push(userName);
+  loadOfficers();
   // Switch screens
   document.getElementById('LS').style.display='none';
   document.getElementById('APP').style.display='block';
@@ -842,7 +845,10 @@ function openAdd(){
     </div>`;
   document.getElementById('OV').classList.add('open');
   // Refresh assigned dropdown with real employees
-  loadOfficers();
+  loadOfficers().then(function(){
+    var sel=document.getElementById('ao');
+    if(sel && OFFICERS.length) sel.innerHTML=OFFICERS.map(function(o){return '<option>'+o+'</option>';}).join('');
+  });
 }
 function can(){const t=document.getElementById('at').value;document.getElementById('an2').style.display=NA.includes(t)?'flex':'none';}
 
@@ -2383,24 +2389,43 @@ function doSaveNewRole(){
 // ── DYNAMIC OFFICERS LOADING ──────────────────────────────────────────────────
 async function loadOfficers() {
   try {
-    // Load real employees from Supabase
+    // Try admin users list first (works if user has admin JWT)
     const session = await sb.auth.getSession();
-    const jwt = session?.data?.session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
-    const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users?per_page=50', {
-      headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4', 'Authorization': 'Bearer ' + jwt }
-    });
-    if (!r.ok) return;
-    const d = await r.json();
-    const names = (d.users||[])
-      .filter(function(u){ return u.user_metadata && u.user_metadata.name; })
-      .map(function(u){ return u.user_metadata.name; });
+    const jwt = session?.data?.session?.access_token;
+    let names = [];
+    if (jwt) {
+      try {
+        const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users?per_page=50', {
+          headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4', 'Authorization': 'Bearer ' + jwt }
+        });
+        if (r.ok) {
+          const d = await r.json();
+          names = (d.users||[])
+            .filter(function(u){ return u.user_metadata && u.user_metadata.name; })
+            .map(function(u){ return u.user_metadata.name; });
+        }
+      } catch(e1) {}
+    }
+    // Fallback: get unique assigned names from cases table
+    if (!names.length) {
+      const r2 = await sb.from('cases').select('assigned').not('assigned','is',null);
+      if (!r2.error && r2.data) {
+        const unique = [...new Set(r2.data.map(function(c){return c.assigned;}).filter(Boolean))];
+        names = unique;
+      }
+    }
+    // Always add current user
+    if (currentUser) {
+      const me = currentUser.user_metadata?.name || currentUser.email?.split('@')[0];
+      if (me && !names.includes(me)) names.unshift(me);
+    }
     if (names.length) {
       OFFICERS.length = 0;
       names.forEach(function(n){ OFFICERS.push(n); });
     }
-    // Update any open assigned select
+    // Update select
     const sel = document.getElementById('ao');
-    if (sel) {
+    if (sel && OFFICERS.length) {
       sel.innerHTML = OFFICERS.map(function(o){ return '<option>'+o+'</option>'; }).join('');
     }
   } catch(e) { console.log('loadOfficers:', e.message); }
