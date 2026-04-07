@@ -862,7 +862,8 @@ async function subAdd(){
   const nc={name,phone,email,address,type,description,priority,assigned,notes,status:na?'pending-approval':'new',approval_state:na?'pending':null,approval_by:null,approval_date:null,timeline:[{a:'تم فتح الطلب',by,d:today,cls:''}],documents:[],source:'staff'};
   if(!dbR){nc.id=Date.now();nc.created_at=new Date().toISOString();cases.unshift(nc);closeM();rStats();render();toast('⚠️ تم الحفظ محلياً فقط','err');return;}
   sv(true);
-  try{const{data,error}=await sb.from('cases').insert([nc]).select().single();if(error)throw error;cases.unshift(data); logAudit('case','create',data?.id||'—',`إنشاء طلب جديد: ${type}`); trackActivity('إضافة طلب',`طلب جديد رقم ${data?.id||'—'}`); maybeWhatsAppNotify('admin','تم إنشاء طلب جديد',data?.id||'—'); closeM();rStats();render();toast('✓ تم إضافة الطلب');}
+  try{const{data,error}=await sb.from('cases').insert([nc]).select().single();if(error)throw error;cases.unshift(data); logAudit('case','create',data?.id||'—',`إنشاء طلب جديد: ${type}`); trackActivity('إضافة طلب',`طلب جديد رقم ${data?.id||'—'}`); maybeWhatsAppNotify('admin','تم إنشاء طلب جديد',data?.id||'—');
+        sendStaffNotifEmails(data||nc,'new_case'); closeM();rStats();render();toast('✓ تم إضافة الطلب');}
   catch(e){toast('خطأ: '+e.message,'err');}finally{sv(false);}
 }
 
@@ -1229,11 +1230,8 @@ function mc(e){if(e.target===document.getElementById('OV'))closeM();}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:13px">
         <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">نوع الطلب *</div>
           <select id="c-type" class="fi" style="appearance:none;-webkit-appearance:none">
-            <option value="complaint">⚠️ شكوى</option>
-            <option value="welfare">🤝 رعاية اجتماعية</option>
-            <option value="permit">🏗️ ترخيص</option>
-            <option value="inquiry">❓ استفسار</option>
-          </select></div>
+            ${getCats().map(function(c){return '<option value="'+c.id+'">'+c.icon+' '+c.label+'</option>';}).join('')}
+            </select></div>
         <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">العنوان</div>
           <input type="text" id="c-addr" class="fi" placeholder="حارة، منطقة…"></div>
       </div>
@@ -2388,47 +2386,29 @@ function doSaveNewRole(){
 
 // ── DYNAMIC OFFICERS LOADING ──────────────────────────────────────────────────
 async function loadOfficers() {
+  OFFICERS.length = 0; // clear old names first
   try {
-    // Try admin users list first (works if user has admin JWT)
-    const session = await sb.auth.getSession();
-    const jwt = session?.data?.session?.access_token;
-    let names = [];
-    if (jwt) {
-      try {
-        const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/auth/v1/admin/users?per_page=50', {
-          headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4', 'Authorization': 'Bearer ' + jwt }
-        });
-        if (r.ok) {
-          const d = await r.json();
-          names = (d.users||[])
-            .filter(function(u){ return u.user_metadata && u.user_metadata.name; })
-            .map(function(u){ return u.user_metadata.name; });
-        }
-      } catch(e1) {}
+    const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/functions/v1/admin-user', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4'},
+      body: JSON.stringify({action:'list'})
+    });
+    if (r.ok) {
+      const d = await r.json();
+      (d.users||[]).forEach(function(u) {
+        const name = u.user_metadata && u.user_metadata.name;
+        if (name && !OFFICERS.includes(name)) OFFICERS.push(name);
+      });
     }
-    // Fallback: get unique assigned names from cases table
-    if (!names.length) {
-      const r2 = await sb.from('cases').select('assigned').not('assigned','is',null);
-      if (!r2.error && r2.data) {
-        const unique = [...new Set(r2.data.map(function(c){return c.assigned;}).filter(Boolean))];
-        names = unique;
-      }
-    }
-    // Always add current user
-    if (currentUser) {
-      const me = currentUser.user_metadata?.name || currentUser.email?.split('@')[0];
-      if (me && !names.includes(me)) names.unshift(me);
-    }
-    if (names.length) {
-      OFFICERS.length = 0;
-      names.forEach(function(n){ OFFICERS.push(n); });
-    }
-    // Update select
-    const sel = document.getElementById('ao');
-    if (sel && OFFICERS.length) {
-      sel.innerHTML = OFFICERS.map(function(o){ return '<option>'+o+'</option>'; }).join('');
-    }
-  } catch(e) { console.log('loadOfficers:', e.message); }
+  } catch(e) {}
+  // Always include current user
+  if (currentUser) {
+    const me = (currentUser.user_metadata && currentUser.user_metadata.name) || currentUser.email.split('@')[0];
+    if (me && !OFFICERS.includes(me)) OFFICERS.unshift(me);
+  }
+  // Update select if open
+  const sel = document.getElementById('ao');
+  if (sel) sel.innerHTML = OFFICERS.map(function(o){return '<option>'+o+'</option>';}).join('');
 }
 
 // ── SIDEBAR CATEGORIES BUTTON ─────────────────────────────────────────────────
@@ -2455,6 +2435,89 @@ function navTypeById(el) {
   var type = el.dataset.type || el.id.replace('nav-','');
   navType(el, type);
 }
+
+// ── EMAIL NOTIFICATIONS VIA BREVO ────────────────────────────────────────────
+async function sendStaffNotifEmails(caseData, eventType) {
+  try {
+    // Get all users via Edge Function
+    const r = await fetch('https://onjbwhkmmtqnymhjnplw.supabase.co/functions/v1/admin-user', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4'},
+      body: JSON.stringify({action:'list'})
+    });
+    if (!r.ok) return;
+    const d = await r.json();
+    const users = d.users || [];
+    
+    for (const u of users) {
+      const meta = u.user_metadata || {};
+      const notif = meta.notifications || {};
+      const events = notif.events || [];
+      // Check if this user wants this event notification
+      if (!notif.email || !events.includes(eventType)) continue;
+      if (!u.email) continue;
+      
+      const name = meta.name || u.email.split('@')[0];
+      const subject = getNotifSubject(eventType, caseData);
+      const html_body = buildStaffEmailHtml(name, eventType, caseData);
+      
+      // Send via Brevo
+      await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {'api-key':'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','Content-Type':'application/json'},
+        body: JSON.stringify({
+          sender: {name:'بلدية وادي الست', email:'imadaehn@gmail.com'},
+          to: [{email: u.email, name: name}],
+          subject: subject,
+          htmlContent: html_body
+        })
+      });
+    }
+  } catch(e) { console.log('sendStaffNotifEmails:', e.message); }
+}
+
+function getNotifSubject(eventType, caseData) {
+  const labels = {
+    new_case: '📋 طلب جديد #' + (caseData.id||''),
+    status_change: '🔄 تغيير حالة طلب #' + (caseData.id||''),
+    public_reply: '📢 رد جديد على طلب #' + (caseData.id||''),
+    internal_note: '🔒 ملاحظة داخلية على طلب #' + (caseData.id||''),
+    doc_added: '📎 مستند جديد على طلب #' + (caseData.id||''),
+    approval_needed: '⏳ طلب ينتظر موافقتك #' + (caseData.id||''),
+    approved: '✅ تمت الموافقة على طلب #' + (caseData.id||''),
+    rejected: '❌ رُفض طلب #' + (caseData.id||''),
+  };
+  return '[بلدية وادي الست] ' + (labels[eventType] || 'إشعار جديد');
+}
+
+function buildStaffEmailHtml(staffName, eventType, c) {
+  const evLabels = {new_case:'طلب جديد',status_change:'تغيير الحالة',public_reply:'رد جديد',internal_note:'ملاحظة داخلية',doc_added:'مستند جديد',approval_needed:'ينتظر موافقة',approved:'تمت الموافقة',rejected:'رُفض'};
+  return `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><style>
+    body{font-family:Tahoma,Arial,sans-serif;background:#f0f2f7;margin:0;padding:16px;direction:rtl}
+    .card{background:#fff;border-radius:14px;max-width:540px;margin:0 auto;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1)}
+    .hdr{background:linear-gradient(120deg,#0f4d82,#1a6eb5);color:#fff;padding:18px 22px;text-align:center}
+    .body{padding:20px 24px;font-size:15px;line-height:1.8;color:#333}
+    .badge{display:inline-block;background:#daeaf8;color:#0f4d82;padding:5px 14px;border-radius:8px;font-weight:800;font-size:15px;margin:8px 0}
+    .btn{display:inline-block;background:#1a6eb5;color:#fff;padding:10px 22px;border-radius:10px;text-decoration:none;font-weight:700;margin-top:12px;font-size:14px}
+    .ft{background:#f8f9fb;padding:12px;font-size:12px;color:#999;text-align:center;border-top:1px solid #eee}
+  </style></head><body>
+  <div class="card">
+    <div class="hdr"><h2 style="margin:0;font-size:17px">🏛 بلدية وادي الست — إشعار داخلي</h2></div>
+    <div class="body">
+      <p>السيد/ة <strong>${staffName}</strong>،</p>
+      <p>يُعلمك هذا الإشعار: <strong>${evLabels[eventType]||eventType}</strong></p>
+      <div><span class="badge">طلب رقم #${c.id||'—'}</span></div>
+      <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:14px">
+        ${c.name?'<tr><td style="padding:6px;border-bottom:1px solid #eee;color:#666">المواطن</td><td style="padding:6px;border-bottom:1px solid #eee"><strong>'+c.name+'</strong></td></tr>':''}
+        ${c.type?'<tr><td style="padding:6px;border-bottom:1px solid #eee;color:#666">النوع</td><td style="padding:6px;border-bottom:1px solid #eee">'+getTLabel(c.type)+'</td></tr>':''}
+        ${c.status?'<tr><td style="padding:6px;border-bottom:1px solid #eee;color:#666">الحالة</td><td style="padding:6px;border-bottom:1px solid #eee">'+(SL[c.status]||c.status)+'</td></tr>':''}
+      </table>
+      <a class="btn" href="https://municipality-wadi-el-sitt.org/managment/">فتح لوحة التحكم ←</a>
+    </div>
+    <div class="ft">بلدية وادي الست · Powered by IanTrading SAL © 2026</div>
+  </div></body></html>`;
+}
+
 </script>
 <div style="position:fixed;bottom:0;left:0;right:0;background:rgba(15,77,130,0.95);color:rgba(255,255,255,0.6);text-align:center;padding:8px;font-size:12px;z-index:9999;pointer-events:none;direction:ltr">Powered by <strong style="color:#fff">IanTrading SAL</strong> &nbsp;·&nbsp; All rights reserved © 2026</div>
 </body>
