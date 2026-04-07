@@ -2464,9 +2464,9 @@ async function sendStaffNotifEmails(caseData, eventType) {
       // Send via Brevo
       await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
-        headers: {'api-key':'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','Content-Type':'application/json'},
+        headers: {'api-key':'','Content-Type':'application/json'},
         body: JSON.stringify({
-          sender: {name:'بلدية وادي الست', email:'noreply@municipality-wadi-el-sitt.org'},
+          sender: {name:'بلدية وادي الست', email:'imadaehn@gmail.com'},
           to: [{email: u.email, name: name}],
           subject: subject,
           htmlContent: html_body
