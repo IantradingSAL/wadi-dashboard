@@ -790,6 +790,7 @@ function openDetail(id){
     <div style="display:flex;gap:9px;flex-wrap:wrap">
       <button class="btn bg" style="flex:1;justify-content:center" onclick="copyCaseSummary('${id}')">📋 نسخ الملخص</button>
       <button class="btn bg" style="flex:1;justify-content:center" onclick="closeM()">إغلاق</button>
+      <button class="btn bg" style="flex:1;justify-content:center" onclick="printCase('${id}')">🖨️ طباعة</button>
       ${R.del?`<button class="btn bd2" style="flex:1;justify-content:center" onclick="cd('${id}')">🗑 حذف</button>`:''}
     </div>`;
   document.getElementById('OV').classList.add('open');
@@ -1240,9 +1241,10 @@ function mc(e){if(e.target===document.getElementById('OV'))closeM();}
       <div style="display:flex;align-items:center;gap:6px;margin-top:5px;margin-bottom:2px;font-size:12px;color:var(--green2)">📧 سيتم إرسال إشعار إلكتروني إلى بريدك لتأكيد استلام طلبك</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:13px">
         <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">نوع الطلب *</div>
-          <select id="c-type" class="fi" style="appearance:none;-webkit-appearance:none">
+          <select id="c-type" class="fi" style="appearance:none;-webkit-appearance:none" onchange="showRequiredDocs(this.value)">
             ${(typeof getCats==='function'?getCats():[{id:'complaint',icon:'⚠️',label:'شكوى'},{id:'welfare',icon:'🤝',label:'رعاية اجتماعية'},{id:'permit',icon:'🏗️',label:'ترخيص'},{id:'inquiry',icon:'❓',label:'استفسار'}]).map(function(c){return '<option value="'+c.id+'">'+c.icon+' '+c.label+'</option>';}).join('')}
             </select></div>
+      <div id="required-docs-box" style="display:none;margin:4px 0 12px;border-radius:10px;overflow:hidden;font-size:13px"></div>
         <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">العنوان</div>
           <input type="text" id="c-addr" class="fi" placeholder="حارة، منطقة…"></div>
       </div>
@@ -1851,15 +1853,21 @@ const WADI_CATS_DEFAULT = [
   {id:'welfare',   icon:'🤝', label:'رعاية اجتماعية'},
   {id:'permit',    icon:'🏗️', label:'ترخيص'},
   {id:'inquiry',   icon:'❓', label:'استفسار'},
+  {id:'ifada',     icon:'📜', label:'إفادة عقارية'},
 ];
 function getCats() {
-  try { return JSON.parse(localStorage.getItem('wadi_cats') || 'null') || WADI_CATS_DEFAULT; }
-  catch(e) { return WADI_CATS_DEFAULT; }
+  // Return cached value (loaded from Supabase on login)
+  try {
+    const stored = localStorage.getItem('wadi_cats');
+    if (stored) return JSON.parse(stored);
+  } catch(e) {}
+  return WADI_CATS_DEFAULT;
 }
-function saveCats(c) {
+async function saveCats(c) {
+  // Save to localStorage immediately (for fast UI)
   localStorage.setItem('wadi_cats', JSON.stringify(c));
   renderCatsNav();
-  // Update type select in add form if open
+  // Update type selects
   var sel = document.getElementById('at');
   if(sel) {
     sel.innerHTML = getDynTypes().map(function(t){
@@ -1867,9 +1875,30 @@ function saveCats(c) {
       return '<option value="'+t+'">'+(cat?cat.icon+' '+cat.label:(TL[t]||t))+'</option>';
     }).join('');
   }
-  // Update badges
   if(typeof tick === 'function') setTimeout(tick, 100);
-  updateCitizenTypeSelect();
+  // Save to Supabase settings table (persistent across devices)
+  if(dbR && sb) {
+    sb.from('settings')
+      .upsert({key:'wadi_cats', value:c, updated_at:new Date().toISOString()}, {onConflict:'key'})
+      .then(function(res){
+        if(res.error) console.log('saveCats DB error:', res.error.message);
+        else console.log('✅ التصنيفات محفوظة في Supabase');
+      })
+      .catch(function(e){ console.log('saveCats:', e.message); });
+  }
+}
+
+async function loadCatsFromSupabase() {
+  try {
+    const {data, error} = await sb.from('app_settings').select('value').eq('key', 'wadi_cats').single();
+    if (!error && data && data.value) {
+      const cats = JSON.parse(data.value);
+      localStorage.setItem('wadi_cats', JSON.stringify(cats));
+      renderCatsNav();
+      updateCitizenTypeSelect();
+      console.log('✅ Cats loaded from Supabase:', cats.length);
+    }
+  } catch(e) { console.log('loadCatsFromSupabase:', e.message); }
 }
 function getTLabel(id) {
   try { const c = getCats().find(function(x){ return x.id === id; }); if(c) return (c.icon ? c.icon+' ' : '') + c.label; }
@@ -2483,7 +2512,7 @@ async function sendStaffNotifEmails(caseData, eventType) {
 
 // Map any cat ID to a valid DB type (constraint: complaint/welfare/permit/inquiry)
 function getDbType(catId) {
-  const base = ['complaint','welfare','permit','inquiry'];
+  const base = ['complaint','welfare','permit','inquiry','ifada'];
   if (base.includes(catId)) return catId;
   // Custom cats: try to guess from label, else default to 'complaint'
   const cat = getCats().find(function(c){ return c.id === catId; });
@@ -2576,6 +2605,287 @@ function buildStatusEmail(caseId, name, newStatus, publicNote) {
     </div>
     <div class="ft">بلدية وادي الست · Powered by IanTrading SAL © 2026</div>
   </div></body></html>`;
+}
+
+
+async function loadCatsFromDB() {
+  if (!dbR || !sb) return;
+  try {
+    const { data, error } = await sb.from('settings').select('value').eq('key','wadi_cats').single();
+    if (!error && data && data.value) {
+      const cats = Array.isArray(data.value) ? data.value : JSON.parse(data.value);
+      if (cats && cats.length) {
+        localStorage.setItem('wadi_cats', JSON.stringify(cats));
+        renderCatsNav();
+        console.log('✅ Cats loaded from Supabase:', cats.length);
+      }
+    }
+  } catch(e) { console.log('loadCatsFromDB:', e.message); }
+}
+
+
+// ── LOAD CATEGORIES FROM SUPABASE ────────────────────────────────────────────
+async function loadCatsFromDB() {
+  if (!dbR || !sb) return;
+  try {
+    const {data, error} = await sb.from('settings').select('value').eq('key','wadi_cats').single();
+    if (!error && data && data.value && data.value.length) {
+      localStorage.setItem('wadi_cats', JSON.stringify(data.value));
+      console.log('✅ التصنيفات محمّلة من Supabase:', data.value.length);
+      renderCatsNav();
+      // Update type select if open
+      var sel = document.getElementById('at');
+      if(sel) {
+        sel.innerHTML = getDynTypes().map(function(t){
+          var cat=getCats().find(function(x){return x.id===t;});
+          return '<option value="'+t+'">'+(cat?cat.icon+' '+cat.label:(TL[t]||t))+'</option>';
+        }).join('');
+      }
+    }
+  } catch(e) { console.log('loadCatsFromDB:', e.message); }
+}
+
+
+// ── PRINT INDIVIDUAL CASE ────────────────────────────────────────────────────
+function printCase(id) {
+  const c = cases.find(function(x){ return String(x.id) === String(id); });
+  if (!c) { toast('الطلب غير موجود', 'err'); return; }
+  
+  const typeLabel = getTLabel ? getTLabel(c.type) : (TL[c.type] || c.type);
+  const statusLabel = SL[c.status] || c.status;
+  const priorityLabel = {high:'🔴 عالية', medium:'🟡 متوسطة', low:'🟢 منخفضة'}[c.priority] || c.priority || '—';
+  const docs = c.documents || [];
+  const timeline = c.timeline || [];
+  
+  const w = window.open('', '_blank', 'width=850,height=1100');
+  if (!w) { toast('يرجى السماح بالنوافذ المنبثقة', 'err'); return; }
+  
+  w.document.write(`<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>طلب رقم #${c.id} — بلدية وادي الست</title>
+  <style>
+    @media print { @page { margin: 15mm; size: A4; } .no-print { display:none; } }
+    * { box-sizing: border-box; }
+    body { font-family: 'Tahoma', Arial, sans-serif; direction: rtl; color: #222; background:#fff; margin:0; padding:20px; font-size:13px; }
+    .header { display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #0f4d82; padding-bottom:14px; margin-bottom:20px; }
+    .header-text h1 { margin:0; font-size:20px; color:#0f4d82; }
+    .header-text p { margin:3px 0 0; font-size:12px; color:#666; }
+    .logo-placeholder { width:90px; height:60px; border:1px solid #ddd; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:10px; color:#999; }
+    .case-ref { text-align:center; background:linear-gradient(120deg,#0f4d82,#1a6eb5); color:#fff; padding:12px; border-radius:10px; margin-bottom:20px; }
+    .case-ref h2 { margin:0; font-size:22px; letter-spacing:2px; }
+    .case-ref p { margin:4px 0 0; font-size:12px; opacity:.8; }
+    .section { margin-bottom:18px; }
+    .section-title { font-size:13px; font-weight:800; color:#0f4d82; text-transform:uppercase; letter-spacing:.5px; border-bottom:1.5px solid #daeaf8; padding-bottom:5px; margin-bottom:10px; }
+    table { width:100%; border-collapse:collapse; }
+    table td { padding:7px 10px; border-bottom:1px solid #eee; vertical-align:top; }
+    table td:first-child { color:#666; width:35%; font-weight:600; white-space:nowrap; }
+    .status-badge { display:inline-block; padding:3px 12px; border-radius:20px; font-weight:700; font-size:12px; background:#daeaf8; color:#0f4d82; }
+    .desc-box { background:#f8f9fb; border:1px solid #e0e6ef; border-radius:8px; padding:12px; line-height:1.8; font-size:13px; }
+    .reply-box { background:#f0f8ea; border:2px solid #a8d9b4; border-radius:8px; padding:12px; line-height:1.8; }
+    .note-box { background:#fff8e6; border:2px solid #f5c842; border-radius:8px; padding:12px; line-height:1.8; font-size:12px; }
+    .tl-item { display:flex; gap:10px; padding:6px 0; border-bottom:1px solid #f0f0f0; font-size:12px; }
+    .tl-dot { width:8px; height:8px; border-radius:50%; background:#1a6eb5; margin-top:4px; flex-shrink:0; }
+    .sig-table { width:100%; border-collapse:collapse; margin-top:30px; }
+    .sig-table td { padding:10px; border:1px solid #ddd; text-align:center; width:50%; }
+    .sig-title { font-weight:800; color:#0f4d82; margin-bottom:40px; font-size:13px; }
+    .sig-line { border-top:1px solid #999; margin-top:5px; padding-top:5px; font-size:11px; color:#666; }
+    .footer { text-align:center; font-size:11px; color:#999; border-top:1px solid #ddd; padding-top:10px; margin-top:20px; }
+    .print-btn { position:fixed; top:15px; left:15px; background:#0f4d82; color:#fff; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; font-size:14px; font-family:Tahoma; z-index:999; }
+  </style>
+</head>
+<body>
+  <button class="print-btn no-print" onclick="window.print()">🖨️ طباعة / حفظ PDF</button>
+
+  <div class="header">
+    <div class="header-text">
+      <h1>بلدية وادي الست</h1>
+      <p>قضاء الشوف · محافظة جبل لبنان</p>
+      <p>نظام متابعة الطلبات والشكاوى</p>
+    </div>
+    <div style="text-align:left;font-size:11px;color:#666;">
+      <div>تاريخ الطباعة: ${new Date().toLocaleDateString('ar-LB')}</div>
+      <div>رقم المرجع: #${c.id}</div>
+    </div>
+  </div>
+
+  <div class="case-ref">
+    <h2>طلب / شكوى رقم #${c.id}</h2>
+    <p>${typeLabel} · ${statusLabel}</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">معلومات الطلب</div>
+    <table>
+      <tr><td>رقم الطلب</td><td><strong>#${c.id}</strong></td></tr>
+      <tr><td>التاريخ</td><td>${(c.created_at||'').slice(0,10)}</td></tr>
+      <tr><td>نوع الطلب</td><td>${typeLabel}</td></tr>
+      <tr><td>الحالة</td><td><span class="status-badge">${statusLabel}</span></td></tr>
+      <tr><td>الأولوية</td><td>${priorityLabel}</td></tr>
+      <tr><td>المسؤول</td><td>${c.assigned || '—'}</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">معلومات المواطن</div>
+    <table>
+      <tr><td>الاسم الكامل</td><td><strong>${c.name || '—'}</strong></td></tr>
+      <tr><td>رقم الهاتف</td><td dir="ltr" style="text-align:right">${c.phone || '—'}</td></tr>
+      <tr><td>البريد الإلكتروني</td><td dir="ltr" style="text-align:right">${c.email || '—'}</td></tr>
+      <tr><td>العنوان</td><td>${c.address || '—'}</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">وصف الطلب</div>
+    <div class="desc-box">${c.description || '—'}</div>
+  </div>
+
+  ${c.public_note ? `
+  <div class="section">
+    <div class="section-title">📢 رد البلدية</div>
+    <div class="reply-box">${c.public_note}</div>
+  </div>` : ''}
+
+  ${c.notes ? `
+  <div class="section">
+    <div class="section-title">🔒 ملاحظات داخلية</div>
+    <div class="note-box">${c.notes}</div>
+  </div>` : ''}
+
+  ${docs.length ? `
+  <div class="section">
+    <div class="section-title">📎 المرفقات (${docs.length})</div>
+    <table>${docs.map(function(d){ return '<tr><td>'+d.name+'</td><td dir="ltr"><a href="'+d.url+'" target="_blank">'+d.url+'</a></td></tr>'; }).join('')}</table>
+  </div>` : ''}
+
+  ${timeline.length ? `
+  <div class="section">
+    <div class="section-title">🕒 سجل النشاط</div>
+    ${timeline.slice().reverse().map(function(t){ return '<div class="tl-item"><div class="tl-dot"></div><div><strong>'+t.a+'</strong><br><span style="color:#999">'+t.by+' · '+t.d+'</span></div></div>'; }).join('')}
+  </div>` : ''}
+
+  <table class="sig-table">
+    <tr>
+      <td>
+        <div class="sig-title">توقيع رئيس البلدية</div>
+        <div style="height:50px"></div>
+        <div class="sig-line">الاسم: ___________________</div>
+        <div class="sig-line">التاريخ: _________________ · الختم الرسمي</div>
+      </td>
+      <td>
+        <div class="sig-title">توقيع المواطن</div>
+        <div style="height:50px"></div>
+        <div class="sig-line">الاسم: ___________________</div>
+        <div class="sig-line">التاريخ: _________________ · رقم الهاتف: _________</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="footer">
+    بلدية وادي الست · قضاء الشوف · محافظة جبل لبنان<br>
+    نظام متابعة الطلبات والشكاوى · Powered by IanTrading SAL © 2026
+  </div>
+</body>
+</html>`);
+  w.document.close();
+}
+
+
+// ── REQUIRED DOCUMENTS PER CATEGORY ─────────────────────────────────────────
+const REQUIRED_DOCS = {
+  ifada: {
+    label: 'إفادة عقارية',
+    icon: '📜',
+    description: 'تُستخدم لإثبات الملكية العقارية أو وضع العقار القانوني',
+    docs: [
+      {name: 'صورة عن الهوية الشخصية', required: true,  icon: '🪪'},
+      {name: 'صورة عن سند الملكية (طابو)',required: true, icon: '📄'},
+      {name: 'صورة عن وثيقة المساحة',   required: true,  icon: '📐'},
+      {name: 'شهادة عائلية (قيد نفوس)', required: false, icon: '👨‍👩‍👧'},
+      {name: 'وكالة قانونية (إن وُجدت)',required: false, icon: '⚖️'},
+      {name: 'رسم طابو حديث (6 أشهر)',  required: true,  icon: '🗓️'},
+    ]
+  },
+  permit: {
+    label: 'رخصة بناء / ترخيص',
+    icon: '🏗️',
+    description: 'مطلوبة لأي أعمال بناء أو هدم أو تعديل',
+    docs: [
+      {name: 'صورة عن الهوية الشخصية',    required: true,  icon: '🪪'},
+      {name: 'مخطط هندسي موقّع من مهندس', required: true,  icon: '📐'},
+      {name: 'سند الملكية',               required: true,  icon: '📄'},
+      {name: 'موافقة الجيران (إن لزم)',    required: false, icon: '🤝'},
+      {name: 'صور فوتوغرافية للموقع',     required: false, icon: '📷'},
+    ]
+  },
+  welfare: {
+    label: 'رعاية اجتماعية',
+    icon: '🤝',
+    description: 'طلبات الدعم والمساعدة الاجتماعية',
+    docs: [
+      {name: 'صورة عن الهوية الشخصية',   required: true,  icon: '🪪'},
+      {name: 'شهادة عائلية (قيد نفوس)',  required: true,  icon: '👨‍👩‍👧'},
+      {name: 'وثيقة إثبات السكن',         required: true,  icon: '🏠'},
+      {name: 'وثيقة الدخل / شهادة فقر',  required: false, icon: '📋'},
+      {name: 'تقرير طبي (إن لزم)',       required: false, icon: '🏥'},
+    ]
+  },
+  complaint: {
+    label: 'شكوى',
+    icon: '⚠️',
+    description: 'تقديم شكوى رسمية للبلدية',
+    docs: [
+      {name: 'صورة عن الهوية الشخصية', required: true,  icon: '🪪'},
+      {name: 'صور أو وثائق داعمة',     required: false, icon: '📷'},
+    ]
+  },
+  inquiry: {
+    label: 'استفسار',
+    icon: '❓',
+    description: 'استفسار عام',
+    docs: [
+      {name: 'صورة عن الهوية الشخصية', required: false, icon: '🪪'},
+    ]
+  },
+};
+
+// Show required docs when citizen selects a type
+function showRequiredDocs(typeId) {
+  var el = document.getElementById('required-docs-box');
+  if (!el) return;
+  var config = REQUIRED_DOCS[typeId];
+  if (!config || !config.docs || !config.docs.length) {
+    el.style.display = 'none';
+    return;
+  }
+  var required = config.docs.filter(function(d){ return d.required; });
+  var optional = config.docs.filter(function(d){ return !d.required; });
+  
+  el.style.display = 'block';
+  el.innerHTML = 
+    '<div style="background:linear-gradient(120deg,#0f4d82,#1a6eb5);color:#fff;padding:10px 14px;border-radius:10px 10px 0 0;font-weight:800;font-size:13px">' +
+    config.icon + ' المستندات المطلوبة — ' + config.label + '</div>' +
+    '<div style="background:#f8faff;border:1.5px solid #daeaf8;border-top:none;border-radius:0 0 10px 10px;padding:12px 14px">' +
+    '<div style="font-size:12px;color:#555;margin-bottom:8px">' + config.description + '</div>' +
+    (required.length ? 
+      '<div style="font-size:12px;font-weight:700;color:#0f4d82;margin-bottom:6px">✅ إلزامية:</div>' +
+      required.map(function(d){ 
+        return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #e8eef8;font-size:13px">' +
+          '<span>' + d.icon + '</span><span>' + d.name + '</span>' +
+          '<span style="margin-right:auto;font-size:10px;background:#fdeaea;color:#b02020;padding:2px 7px;border-radius:4px;font-weight:700">مطلوب</span></div>';
+      }).join('') : '') +
+    (optional.length ? 
+      '<div style="font-size:12px;font-weight:700;color:#555;margin:8px 0 6px">📎 اختيارية (تُقوّي طلبك):</div>' +
+      optional.map(function(d){
+        return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #eee;font-size:13px;color:#666">' +
+          '<span>' + d.icon + '</span><span>' + d.name + '</span>' +
+          '<span style="margin-right:auto;font-size:10px;background:#eef0f6;color:#666;padding:2px 7px;border-radius:4px">اختياري</span></div>';
+      }).join('') : '') +
+    '<div style="font-size:11px;color:#888;margin-top:8px;padding-top:8px;border-top:1px dashed #ddd">' +
+    '💡 يمكنك إرفاق المستندات في حقل الملفات أدناه أو إحضارها لمركز البلدية</div>' +
+    '</div>';
 }
 
 </script>
