@@ -107,7 +107,7 @@ window.addEventListener('DOMContentLoaded', async function(){
 
   // Load owners: try irr_owners table → fallback to settings → fallback to localStorage
   try{
-    var r1=await sb.from('irr_owners').select('*').eq('municipality_id',MUN_ID).order('sort_order',{ascending:true});
+    var r1=await sb.from('irr_owners').select('id,name,phone,email,area,land_name,land_ref,crop,hours,sort_order,notes').eq('municipality_id',MUN_ID).order('sort_order',{ascending:true});
     if(!r1.error && r1.data){
       var tableOwners = r1.data.map(function(r){
         return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',

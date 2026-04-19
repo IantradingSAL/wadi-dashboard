@@ -3189,7 +3189,7 @@ async function submitCitUpdate(caseId, casePhone) {
 
   try {
     var res = await sb.from('cases').select('timeline,documents,notes').eq('id', caseId).single();
-    if (res.error) throw res.error;
+    if (res.error) throw new Error((res.error&&res.error.message)||'Supabase error');
     var caseData = res.data;
     var today = new Date().toISOString().slice(0,10);
     var tl = Array.from(caseData.timeline || []);
@@ -3369,7 +3369,7 @@ async function openCitMessages() {
   try {
     // Load all cases that have citizen updates in timeline
     var res = await sb.from('cases').select('id,name,phone,type,status,timeline,assigned').order('id',{ascending:false});
-    if (res.error) throw res.error;
+    if (res.error) throw new Error((res.error&&res.error.message)||'Supabase error');
 
     var msgs = [];
     (res.data||[]).forEach(function(c) {
@@ -3579,7 +3579,7 @@ async function loadCitUpdates() {
     var res = await sb.from('cases')
       .select('id,name,type,status,timeline,created_at')
       .order('created_at', {ascending:false});
-    if (res.error) throw res.error;
+    if (res.error) throw new Error((res.error&&res.error.message)||'Supabase error');
     var citUpdates = [];
     (res.data || []).forEach(function(c) {
       (c.timeline || []).forEach(function(t) {
@@ -3633,7 +3633,7 @@ async function loadProfileCitUpdates() {
     var q = sb.from('cases').select('id,name,type,timeline').order('created_at',{ascending:false}).limit(50);
     if (nm) q = q.eq('assigned', nm);
     var res = await q;
-    if (res.error) throw res.error;
+    if (res.error) throw new Error((res.error&&res.error.message)||'Supabase error');
     var updates = [];
     (res.data||[]).forEach(function(c){
       (c.timeline||[]).forEach(function(t){
@@ -3696,7 +3696,7 @@ async function openCitizenUpdates() {
       .select('id,name,phone,type,status,timeline,documents,notes,created_at')
       .order('created_at', {ascending: false})
       .limit(100);
-    if (res.error) throw res.error;
+    if (res.error) throw new Error((res.error&&res.error.message)||'Supabase error');
 
     // Filter cases that have citizen updates (timeline entries with cls:'citizen')
     var updated = (res.data || []).filter(function(c) {
@@ -4281,7 +4281,7 @@ async function loadIrrOwners() {
     var res = await sb.from('irr_owners')
       .select('*').eq('municipality_id','00000000-0000-0000-0000-000000000001')
       .order('sort_order',{ascending:true});
-    if (res.error) throw res.error;
+    if (res.error) throw new Error(res.error.message || 'irr_owners error');
     var tableData = (res.data||[]).map(function(r){
       return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',
         area:r.area||'',landName:r.land_name||'',landRef:r.land_ref||'',
@@ -4294,11 +4294,27 @@ async function loadIrrOwners() {
     _irrOwnersCache = best;
     localStorage.setItem('wadi_irr_owners',JSON.stringify(best));
     return _irrOwnersCache;
-  } catch(e) {
-    console.log('loadIrrOwners (table may not exist yet):', e.message);
-    var fallback=[];try{fallback=JSON.parse(localStorage.getItem('wadi_irr_owners')||'[]');}catch(x){}
-    _irrOwnersCache = fallback;
-    return fallback;
+  } catch(rawErr) {
+    var em = rawErr ? (rawErr.message||'') : '';
+    if (!em.includes('DataClone')) console.log('loadIrrOwners fallback:', em);
+    // Try settings table fallback
+    try {
+      var rs = await sb.from('settings').select('value').eq('key','wadi_irr_owners').single();
+      if (!rs.error && rs.data && rs.data.value) {
+        var arr = Array.isArray(rs.data.value) ? rs.data.value : [];
+        var mapped = arr.map(function(o){ return {id:o.id,name:o.name,phone:o.phone,
+          email:o.email||'',area:o.area||'',landName:o.landName||o.land_name||'',
+          landRef:o.landRef||o.land_ref||'',crop:o.crop||'',
+          hours:parseFloat(o.hours)||0,order:parseInt(o.order||o.sort_order)||1,notes:o.notes||''}; });
+        if (mapped.length > 0) {
+          _irrOwnersCache = mapped;
+          localStorage.setItem('wadi_irr_owners',JSON.stringify(mapped));
+          return mapped;
+        }
+      }
+    } catch(e2) {}
+    var ls=[];try{ls=JSON.parse(localStorage.getItem('wadi_irr_owners')||'[]');}catch(x){}
+    _irrOwnersCache=ls; return ls;
   }
 }
 
@@ -4331,7 +4347,7 @@ function saveIrrOwners(owners) {
 
 function deleteIrrOwnerDB(id) {
   if (!dbR||!sb) return;
-  sb.from('irr_owners').delete().eq('id',id).catch(function(){});
+  sb.from('irr_owners').delete().eq('id',id).then(function(){}).catch(function(){});
 }
 // ── IRR CONFIG: Supabase table ────────────────────────────────────────────────
 var _irrConfigCache = null;
@@ -4343,7 +4359,7 @@ async function loadIrrConfig() {
       .select('*')
       .eq('municipality_id', '00000000-0000-0000-0000-000000000001')
       .single();
-    if (res.error) throw res.error;
+    if (res.error) throw new Error(res.error.message || 'irr_config error');
     var r = res.data;
     _irrConfigCache = {
       dayStart: r.day_start || '06:00',
@@ -4355,12 +4371,24 @@ async function loadIrrConfig() {
     };
     localStorage.setItem('wadi_irr_config', JSON.stringify(_irrConfigCache));
     return _irrConfigCache;
-  } catch(e) {
-    console.log('loadIrrConfig:', e.message);
-    // Fallback to localStorage — set cache too
-    var fallback = getIrrConfig();
-    _irrConfigCache = fallback;
-    return fallback;
+  } catch(rawErr) {
+    var em = rawErr ? (rawErr.message||'') : '';
+    if (!em.includes('DataClone')) console.log('loadIrrConfig fallback:', em);
+    // Try settings table fallback
+    try {
+      var rc = await sb.from('settings').select('value').eq('key','wadi_irr_config').single();
+      if (!rc.error && rc.data && rc.data.value) {
+        var c = rc.data.value;
+        var mapped = {dayStart:c.dayStart||c.day_start||'06:00',
+          nightStart:c.nightStart||c.night_start||'18:00',
+          totalHours:c.totalHours||c.total_hours||160,
+          cycleStartDate:c.cycleStartDate||c.cycle_start_date||'2026-04-20',
+          senderName:c.senderName||c.sender_name||'لجنة الري — بلدية وادي الست',
+          senderEmail:c.senderEmail||c.sender_email||'noreply@municipality-wadi-el-sitt.org'};
+        _irrConfigCache=mapped; localStorage.setItem('wadi_irr_config',JSON.stringify(mapped)); return mapped;
+      }
+    } catch(e2) {}
+    var fb=getIrrConfig(); _irrConfigCache=fb; return fb;
   }
 }
 
@@ -5285,3 +5313,4 @@ async function saveColorSettings() {
 <div style="position:fixed;bottom:0;left:0;right:0;background:rgba(15,77,130,0.95);color:rgba(255,255,255,0.6);text-align:center;padding:8px;font-size:12px;z-index:9999;pointer-events:none;direction:ltr">Powered by <strong style="color:#fff">IanTrading SAL</strong> &nbsp;·&nbsp; All rights reserved © 2026</div>
 </body>
 </html>
+
