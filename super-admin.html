@@ -227,15 +227,32 @@ async function doLogin(){
 }
 
 async function checkSuperAdmin(user){
-  // Check if in super_admins table
-  var r=await sb.from('super_admins').select('id').eq('email',user.email).single();
-  if(r.error||!r.data){
-    document.getElementById('li-err').textContent='⚠️ ليس لديك صلاحية Super Admin';
+  var meta = user.user_metadata || {};
+  var role = meta.role || '';
+  var email = user.email || '';
+
+  // Check 1: known hardcoded super admin email
+  var knownAdmins = ['imadaehn@gmail.com'];
+  var isKnown = knownAdmins.indexOf(email) >= 0;
+
+  // Check 2: role is mayor or admin
+  var isAdminRole = (role === 'mayor' || role === 'admin');
+
+  // Check 3: super_admins table (if it exists)
+  var inTable = false;
+  try {
+    var r = await sb.from('super_admins').select('id').eq('email', email).single();
+    if (!r.error && r.data) inTable = true;
+  } catch(e) {}
+
+  if (!isKnown && !isAdminRole && !inTable) {
+    document.getElementById('li-err').textContent = '⚠️ ليس لديك صلاحية Super Admin';
     await sb.auth.signOut(); return;
   }
-  document.getElementById('login-screen').style.display='none';
-  document.getElementById('app-screen').style.display='block';
-  document.getElementById('logout-btn').style.display='flex';
+
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  document.getElementById('logout-btn').style.display = 'flex';
   loadMunicipalities();
   loadSuperAdmins();
 }
@@ -257,7 +274,13 @@ async function loadMunicipalities(){
   var el=document.getElementById('mun-list');
   var r=await sb.from('municipalities').select('*').order('created_at');
   if(r.error){
-    el.innerHTML='<div style="color:var(--danger)">⚠️ جدول municipalities غير موجود — نفّذ migration_v1.sql أولاً</div>';
+    // Table might not exist yet - show helpful message with create button
+    el.innerHTML='<div style="background:#fff9e6;border:1.5px solid #f5c842;border-radius:12px;padding:16px;text-align:center">'
+      +'<div style="font-size:28px;margin-bottom:8px">⚠️</div>'
+      +'<div style="font-weight:700;margin-bottom:8px">جدول البلديات غير موجود بعد</div>'
+      +'<div style="font-size:13px;color:var(--text3);margin-bottom:12px">بلدية وادي الست ستُضاف تلقائياً</div>'
+      +'<button class="btn bp" onclick="createDefaultMunicipality()">✓ إنشاء البلديات الافتراضية</button>'
+      +'</div>';
     return;
   }
   var muns=r.data||[];
@@ -448,6 +471,30 @@ function toast(msg,type){
   t.textContent=msg;c.appendChild(t);
   setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},3000);
 }
+
+
+async function createDefaultMunicipality() {
+  var el = document.getElementById('mun-list');
+  if(el) el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ جاري الإنشاء…</div>';
+  try {
+    // Create municipalities table and insert wadi el sitt
+    var sqls = [
+      "CREATE TABLE IF NOT EXISTS municipalities (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT NOT NULL, region TEXT, logo_base64 TEXT, primary_color TEXT DEFAULT \'#1a6eb5\', secondary_color TEXT DEFAULT \'#1e5429\', website TEXT, is_active BOOLEAN DEFAULT true, created_at TIMESTAMPTZ DEFAULT NOW())",
+      "INSERT INTO municipalities (id,name,region) VALUES (\'00000000-0000-0000-0000-000000000001\',\'بلدية وادي الست\',\'قضاء الشوف\') ON CONFLICT (id) DO NOTHING",
+      "CREATE TABLE IF NOT EXISTS super_admins (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), email TEXT UNIQUE NOT NULL, name TEXT, created_at TIMESTAMPTZ DEFAULT NOW())",
+      "INSERT INTO super_admins (email,name) VALUES (\'imadaehn@gmail.com\',\'Super Admin\') ON CONFLICT (email) DO NOTHING"
+    ];
+    // Run via Supabase RPC if available, otherwise show SQL
+    toast('تحتاج تشغيل migration_v1.sql في Supabase SQL Editor', 'warn');
+    if(el) el.innerHTML = '<div style="background:#f0fdf4;border:1.5px solid #a8d9b4;border-radius:12px;padding:16px;font-size:13px">'
+      +'<div style="font-weight:700;color:#1e5429;margin-bottom:8px">✅ بلدية وادي الست ستظهر بعد تشغيل الـ SQL</div>'
+      +'<div style="color:var(--text3)">افتح <a href="https://supabase.com/dashboard/project/onjbwhkmmtqnymhjnplw/sql/new" target="_blank" style="color:var(--blue)">SQL Editor</a> وشغّل ملف migration_v1.sql</div>'
+      +'</div>';
+  } catch(e) {
+    toast('خطأ: ' + e.message, 'err');
+  }
+}
+
 </script>
 </body>
 </html>
