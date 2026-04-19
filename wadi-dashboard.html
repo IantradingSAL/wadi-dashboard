@@ -5100,6 +5100,174 @@ async function showWaterPortal() {
   } catch(e){ console.error('showWaterPortal:',e.message); }
 }
 
+
+
+// ── MUNICIPALITY COLORS & BRANDING ───────────────────────────────────────────
+async function loadMunicipalityColors() {
+  // Try Supabase municipalities table first
+  if (dbR && sb) {
+    try {
+      var r = await sb.from('municipalities').select('primary_color,secondary_color,logo_base64,name,region')
+        .eq('id','00000000-0000-0000-0000-000000000001').single();
+      if (!r.error && r.data) {
+        applyMunColors(r.data.primary_color, r.data.secondary_color);
+        if (r.data.logo_base64) applyMunLogo(r.data.logo_base64);
+        return;
+      }
+    } catch(e) {}
+    // Fallback: settings table
+    try {
+      var rs = await sb.from('settings').select('value').eq('key','wadi_mun_colors').single();
+      if (!rs.error && rs.data && rs.data.value) {
+        var c = rs.data.value;
+        applyMunColors(c.primary, c.secondary);
+      }
+    } catch(e) {}
+  }
+}
+
+function applyMunColors(primary, secondary) {
+  if (!primary && !secondary) return;
+  var r = document.documentElement.style;
+  if (primary) {
+    r.setProperty('--blue', primary);
+    // Darken for blue2
+    r.setProperty('--blue2', shadeColor(primary, -15));
+    r.setProperty('--blue3', shadeColor(primary, 80)+'33');
+  }
+  if (secondary) {
+    r.setProperty('--green', secondary);
+    r.setProperty('--green2', shadeColor(secondary, -10));
+    r.setProperty('--green3', shadeColor(secondary, 80)+'33');
+  }
+}
+
+function applyMunLogo(logoB64) {
+  document.querySelectorAll('.ll, img[alt*="شعار"]').forEach(function(img) {
+    img.src = logoB64;
+  });
+}
+
+function shadeColor(color, percent) {
+  var num = parseInt(color.replace('#',''),16);
+  var r = Math.min(255, Math.max(0, (num >> 16) + percent));
+  var g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + percent));
+  var b = Math.min(255, Math.max(0, (num & 0xff) + percent));
+  return '#' + ((1<<24)|(r<<16)|(g<<8)|b).toString(16).slice(1);
+}
+
+async function openColorSettings() {
+  // Try load current colors from DB
+  var current = {primary:'#1a6eb5', secondary:'#1e5429', logo:null};
+  if (dbR && sb) {
+    try {
+      var r = await sb.from('municipalities').select('primary_color,secondary_color,logo_base64')
+        .eq('id','00000000-0000-0000-0000-000000000001').single();
+      if (!r.error && r.data) {
+        current.primary = r.data.primary_color || current.primary;
+        current.secondary = r.data.secondary_color || current.secondary;
+        current.logo = r.data.logo_base64;
+      }
+    } catch(e) {}
+  }
+
+  document.getElementById('MT').textContent = '🎨 تخصيص الألوان والهوية';
+  document.getElementById('MB').innerHTML =
+    '<div class="admin-section">'
+    +'<div class="admin-header">🎨 ألوان النظام</div>'
+    +'<div class="fg"><div class="fl">اللون الأساسي (أزرق)</div>'
+    +'<div style="display:flex;gap:8px;align-items:center">'
+    +'<input type="color" id="cs-c1" value="'+current.primary+'" style="width:50px;height:36px;border:1px solid var(--border);border-radius:8px;cursor:pointer;padding:2px">'
+    +'<input type="text" class="fi" id="cs-c1-hex" value="'+current.primary+'" style="direction:ltr;flex:1" placeholder="#1a6eb5">'
+    +'</div></div>'
+    +'<div class="fg"><div class="fl">اللون الثانوي (أخضر)</div>'
+    +'<div style="display:flex;gap:8px;align-items:center">'
+    +'<input type="color" id="cs-c2" value="'+current.secondary+'" style="width:50px;height:36px;border:1px solid var(--border);border-radius:8px;cursor:pointer;padding:2px">'
+    +'<input type="text" class="fi" id="cs-c2-hex" value="'+current.secondary+'" style="direction:ltr;flex:1" placeholder="#1e5429">'
+    +'</div></div>'
+    +'<div class="fg"><div class="fl">📷 شعار البلدية</div>'
+    +'<label style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--bg2);border:1.5px dashed var(--blue);border-radius:10px;cursor:pointer;font-size:13px;color:var(--blue)">'
+    +'<input type="file" id="cs-logo" accept="image/*" style="display:none" onchange="previewColorLogo(this)">'
+    +'📷 رفع شعار جديد</label>'
+    +'<div id="cs-logo-preview" style="margin-top:8px;">'
+    +(current.logo?'<img src="'+current.logo+'" style="height:50px;border-radius:8px;">':'<span style="font-size:12px;color:var(--text3)">الشعار الحالي</span>')
+    +'</div></div>'
+    +'<div style="background:var(--bg2);border-radius:10px;padding:12px;margin-bottom:14px">'
+    +'<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">معاينة</div>'
+    +'<div id="cs-preview" style="border-radius:8px;overflow:hidden">'
+    +'<div id="cs-preview-hdr" style="background:linear-gradient(120deg,'+current.primary+','+current.secondary+');color:#fff;padding:10px 14px;display:flex;align-items:center;gap:8px">'
+    +(current.logo?'<img src="'+current.logo+'" style="height:28px">':'')
+    +'<span style="font-size:14px;font-weight:700">بلدية وادي الست</span>'
+    +'</div></div></div>'
+    +'<button class="btn bp" style="width:100%;justify-content:center" onclick="saveColorSettings()">💾 حفظ وتطبيق</button>'
+    +'<div id="cs-msg" style="margin-top:8px;text-align:center;font-size:13px;min-height:18px"></div>'
+    +'</div>';
+  document.getElementById('OV').classList.add('open');
+
+  // Live preview
+  var c1El = document.getElementById('cs-c1');
+  var c2El = document.getElementById('cs-c2');
+  function updatePrev() {
+    var c1 = c1El.value, c2 = c2El.value;
+    document.getElementById('cs-c1-hex').value = c1;
+    document.getElementById('cs-c2-hex').value = c2;
+    var phdr = document.getElementById('cs-preview-hdr');
+    if (phdr) phdr.style.background = 'linear-gradient(120deg,'+c1+','+c2+')';
+  }
+  c1El.addEventListener('input', updatePrev);
+  c2El.addEventListener('input', updatePrev);
+}
+
+var _csLogoB64 = null;
+function previewColorLogo(input) {
+  var f = input.files[0]; if (!f) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    _csLogoB64 = e.target.result;
+    document.getElementById('cs-logo-preview').innerHTML = '<img src="'+_csLogoB64+'" style="height:50px;border-radius:8px;">';
+    var phdr = document.getElementById('cs-preview-hdr');
+    if (phdr) {
+      var existing = phdr.querySelector('img');
+      if (existing) existing.src = _csLogoB64;
+      else phdr.innerHTML = '<img src="'+_csLogoB64+'" style="height:28px;margin-left:8px">'+phdr.innerHTML;
+    }
+  };
+  reader.readAsDataURL(f);
+}
+
+async function saveColorSettings() {
+  var c1 = document.getElementById('cs-c1-hex').value || document.getElementById('cs-c1').value;
+  var c2 = document.getElementById('cs-c2-hex').value || document.getElementById('cs-c2').value;
+  var msg = document.getElementById('cs-msg');
+  if(msg){msg.style.color='var(--text3)';msg.textContent='⏳ جاري الحفظ…';}
+
+  // Apply immediately
+  applyMunColors(c1, c2);
+  if (_csLogoB64) applyMunLogo(_csLogoB64);
+
+  // Save to DB
+  if (dbR && sb) {
+    var updates = {primary_color:c1, secondary_color:c2};
+    if (_csLogoB64) updates.logo_base64 = _csLogoB64;
+
+    // Try municipalities table
+    var r = await sb.from('municipalities').update(updates)
+      .eq('id','00000000-0000-0000-0000-000000000001');
+    // Also save to settings as fallback
+    await sb.from('settings').upsert(
+      {key:'wadi_mun_colors', value:{primary:c1, secondary:c2},
+       municipality_id:'00000000-0000-0000-0000-000000000001',
+       updated_at:new Date().toISOString()},
+      {onConflict:'key'}
+    ).catch(function(){});
+  }
+
+  if(msg){msg.style.color='var(--green2)';msg.textContent='✅ تم التطبيق!';}
+  _csLogoB64 = null;
+  toast('✅ تم تطبيق الألوان الجديدة');
+  setTimeout(function(){closeM();}, 1500);
+}
+
 </script>
 <div style="position:fixed;bottom:0;left:0;right:0;background:rgba(15,77,130,0.95);color:rgba(255,255,255,0.6);text-align:center;padding:8px;font-size:12px;z-index:9999;pointer-events:none;direction:ltr">Powered by <strong style="color:#fff">IanTrading SAL</strong> &nbsp;·&nbsp; All rights reserved © 2026</div>
 </body>
