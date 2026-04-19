@@ -336,9 +336,8 @@ const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 <script>
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
-const TL={complaint:'شكوى',welfare:'رعاية اجتماعية',permit:'ترخيص',inquiry:'استفسار'};
-function getTLabel(id){try{var c=getCats().find(function(x){return x.id===id;});if(c)return c.icon+' '+c.label;}catch(e){}return TL[id
-  ['f_water','نظام دورة الري 💧']]||id;}
+const TL={complaint:'شكوى',welfare:'رعاية اجتماعية',permit:'ترخيص',inquiry:'استفسار',ifada:'إفادة عقارية'};
+function getTLabel(id){try{var c=getCats().find(function(x){return x.id===id;});if(c)return c.icon+' '+c.label;}catch(e){}return TL[id]||id;}
 
 const SL={new:'جديد','in-progress':'قيد المعالجة',review:'مراجعة','pending-approval':'ينتظر الموافقة',resolved:'منجز',closed:'مغلق'};
 const PL={high:'عالية',medium:'متوسطة',low:'منخفضة'};
@@ -356,7 +355,7 @@ const OFFICERS=[];
 // Roles are stored in Supabase user metadata: { role: 'mayor'|'admin'|'approver'|'officer', name: '...' }
 const ROLE_CFG={
   mayor:   {l:'رئيس البلدية',   i:'👑', A:true,  add:true,  del:true,  edit:true,  admin:true,  export:true, print:true, settings:true, profile:true, activity:true, audit:true, wa:true, water:true},
-  admin:   {l:'المدير',         i:'⚙️', A:false, add:true,  del:true,  edit:true,  admin:true,  export:true, print:true, settings:true, profile:true, activity:true, audit:true, wa:true},
+  admin:   {l:'المدير',         i:'⚙️', A:false, add:true,  del:true,  edit:true,  admin:true,  export:true, print:true, settings:true, profile:true, activity:true, audit:true, wa:true, water:true},
   approver:{l:'مسؤول الموافقات', i:'✅', A:true,  add:false, del:false, edit:false, admin:false, export:false, print:true, settings:false, profile:true, activity:false, audit:true, wa:false},
   officer: {l:'موظف المتابعة',  i:'👤', A:false, add:true,  del:false, edit:true,  admin:false, export:false, print:true, settings:false, profile:true, activity:false, audit:false, wa:false},
   water_admin: {l:'رئيس لجنة المياه', i:'💧', A:false, add:false, del:false, edit:false, admin:false, export:false, print:false, settings:false, profile:true, activity:false, audit:false, wa:false, water:true},
@@ -371,7 +370,7 @@ try{sb=window.supabase.createClient('https://onjbwhkmmtqnymhjnplw.supabase.co','
 let currentUser=null,userRole=null,cases=[],stF='all',tyF='all',srcF='all',sortM='date-desc',qF='',page=1;
 const PER=12;
 
-// ── HELPERS ───────────────────────────────────────────────────────────────────
+// ── HELPERS ─────────────────────────────────────────────────────────────────
 function toast(m,t='ok'){const el=document.getElementById('toast');el.textContent=m;el.className='toast show '+t;setTimeout(()=>el.className='toast',3000);}
 function sv(s){document.getElementById('SV').classList.toggle('show',s);}
 function tick(){
