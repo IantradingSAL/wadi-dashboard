@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>بوابة المواطن — بلدية وادي الست</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--blue:#1a6eb5;--blue2:#0f4d82;--blue3:#daeaf8;--green:#2d7a3e;--green2:#1e5429;--green3:#d4edda;
+--danger:#e74c3c;--warn:#e67e22;--text:#1a1a2e;--text2:#444;--text3:#888;--border:#e0e6ef;
+--bg:#f5f7fa;--bg2:#f0f2f7;--surface2:#e8eef8;--font:'Tahoma',Arial,sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font);direction:rtl;background:var(--bg);min-height:100vh;display:flex;flex-direction:column;color:var(--text);font-size:14px;}
+.header{background:linear-gradient(120deg,var(--blue2),var(--blue) 60%,var(--green2));color:#fff;padding:14px 22px;display:flex;align-items:center;gap:12px;}
+.header img{height:38px;}
+.header-text h1{font-size:16px;font-weight:800;}
+.header-text p{font-size:11px;opacity:.7;}
+.back-btn{margin-right:auto;background:rgba(255,255,255,.15);border:none;color:#fff;padding:6px 14px;border-radius:20px;cursor:pointer;font-size:12px;font-family:var(--font);}
+.main{flex:1;padding:20px 16px;max-width:600px;margin:0 auto;width:100%;}
+.card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px;}
+.fi{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:10px;font-family:var(--font);font-size:14px;outline:none;background:#fff;color:var(--text);direction:rtl;}
+.fi:focus{border-color:var(--blue);}
+.fg{margin-bottom:12px;}
+.fl{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:5px;}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--text2);font-family:var(--font);transition:all .15s;width:100%;justify-content:center;}
+.btn.bp{background:var(--blue);color:#fff;border-color:var(--blue);}
+.section-title{font-size:16px;font-weight:800;color:var(--blue2);margin-bottom:16px;text-align:center;}
+.tabs{display:flex;border-bottom:2px solid var(--border);margin-bottom:20px;}
+.tab{padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-2px;}
+.tab.on{color:var(--blue);border-color:var(--blue);}
+</style>
+</head>
+<body>
+<!-- Header -->
+<div class="header">
+  <img src="data:image/png;base64,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" alt="شعار بلدية وادي الست">
+  <div class="header-text">
+    <h1>بوابة المواطن</h1>
+    <p>بلدية وادي الست</p>
+  </div>
+  <button class="back-btn" onclick="window.location='index.html'">← الرئيسية</button>
+</div>
+
+<!-- Tabs -->
+<div class="main">
+  <div class="tabs">
+    <div class="tab on" onclick="showTab(this,'tab-track')" id="btn-track">🔍 متابعة طلب</div>
+    <div class="tab" onclick="showTab(this,'tab-new')" id="btn-new">📋 تقديم طلب جديد</div>
+  </div>
+
+  <!-- TRACK TAB -->
+  <div id="tab-track">
+    <div class="card">
+      <div class="section-title">🔍 متابعة طلب موجود</div>
+      <div style="font-size:13px;color:var(--text3);text-align:center;margin-bottom:14px">أدخل رقم الطلب الذي حصلت عليه عند التقديم</div>
+      <div class="fg">
+        <div class="fl">رقم الطلب</div>
+        <input type="number" class="fi" id="track-num" placeholder="مثال: 1001" style="direction:ltr;text-align:center" onkeydown="if(event.key==='Enter')showPhonePopup()">
+      </div>
+      <button class="btn bp" onclick="showPhonePopup()">🔍 متابعة</button>
+    </div>
+    <div id="track-res" style="margin-top:8px"></div>
+  </div>
+
+  <!-- NEW REQUEST TAB -->
+  <div id="tab-new" style="display:none">
+    <div id="c-success" style="display:none"></div>
+    <div id="submit-form-wrap" class="card">
+      <div class="section-title">📋 تقديم طلب جديد</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="fg" style="grid-column:1/-1">
+          <div class="fl">نوع الطلب</div>
+          <select class="fi" id="c-type" style="appearance:none;-webkit-appearance:none" onchange="showRequiredDocs(this.value)">
+          </select>
+        </div>
+        <div id="required-docs-box" style="display:none;grid-column:1/-1;margin-bottom:4px;border-radius:10px;overflow:hidden;font-size:13px"></div>
+        <div class="fg">
+          <div class="fl">الاسم الكامل *</div>
+          <input type="text" class="fi" id="c-name" placeholder="الاسم الكامل">
+        </div>
+        <div class="fg">
+          <div class="fl">رقم الهاتف *</div>
+          <input type="tel" class="fi" id="c-phone" placeholder="03xxxxxx" style="direction:ltr">
+        </div>
+        <div class="fg">
+          <div class="fl">البريد الإلكتروني</div>
+          <input type="email" class="fi" id="c-email" placeholder="email@example.com" style="direction:ltr">
+        </div>
+        <div class="fg">
+          <div class="fl">العنوان</div>
+          <input type="text" class="fi" id="c-addr" placeholder="الحارة أو المنطقة">
+        </div>
+        <div class="fg" style="grid-column:1/-1">
+          <div class="fl">وصف الطلب *</div>
+          <textarea class="fi" id="c-desc" rows="4" placeholder="اشرح طلبك بالتفاصيل…" style="resize:none"></textarea>
+        </div>
+        <div class="fg" style="grid-column:1/-1">
+          <div class="fl">📎 إرفاق مستندات (اختياري)</div>
+          <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1.5px dashed var(--blue);border-radius:10px;cursor:pointer;font-size:13px;color:var(--blue)">
+            <input type="file" id="c-files" multiple accept="image/*,.pdf,.doc,.docx" style="display:none" onchange="addCitFiles(this.files)">
+            📂 اضغط لاختيار الملفات
+          </label>
+          <div id="c-files-list" style="margin-top:8px;display:flex;flex-direction:column;gap:4px"></div>
+        </div>
+      </div>
+      <div id="c-prog-wrap" style="display:none;margin-top:8px">
+        <div style="background:#eee;border-radius:20px;height:6px;overflow:hidden">
+          <div id="c-prog-bar" style="background:var(--blue);height:100%;width:0;border-radius:20px;transition:width .3s"></div>
+        </div>
+        <div id="c-prog-lbl" style="font-size:12px;color:var(--text3);margin-top:4px;text-align:center"></div>
+      </div>
+      <div id="c-err" style="color:var(--danger);font-size:13px;margin:8px 0;min-height:18px;text-align:center"></div>
+      <button class="btn bp" id="c-btn" onclick="doSubmitCit()" style="margin-top:4px">📤 إرسال الطلب</button>
+    </div>
+  </div>
+</div>
+
+<!-- Phone Popup -->
+<div id="phone-popup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:16px;padding:24px;max-width:380px;width:100%">
+    <div style="font-size:16px;font-weight:800;color:var(--blue2);margin-bottom:14px;text-align:center">🔐 التحقق من الهوية</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:14px;text-align:center">أدخل رقم هاتفك للتحقق</div>
+    <input type="tel" class="fi" id="popup-phone" placeholder="03xxxxxx" style="direction:ltr;text-align:center;margin-bottom:8px" onkeydown="if(event.key==='Enter')confirmPhone()">
+    <div id="popup-err" style="color:var(--danger);font-size:13px;margin-bottom:8px;min-height:18px;text-align:center"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn bp" style="flex:1" onclick="confirmPhone()">✓ تأكيد</button>
+      <button class="btn" style="flex:1" onclick="closePhonePopup()">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-c" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:8px;align-items:center;"></div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const SB_URL='https://onjbwhkmmtqnymhjnplw.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
+const MUN_ID='00000000-0000-0000-0000-000000000001';
+const BKEY='xsmtpsib-0421702005db0037488fcf8571d71affe52db33a95300e80847392294f871b55-fxFDF0zqQLSVMDAA';
+const FROM_NAME='بلدية وادي الست';
+const FROM_EMAIL='noreply@municipality-wadi-el-sitt.org';
+let sb=null, dbR=false, citFiles=[];
+
+// Labels
+const TL={complaint:'⚠️ شكوى',welfare:'🤝 رعاية اجتماعية',permit:'🏗️ ترخيص',inquiry:'❓ استفسار',ifada:'📜 إفادة عقارية'};
+const SL={new:'جديد','in-progress':'قيد المعالجة',review:'مراجعة','pending-approval':'ينتظر الموافقة',resolved:'منجز',closed:'مغلق'};
+
+// INIT
+window.addEventListener('DOMContentLoaded', async function(){
+  try{
+    sb = window.supabase.createClient(SB_URL, SB_KEY, {realtime:{enabled:false}});
+    dbR = true;
+  }catch(e){console.error('SB:', e.message);}
+  loadCatsForCitizen();
+});
+
+function showTab(el, id){
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});
+  el.classList.add('on');
+  ['tab-track','tab-new'].forEach(function(tid){
+    var e=document.getElementById(tid); if(e) e.style.display=tid===id?'block':'none';
+  });
+}
+
+function toast(msg, type){
+  var c=document.getElementById('toast-c');
+  var t=document.createElement('div');
+  t.style.cssText='background:'+(type==='err'?'#e74c3c':'#222')+';color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;';
+  t.textContent=msg; c.appendChild(t);
+  setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},3000);
+}
+
+// ── CATEGORIES ────────────────────────────────────────────────────────────────
+const WADI_CATS_DEFAULT=[
+  {id:'complaint',icon:'⚠️',label:'شكوى'},
+  {id:'welfare',icon:'🤝',label:'رعاية اجتماعية'},
+  {id:'permit',icon:'🏗️',label:'ترخيص'},
+  {id:'inquiry',icon:'❓',label:'استفسار'},
+  {id:'ifada',icon:'📜',label:'إفادة عقارية'},
+];
+
+function getCats(){
+  try{return JSON.parse(localStorage.getItem('wadi_cats')||'null')||WADI_CATS_DEFAULT;}
+  catch(e){return WADI_CATS_DEFAULT;}
+}
+
+async function loadCatsForCitizen(){
+  if(dbR&&sb){
+    try{
+      var r=await sb.from('settings').select('value').eq('key','wadi_cats').eq('municipality_id',MUN_ID).single();
+      if(!r.error&&r.data&&r.data.value) localStorage.setItem('wadi_cats',JSON.stringify(r.data.value));
+    }catch(e){}
+  }
+  var sel=document.getElementById('c-type');
+  if(sel) sel.innerHTML=getCats().map(function(c){return '<option value="'+c.id+'">'+c.icon+' '+c.label+'</option>';}).join('');
+}
+
+// ── REQUIRED DOCS ─────────────────────────────────────────────────────────────
+const REQUIRED_DOCS={
+  ifada:{label:'إفادة عقارية',icon:'📜',description:'لإثبات الملكية العقارية',
+    docs:[{name:'صورة هوية شخصية',required:true,icon:'🪪'},{name:'سند الملكية (طابو)',required:true,icon:'📄'},{name:'وثيقة المساحة',required:true,icon:'📐'},{name:'رسم طابو حديث',required:true,icon:'🗓️'},{name:'قيد نفوس',required:false,icon:'👨‍👩‍👧'},{name:'وكالة قانونية',required:false,icon:'⚖️'}]},
+  permit:{label:'ترخيص',icon:'🏗️',description:'لأعمال البناء والتعديل',
+    docs:[{name:'هوية شخصية',required:true,icon:'🪪'},{name:'مخطط هندسي',required:true,icon:'📐'},{name:'سند الملكية',required:true,icon:'📄'},{name:'موافقة الجيران',required:false,icon:'🤝'}]},
+  welfare:{label:'رعاية اجتماعية',icon:'🤝',description:'طلبات الدعم الاجتماعي',
+    docs:[{name:'هوية شخصية',required:true,icon:'🪪'},{name:'قيد نفوس',required:true,icon:'👨‍👩‍👧'},{name:'إثبات سكن',required:true,icon:'🏠'},{name:'وثيقة الدخل',required:false,icon:'📋'}]},
+  complaint:{label:'شكوى',icon:'⚠️',description:'تقديم شكوى رسمية',
+    docs:[{name:'هوية شخصية',required:true,icon:'🪪'},{name:'وثائق داعمة',required:false,icon:'📷'}]},
+  inquiry:{label:'استفسار',icon:'❓',description:'استفسار عام',
+    docs:[{name:'هوية شخصية',required:false,icon:'🪪'}]},
+};
+
+function showRequiredDocs(typeId){
+  var el=document.getElementById('required-docs-box'); if(!el) return;
+  var cfg=REQUIRED_DOCS[typeId];
+  if(!cfg||!cfg.docs||!cfg.docs.length){el.style.display='none';return;}
+  var req=cfg.docs.filter(function(d){return d.required;});
+  var opt=cfg.docs.filter(function(d){return !d.required;});
+  el.style.display='block';
+  el.innerHTML='<div style="background:linear-gradient(120deg,#0f4d82,#1a6eb5);color:#fff;padding:8px 14px;border-radius:10px 10px 0 0;font-weight:700;font-size:12px">'+cfg.icon+' المستندات المطلوبة</div>'
+    +'<div style="background:#f8faff;border:1.5px solid #daeaf8;border-top:none;border-radius:0 0 10px 10px;padding:10px 14px">'
+    +(req.length?'<div style="font-size:11px;font-weight:700;color:#0f4d82;margin-bottom:5px">✅ إلزامية:</div>'+req.map(function(d){return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #eee;font-size:12px"><span>'+d.icon+'</span><span>'+d.name+'</span><span style="margin-right:auto;font-size:10px;background:#fdeaea;color:#b02020;padding:1px 7px;border-radius:4px;font-weight:700">مطلوب</span></div>';}).join(''):'')
+    +(opt.length?'<div style="font-size:11px;font-weight:700;color:#555;margin:6px 0 4px">📎 اختيارية:</div>'+opt.map(function(d){return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;color:#666"><span>'+d.icon+'</span><span>'+d.name+'</span><span style="margin-right:auto;font-size:10px;background:#eef0f6;color:#666;padding:1px 7px;border-radius:4px">اختياري</span></div>';}).join(''):'')
+    +'</div>';
+}
+
+// ── FILE HANDLING ─────────────────────────────────────────────────────────────
+function addCitFiles(files){
+  Array.from(files).forEach(function(f){citFiles.push(f);});
+  renderCitFiles();
+}
+function renderCitFiles(){
+  var el=document.getElementById('c-files-list'); if(!el) return;
+  el.innerHTML=citFiles.map(function(f,i){return '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg2);border-radius:8px"><span style="flex:1;font-size:12px">📄 '+f.name+'</span><button onclick="citFiles.splice('+i+',1);renderCitFiles()" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px">×</button></div>';}).join('');
+}
+
+function getDbType(catId){
+  var valid=['complaint','welfare','permit','inquiry','ifada'];
+  if(valid.includes(catId)) return catId;
+  var cat=getCats().find(function(c){return c.id===catId;});
+  if(!cat) return 'complaint';
+  var l=(cat.label||'').toLowerCase();
+  if(l.includes('شكو')) return 'complaint';
+  if(l.includes('رعاي')) return 'welfare';
+  if(l.includes('رخص')) return 'permit';
+  if(l.includes('استفس')) return 'inquiry';
+  if(l.includes('إفاد')||l.includes('افاد')) return 'ifada';
+  return 'complaint';
+}
+
+// ── SUBMIT NEW REQUEST ────────────────────────────────────────────────────────
+async function doSubmitCit(){
+  var name=document.getElementById('c-name').value.trim();
+  var phone=document.getElementById('c-phone').value.trim();
+  var email=document.getElementById('c-email').value.trim();
+  var typeRaw=document.getElementById('c-type').value;
+  var type=getDbType(typeRaw);
+  var addr=document.getElementById('c-addr').value.trim();
+  var desc=document.getElementById('c-desc').value.trim();
+  var err=document.getElementById('c-err');
+  var btn=document.getElementById('c-btn');
+  err.textContent='';
+  if(!name){err.textContent='يرجى إدخال اسمك الكامل';return;}
+  if(!phone){err.textContent='يرجى إدخال رقم هاتفك';return;}
+  if(!desc){err.textContent='يرجى وصف طلبك';return;}
+  if(!dbR){err.textContent='⚠️ الخدمة غير متاحة';return;}
+  btn.disabled=true; btn.textContent='⏳ جاري الإرسال…';
+  var today=new Date().toISOString().slice(0,10);
+  var na=['permit','welfare','ifada'].includes(type);
+  var nc={name,phone,email,address:addr,type,description:desc,priority:'medium',
+    municipality_id:MUN_ID,
+    assigned:'',status:na?'pending-approval':'new',
+    approval_state:na?'pending':null,
+    timeline:[{a:'تم تقديم الطلب عبر الموقع',by:name,d:today,cls:''}],
+    documents:[],source:'website'};
+  try{
+    var {data,error}=await sb.from('cases').insert([nc]).select().single();
+    if(error) throw error;
+    var caseId=data.id;
+    document.getElementById('submit-form-wrap').style.display='none';
+    document.getElementById('c-success').style.display='block';
+    document.getElementById('c-success').innerHTML='<div class="card" style="text-align:center"><div style="font-size:52px;margin-bottom:14px">🎉</div>'
+      +'<div style="font-size:20px;font-weight:800;color:var(--green2);margin-bottom:8px">تم استلام طلبك!</div>'
+      +'<div style="font-size:14px;color:var(--text2);margin-bottom:14px">رقمك المرجعي:</div>'
+      +'<div style="font-size:28px;font-weight:800;color:var(--blue2);background:var(--blue3);padding:12px 24px;border-radius:10px;display:inline-block;margin-bottom:16px">#'+caseId+'</div>'
+      +'<div style="font-size:13px;color:var(--text3);margin-bottom:16px">احتفظ بهذا الرقم لمتابعة طلبك</div>'
+      +'<button class="btn bp" onclick="location.reload()">📋 تقديم طلب جديد</button></div>';
+    if(email) setTimeout(function(){
+      sendBrevoEmail(email, name, '[بلدية وادي الست] تم استلام طلبكم #'+caseId,
+        buildCitizenEmailHtml(caseId,name,typeRaw,na?'pending-approval':'new'));
+    },200);
+    // Upload files
+    if(citFiles.length){
+      for(var i=0;i<citFiles.length;i++){
+        var f=citFiles[i];
+        var ext=f.name.split('.').pop().toLowerCase();
+        var path=caseId+'/'+Date.now()+'_'+i+'.'+ext;
+        await sb.storage.from('case-documents').upload(path,f,{upsert:true});
+      }
+    }
+  }catch(e){err.textContent='خطأ: '+e.message;btn.disabled=false;btn.textContent='📤 إرسال الطلب';}
+}
+
+// ── TRACK EXISTING REQUEST ────────────────────────────────────────────────────
+function showPhonePopup(){
+  var ref=document.getElementById('track-num').value.toString().trim();
+  var el=document.getElementById('track-res');
+  if(!ref){el.innerHTML='<div style="color:var(--danger);font-size:13px;text-align:center;padding:10px">⚠️ يرجى إدخال رقم الطلب</div>';return;}
+  document.getElementById('popup-phone').value='';
+  document.getElementById('popup-err').textContent='';
+  document.getElementById('phone-popup').style.display='flex';
+  setTimeout(function(){document.getElementById('popup-phone').focus();},100);
+}
+function closePhonePopup(){document.getElementById('phone-popup').style.display='none';}
+function confirmPhone(){
+  var phone=document.getElementById('popup-phone').value.replace(/[^0-9+]/g,'').trim();
+  if(!phone){document.getElementById('popup-err').textContent='⚠️ يرجى إدخال رقم الهاتف';return;}
+  document.getElementById('phone-popup').style.display='none';
+  doTrack(phone);
+}
+
+async function doTrack(phone){
+  var ref=document.getElementById('track-num').value.toString().trim();
+  var el=document.getElementById('track-res');
+  el.innerHTML='<div style="text-align:center;padding:14px;color:var(--text3)">⏳ جاري التحقق…</div>';
+  if(!dbR){el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center">الخدمة غير متاحة</div>';return;}
+  try{
+    var {data,error}=await sb.from('cases').select('*').eq('id',ref).single();
+    if(error||!data){el.innerHTML='<div class="card" style="text-align:center;color:var(--danger)"><div style="font-size:32px;margin-bottom:8px">❌</div><div style="font-weight:700">لم يتم العثور على طلب بهذا الرقم</div></div>';return;}
+    var norm=function(p){return(p||'').replace(/[^0-9]/g,'').replace(/^961/,'').replace(/^0/,'');};
+    if(data.phone&&norm(data.phone)&&norm(phone)&&norm(phone)!==norm(data.phone)){
+      el.innerHTML='<div class="card" style="text-align:center"><div style="font-size:32px">🔒</div><div style="font-weight:700;margin-top:8px">رقم الهاتف غير مطابق</div></div>';return;
+    }
+    renderTrackResult(el, data);
+  }catch(e){el.innerHTML='<div style="color:var(--danger);font-size:13px;text-align:center">خطأ: '+e.message+'</div>';}
+}
+
+function renderTrackResult(el, data){
+  var statusLabel=SL[data.status]||data.status;
+  var typeLabel=TL[data.type]||data.type;
+  var tl=Array.isArray(data.timeline)?data.timeline:[];
+  var docs=Array.isArray(data.documents)?data.documents:[];
+  var h='<div class="card">'
+    +'<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">'
+    +'<div style="width:48px;height:48px;border-radius:50%;background:var(--blue3);color:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex-shrink:0">#'+String(data.id).slice(-3)+'</div>'
+    +'<div><div style="font-weight:700;font-size:16px">'+data.name+'</div>'
+    +'<div style="font-size:12px;color:var(--text3)">'+typeLabel+' · <span style="font-weight:700;color:var(--blue)">'+statusLabel+'</span></div></div></div>'
+    +'<div style="background:var(--bg2);border-radius:10px;padding:12px;margin-bottom:12px">'
+    +'<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">📋 وصف الطلب</div>'
+    +'<div style="font-size:14px;line-height:1.6">'+data.description+'</div></div>';
+  if(data.public_note) h+='<div style="background:#f0f8ea;border:2px solid #a8d9b4;border-radius:10px;padding:12px;margin-bottom:12px"><div style="font-size:12px;font-weight:800;color:var(--green2);margin-bottom:5px">📢 رد البلدية</div><div style="font-size:14px;line-height:1.6">'+data.public_note+'</div></div>';
+  if(docs.length) h+='<div style="margin-bottom:12px"><div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:700">📎 المرفقات ('+docs.length+')</div><div style="display:flex;flex-wrap:wrap;gap:6px">'+docs.map(function(d){return '<a href="'+d.url+'" target="_blank" style="padding:5px 12px;background:var(--blue3);border:1px solid var(--blue);border-radius:8px;color:var(--blue);font-size:12px;font-weight:600">📄 '+d.name+'</a>';}).join('')+'</div></div>';
+  if(tl.length){h+='<div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:700">🕒 سجل النشاط</div><div style="display:flex;flex-direction:column;gap:8px">';tl.slice().reverse().slice(0,8).forEach(function(t){h+='<div style="display:flex;gap:10px"><div style="width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:5px"></div><div><div style="font-size:13px;font-weight:600">'+t.a+'</div><div style="font-size:11px;color:var(--text3)">'+t.d+'</div></div></div>';});h+='</div>';}
+  // Update section
+  h+='<div style="border-top:2px solid var(--border);margin-top:16px;padding-top:14px">'
+    +'<div style="font-size:14px;font-weight:800;color:var(--blue2);margin-bottom:10px">📤 تحديث طلبك</div>'
+    +'<textarea id="cit-update-note" placeholder="اكتب ملاحظة أو معلومة إضافية…" class="fi" rows="3" style="margin-bottom:8px;resize:none"></textarea>'
+    +'<label style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg2);border:1.5px dashed var(--blue);border-radius:10px;cursor:pointer;font-size:13px;color:var(--blue);margin-bottom:8px"><input type="file" id="cit-update-files" multiple style="display:none" onchange="showCitUpdateFiles(this)">📂 إرفاق مستندات إضافية</label>'
+    +'<div id="cit-update-file-list" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>'
+    +'<button class="btn bp" onclick="submitCitUpdate(\'' + "' + data.id + '" + '\',\'' + "' + (data.phone||'') + '" + '\')">✅ إرسال التحديث</button>'
+    +'<div id="cit-update-msg" style="margin-top:8px;font-size:13px;text-align:center;min-height:18px"></div>'
+    +'</div></div>';
+  el.innerHTML=h;
+}
+
+function showCitUpdateFiles(input){
+  var list=document.getElementById('cit-update-file-list');if(!list||!input.files.length)return;
+  list.innerHTML=Array.from(input.files).map(function(f){return '<div style="padding:3px 0">📄 '+f.name+' ('+( f.size/1024).toFixed(0)+' KB)</div>';}).join('');
+}
+
+async function submitCitUpdate(caseId, casePhone){
+  var noteEl=document.getElementById('cit-update-note');
+  var filesInput=document.getElementById('cit-update-files');
+  var msgEl=document.getElementById('cit-update-msg');
+  var note=noteEl?noteEl.value.trim():'';
+  var files=filesInput?Array.from(filesInput.files):[];
+  function setMsg(txt,clr){if(msgEl){msgEl.style.color=clr||'var(--text3)';msgEl.textContent=txt;}}
+  if(!note&&!files.length){setMsg('⚠️ أضف ملاحظة أو مستنداً','var(--danger)');return;}
+  setMsg('⏳ جاري الإرسال…','var(--text3)');
+  try{
+    var res=await sb.from('cases').select('timeline,documents,notes').eq('id',caseId).single();
+    if(res.error) throw res.error;
+    var today=new Date().toISOString().slice(0,10);
+    var tl=Array.from(res.data.timeline||[]);
+    var docs=Array.from(res.data.documents||[]);
+    var updates={};
+    if(note){tl.push({a:'💬 تحديث من المواطن: '+note,by:'المواطن',d:today,cls:'citizen'});updates.timeline=tl;updates.notes=(res.data.notes?res.data.notes+'\n\n':'')+('['+today+' - المواطن]: '+note);}
+    if(files.length){
+      for(var i=0;i<files.length;i++){
+        var f=files[i];var ext=f.name.split('.').pop().toLowerCase();
+        var path=caseId+'/update_'+Date.now()+'_'+i+'.'+ext;
+        var up=await sb.storage.from('case-documents').upload(path,f,{upsert:true});
+        if(!up.error){var ur=sb.storage.from('case-documents').getPublicUrl(path);docs.push({name:f.name,url:ur.data.publicUrl,by:'citizen',date:today});}
+      }
+      tl.push({a:'📎 رُفع '+files.length+' مستند من المواطن',by:'المواطن',d:today,cls:'citizen'});
+      updates.documents=docs;updates.timeline=tl;
+    }
+    var save=await sb.from('cases').update(updates).eq('id',caseId);
+    if(save.error) throw save.error;
+    setMsg('✅ تم إرسال تحديثك بنجاح!','var(--green2)');
+    if(noteEl) noteEl.value='';
+    if(filesInput) filesInput.value='';
+    var listEl=document.getElementById('cit-update-file-list');
+    if(listEl) listEl.innerHTML='';
+  }catch(e){setMsg('خطأ: '+e.message,'var(--danger)');}
+}
+
+// ── BREVO EMAIL ───────────────────────────────────────────────────────────────
+async function sendBrevoEmail(to, toName, subject, htmlContent){
+  if(!to) return;
+  try{
+    var r=await fetch('https://api.brevo.com/v3/smtp/email',{
+      method:'POST',headers:{'api-key':BKEY,'Content-Type':'application/json'},
+      body:JSON.stringify({sender:{name:FROM_NAME,email:FROM_EMAIL},to:[{email:to,name:toName||to}],subject,htmlContent})
+    });
+    console.log('Brevo:',r.status);
+  }catch(e){console.log('Brevo error:',e.message);}
+}
+
+function buildCitizenEmailHtml(caseId, name, type, status){
+  var typeLabel=TL[type]||type;
+  var statusLabel=SL[status]||status;
+  return '<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"></head><body style="font-family:Tahoma,Arial;direction:rtl;padding:20px;background:#f0f2f7">'
+    +'<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1)">'
+    +'<div style="background:linear-gradient(120deg,#0f4d82,#1a6eb5);color:#fff;padding:18px;text-align:center"><h2 style="margin:0">🏛 بلدية وادي الست</h2></div>'
+    +'<div style="padding:22px 26px">'
+    +'<p>السيد/ة <strong>'+name+'</strong>،</p><p>تم استلام طلبكم وقيده برقم:</p>'
+    +'<div style="text-align:center"><span style="background:#daeaf8;color:#0f4d82;padding:10px 18px;border-radius:10px;font-size:22px;font-weight:800;display:inline-block">#'+caseId+'</span></div>'
+    +'<table style="width:100%;margin:14px 0;font-size:13px"><tr><td style="color:#666;padding:5px">النوع:</td><td><strong>'+typeLabel+'</strong></td></tr>'
+    +'<tr><td style="color:#666;padding:5px">الحالة:</td><td><strong>'+statusLabel+'</strong></td></tr></table>'
+    +'</div><div style="background:#f8f9fb;padding:10px;font-size:11px;color:#999;text-align:center">بلدية وادي الست · Powered by IanTrading SAL © 2026</div>'
+    +'</div></body></html>';
+}
+</script>
+</body>
+</html>
