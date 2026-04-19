@@ -576,8 +576,8 @@ const OFFICERS=['م. مقصود','ف. جوهر','ن. خوري','ر. سلامة',
 // ── ROLE DEFINITIONS ──────────────────────────────────────────────────────────
 // Roles are stored in Supabase user metadata: { role: 'mayor'|'admin'|'approver'|'officer', name: '...' }
 const ROLE_CFG={
-  mayor:   {l:'رئيس البلدية',  i:'👑', A:true,  add:true,  del:true,  edit:true,  admin:true},
-  admin:   {l:'المدير',        i:'⚙️', A:false, add:true,  del:true,  edit:true,  admin:false},
+  mayor:   {l:'رئيس البلدية',  i:'👑', A:true,  add:true,  del:true,  edit:true,  admin:true,  water:true},
+  admin:   {l:'المدير',        i:'⚙️', A:false, add:true,  del:true,  edit:true,  admin:false, water:true},
   approver:{l:'مسؤول الموافقات',i:'✅', A:true,  add:false, del:false, edit:false, admin:false},
   officer: {l:'موظف المتابعة', i:'👤', A:false, add:true,  del:false, edit:true,  admin:false},
   water_admin:{l:'رئيس لجنة الري', i:'💧', A:false, add:false, del:false, edit:false, admin:false, water:true, profile:true}
