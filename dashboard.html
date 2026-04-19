@@ -951,33 +951,185 @@ async function subAdd(){
 function openUsers(){
   document.getElementById('MT').textContent='إدارة المستخدمين';
   document.getElementById('MB').innerHTML=`
-    <div class="admin-section">
-      <div class="admin-header">➕ إضافة موظف جديد</div>
-      <div class="fg"><div class="fl">الاسم الكامل *</div><input type="text" class="fi" id="nu-name" placeholder="اسم الموظف"></div>
-      <div class="fg"><div class="fl">البريد الإلكتروني *</div><input type="email" class="fi" id="nu-email" placeholder="employee@municipality.lb" style="direction:ltr"></div>
-      <div class="fg"><div class="fl">كلمة المرور *</div><input type="password" class="fi" id="nu-pw" placeholder="8 أحرف على الأقل" style="direction:ltr"></div>
-      <div class="fg"><div class="fl">الدور / الصلاحية</div>
-        <select class="fi" id="nu-role">
-          <option value="officer">👤 موظف المتابعة</option>
-          <option value="approver">✅ مسؤول الموافقات</option>
-          <option value="admin">⚙️ المدير</option>
-          <option value="mayor">👑 رئيس البلدية</option>
-        </select>
-      </div>
-      <button class="btn bp" style="width:100%;justify-content:center" onclick="createUser()">✓ إنشاء الحساب</button>
-      <div id="cu-msg" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px"></div>
+    <style>
+      .utab{padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--bg2);color:var(--text2);}
+      .utab.on{background:var(--blue);color:#fff;border-color:var(--blue);}
+      .emp-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+      .role-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;}
+    </style>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="utab on" data-utab="add">➕ موظف جديد</div>
+      <div class="utab" data-utab="list">📋 الموظفون</div>
     </div>
-    <div class="admin-section">
-      <div class="admin-header">📋 تعليمات مهمة</div>
-      <div style="font-size:13.5px;color:var(--text2);line-height:2">
-        ✅ بعد إنشاء الحساب، يصل الموظف رابط تفعيل على بريده<br>
-        ✅ يدخل الموظف بالبريد الإلكتروني وكلمة المرور التي اخترتها<br>
-        ✅ يمكن تغيير كلمة المرور لاحقاً من "نسيت كلمة المرور"<br>
-        ✅ رابط لوحة التحكم: <strong>iantradingsal.github.io/wadi-dashboard/</strong>
+
+    <!-- ADD TAB -->
+    <div id="utab-add">
+      <div class="admin-section">
+        <div class="admin-header">➕ إضافة موظف جديد</div>
+        <div class="fg"><div class="fl">الاسم الكامل *</div><input type="text" class="fi" id="nu-name" placeholder="اسم الموظف"></div>
+        <div class="fg"><div class="fl">البريد الإلكتروني *</div><input type="email" class="fi" id="nu-email" placeholder="employee@municipality.lb" style="direction:ltr"></div>
+        <div class="fg"><div class="fl">كلمة المرور *</div><input type="password" class="fi" id="nu-pw" placeholder="8 أحرف على الأقل" style="direction:ltr"></div>
+        <div class="fg"><div class="fl">الدور / الصلاحية</div>
+          <select class="fi" id="nu-role">
+            <option value="officer">👤 موظف المتابعة</option>
+            <option value="approver">✅ مسؤول الموافقات</option>
+            <option value="admin">⚙️ المدير</option>
+            <option value="mayor">👑 رئيس البلدية</option>
+            <option value="water_admin">💧 رئيس لجنة الري (ري فقط)</option>
+          </select>
+        </div>
+        <button class="btn bp" style="width:100%;justify-content:center" data-action="create-user">✓ إنشاء الحساب</button>
+        <div id="cu-msg" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px"></div>
       </div>
-    </div>`;
+      <div class="admin-section">
+        <div class="admin-header">📋 تعليمات</div>
+        <div style="font-size:13px;color:var(--text2);line-height:2">
+          ✅ بعد إنشاء الحساب، يصل الموظف رابط تفعيل على بريده<br>
+          ✅ يدخل الموظف بالبريد وكلمة المرور التي اخترتها<br>
+          💧 دور «رئيس لجنة الري» يرى فقط زر دورة المياه في لوحته
+        </div>
+      </div>
+    </div>
+
+    <!-- LIST TAB -->
+    <div id="utab-list" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:700;color:var(--text2)">قائمة الموظفين</div>
+        <button class="btn" data-action="reload-users" style="padding:6px 14px;font-size:12px">🔄 تحديث</button>
+      </div>
+      <div id="emp-list-body">
+        <div style="text-align:center;padding:30px;color:var(--text3)">⏳ جاري التحميل…</div>
+      </div>
+    </div>
+  `;
   document.getElementById('OV').classList.add('open');
+
+  // Event delegation for tabs and actions
+  var mb = document.getElementById('MB');
+  mb.addEventListener('click', function(e) {
+    var tab = e.target.closest('[data-utab]');
+    if (tab) {
+      mb.querySelectorAll('.utab').forEach(function(t){t.classList.remove('on');});
+      tab.classList.add('on');
+      var id = tab.getAttribute('data-utab');
+      ['utab-add','utab-list'].forEach(function(tid){
+        var el=document.getElementById(tid); if(el) el.style.display=tid==='utab-'+id?'block':'none';
+      });
+      if (id === 'list') loadEmployeeList();
+      return;
+    }
+    var btn = e.target.closest('[data-action]');
+    if (btn) {
+      var action = btn.getAttribute('data-action');
+      if (action === 'create-user') { createUser(); return; }
+      if (action === 'reload-users') { loadEmployeeList(); return; }
+      if (action === 'toggle-water') {
+        var uid=btn.getAttribute('data-uid'), name=btn.getAttribute('data-name');
+        var hasWater=btn.getAttribute('data-has-water')==='1';
+        toggleWaterAccess(uid, name, hasWater);
+        return;
+      }
+      if (action === 'change-role') {
+        var uid=btn.getAttribute('data-uid'), name=btn.getAttribute('data-name');
+        var sel=document.querySelector('[data-role-select="'+uid+'"]');
+        if(sel) changeEmployeeRole(uid, name, sel.value);
+        return;
+      }
+    }
+  });
 }
+
+async function loadEmployeeList() {
+  var el = document.getElementById('emp-list-body'); if(!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ جاري التحميل…</div>';
+  if (!dbR || !sb) { el.innerHTML='<div style="color:var(--danger)">Supabase غير متصل</div>'; return; }
+  try {
+    var r = await sb.auth.admin.listUsers();
+    if (r.error) throw new Error(r.error.message);
+    var users = (r.data && r.data.users) ? r.data.users : [];
+    // Filter out system users
+    users = users.filter(function(u){ return u.email; });
+    if (!users.length) { el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3)">لا يوجد موظفون بعد</div>'; return; }
+    var ROLE_LABELS = {
+      mayor:'👑 رئيس البلدية', admin:'⚙️ المدير', approver:'✅ مسؤول الموافقات',
+      officer:'👤 موظف المتابعة', water_admin:'💧 رئيس لجنة الري', viewer:'👁️ مشاهد'
+    };
+    var ROLE_COLORS = {
+      mayor:'#ede8f8', admin:'#daeaf8', approver:'#d4edda',
+      officer:'#fff4e0', water_admin:'#e0f2fe', viewer:'#eef0f6'
+    };
+    var ROLE_TEXT = {
+      mayor:'#6535a8', admin:'#1a6eb5', approver:'#1e5429',
+      officer:'#c47800', water_admin:'#0891b2', viewer:'#555'
+    };
+    el.innerHTML = users.map(function(u) {
+      var meta = u.user_metadata || {};
+      var role = meta.role || 'officer';
+      var name = meta.name || u.email.split('@')[0];
+      var isWater = role === 'water_admin';
+      var label = ROLE_LABELS[role] || role;
+      var bg = ROLE_COLORS[role] || '#f0f0f0';
+      var tc = ROLE_TEXT[role] || '#333';
+      var roleOpts = ['officer','approver','admin','mayor','water_admin'].map(function(r){
+        return '<option value="'+r+'"'+(r===role?' selected':'')+'>'+( ROLE_LABELS[r]||r)+'</option>';
+      }).join('');
+      return '<div class="emp-card">'
+        + '<div style="width:38px;height:38px;border-radius:50%;background:'+bg+';color:'+tc+';display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">'+(meta.role?meta.role[0].toUpperCase():'?')+'</div>'
+        + '<div style="flex:1;min-width:0">'
+        + '<div style="font-weight:700;font-size:14px">'+name+'</div>'
+        + '<div style="font-size:12px;color:var(--text3);direction:ltr">'+u.email+'</div>'
+        + '<span class="role-badge" style="background:'+bg+';color:'+tc+'">'+label+'</span>'
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">'
+        // Role change
+        + '<div style="display:flex;gap:6px;align-items:center">'
+        + '<select class="fi" data-role-select="'+u.id+'" style="padding:5px 8px;font-size:12px;width:160px">'+roleOpts+'</select>'
+        + '<button class="btn bp" data-action="change-role" data-uid="'+u.id+'" data-name="'+name+'" style="padding:5px 10px;font-size:11px;white-space:nowrap">تغيير</button>'
+        + '</div>'
+        // Water toggle
+        + '<button class="btn" data-action="toggle-water" data-uid="'+u.id+'" data-name="'+name+'" data-has-water="'+(isWater?'1':'0')+'" '
+        + 'style="padding:5px 12px;font-size:12px;background:'+(isWater?'#e0f2fe':'var(--bg2)')+';color:'+(isWater?'#0891b2':'var(--text3)')+';border-color:'+(isWater?'#0891b2':'var(--border)')+'">'
+        + (isWater ? '💧 صلاحية الري: ممنوحة' : '💧 منح صلاحية الري')
+        + '</button>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div style="background:#fff9e6;border:1px solid #f5c842;border-radius:10px;padding:14px;font-size:13px">'
+      + '<div style="font-weight:700;margin-bottom:6px">⚠️ يلزم صلاحية Admin</div>'
+      + '<div style="color:var(--text3)">قائمة الموظفين تحتاج Supabase Service Role Key<br>تحقق من إعداد Edge Function أو اتصل بالدعم الفني</div>'
+      + '<div style="margin-top:8px;font-size:12px;color:var(--danger)">'+e.message+'</div>'
+      + '</div>';
+  }
+}
+
+async function changeEmployeeRole(uid, name, newRole) {
+  if (!confirm('تغيير دور '+name+' إلى '+newRole+'؟')) return;
+  var ROLE_LABELS = {mayor:'رئيس البلدية',admin:'المدير',approver:'مسؤول الموافقات',officer:'موظف المتابعة',water_admin:'رئيس لجنة الري'};
+  try {
+    var r = await sb.auth.admin.updateUserById(uid, {user_metadata:{role:newRole}});
+    if (r.error) throw new Error(r.error.message);
+    toast('✅ تم تغيير دور '+name+' إلى '+(ROLE_LABELS[newRole]||newRole));
+    loadEmployeeList();
+  } catch(e) {
+    toast('خطأ: '+e.message, 'err');
+  }
+}
+
+async function toggleWaterAccess(uid, name, currentlyHasWater) {
+  var newRole = currentlyHasWater ? 'officer' : 'water_admin';
+  var action = currentlyHasWater ? 'سحب صلاحية الري من' : 'منح صلاحية الري لـ';
+  if (!confirm(action+' '+name+'؟')) return;
+  try {
+    var r = await sb.auth.admin.updateUserById(uid, {user_metadata:{role:newRole}});
+    if (r.error) throw new Error(r.error.message);
+    toast(currentlyHasWater ? '❌ تم سحب صلاحية الري من '+name : '💧 تم منح صلاحية الري لـ '+name);
+    loadEmployeeList();
+  } catch(e) {
+    toast('خطأ: '+e.message, 'err');
+  }
+}
+
 
 async function createUser(){
   const name=document.getElementById('nu-name').value.trim();
