@@ -204,6 +204,10 @@ select.fi{cursor:pointer;appearance:none;-webkit-appearance:none;}
 .perm-no{color:var(--danger);font-weight:800;}
 .role-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:var(--blue3);color:var(--blue);font-size:12px;font-weight:800;}
 @keyframes popIn{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+@media(max-width:600px){
+  #LANDING > div:nth-child(2){padding:12px 12px 16px !important;}
+  #LANDING img{max-height:80px !important;}
+}
 </style>
 </head>
 <body>
@@ -251,12 +255,17 @@ select.fi{cursor:pointer;appearance:none;-webkit-appearance:none;}
       <div class="ni" onclick="navType(this,'permit')"><span class="nii">🏗️</span> التراخيص <span class="nb" id="nb-permit">—</span></div>
       <div class="ni" onclick="navType(this,'inquiry')"><span class="nii">❓</span> الاستفسارات <span class="nb" id="nb-inquiry">—</span></div>
       <div class="ns">الإجراءات</div>
+      <div class="ni" id="nav-whats-new" onclick="openWhatsNew()"><span class="nii">🆕</span> ما الجديد <span id="wn-badge" style="background:#e74c3c;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;display:none">!</span></div>
       <div class="ni" id="nav-add" onclick="openAdd()"><span class="nii">➕</span> إضافة طلب</div>
       <div class="ni" id="nav-users" onclick="openUsers()" style="display:none"><span class="nii">👥</span> إدارة المستخدمين</div>
       <div class="ni" id="nav-activity" onclick="openActivityTracking()" style="display:none"><span class="nii">📊</span> نشاط الموظفين</div>
+      <div class="ni" id="nav-cit-updates" onclick="openCitizenUpdates()" style="display:none"><span class="nii">📬</span> تحديثات المواطنين <span id="cit-updates-badge" style="background:#e74c3c;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;display:none">!</span></div>
       <div class="ni" id="nav-audit" onclick="openAuditLog()" style="display:none"><span class="nii">🧾</span> سجل التعديلات</div>
+      <div class="ni" id="nav-cit-msgs" onclick="openCitMessages()" style="display:none"><span class="nii">💬</span> رسائل المواطنين <span id="cit-msg-badge" style="background:#e74c3c;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-right:4px;display:none">0</span></div>
       <div class="ni" id="nav-wa" onclick="openWhatsAppRoles()" style="display:none"><span class="nii">📱</span> إشعارات واتساب</div>
+      <div class="ni" id="nav-water" onclick="openWaterSchedule()" style="display:none"><span class="nii">💧</span> دورة المياه <span id="water-badge" style="background:#1a6eb5;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;display:none"></span></div>
       <div class="ni" onclick="openProfile()"><span class="nii">🪪</span> ملفي الوظيفي</div>
+      <div class="ni" id="nav-whatsnew" onclick="openManageNews()" style="display:none"><span class="nii">🚀</span> ما الجديد</div>
       <div class="ni feature-export" onclick="exportCSV()"><span class="nii">⬇️</span> تصدير CSV</div>
     </div>
     <div class="sb-ft">
@@ -345,10 +354,11 @@ const OFFICERS=[];
 // ── ROLE DEFINITIONS ──────────────────────────────────────────────────────────
 // Roles are stored in Supabase user metadata: { role: 'mayor'|'admin'|'approver'|'officer', name: '...' }
 const ROLE_CFG={
-  mayor:   {l:'رئيس البلدية',   i:'👑', A:true,  add:true,  del:true,  edit:true,  admin:true,  export:true, print:true, settings:true, profile:true, activity:true, audit:true, wa:true},
+  mayor:   {l:'رئيس البلدية',   i:'👑', A:true,  add:true,  del:true,  edit:true,  admin:true,  export:true, print:true, settings:true, profile:true, activity:true, audit:true, wa:true, water:true},
   admin:   {l:'المدير',         i:'⚙️', A:false, add:true,  del:true,  edit:true,  admin:true,  export:true, print:true, settings:true, profile:true, activity:true, audit:true, wa:true},
   approver:{l:'مسؤول الموافقات', i:'✅', A:true,  add:false, del:false, edit:false, admin:false, export:false, print:true, settings:false, profile:true, activity:false, audit:true, wa:false},
   officer: {l:'موظف المتابعة',  i:'👤', A:false, add:true,  del:false, edit:true,  admin:false, export:false, print:true, settings:false, profile:true, activity:false, audit:false, wa:false},
+  water_admin: {l:'رئيس لجنة المياه', i:'💧', A:false, add:false, del:false, edit:false, admin:false, export:false, print:false, settings:false, profile:true, activity:false, audit:false, wa:false, water:true},
   viewer:  {l:'عرض فقط',        i:'👁️', A:false, add:false, del:false, edit:false, admin:false, export:false, print:false, settings:false, profile:true, activity:false, audit:false, wa:false},
 };
 
@@ -363,7 +373,21 @@ const PER=12;
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function toast(m,t='ok'){const el=document.getElementById('toast');el.textContent=m;el.className='toast show '+t;setTimeout(()=>el.className='toast',3000);}
 function sv(s){document.getElementById('SV').classList.toggle('show',s);}
-function tick(){document.getElementById('LD').textContent=new Date().toLocaleString('ar-LB',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}
+function tick(){
+  // Check for citizen updates badge
+  try{
+    var hasUpdates=(cases||[]).some(function(c){
+      return (c.timeline||[]).some(function(t){return t.cls==="citizen"||t.by==="المواطن";});
+    });
+    // Exclude reviewed from badge count
+    var unreviewed = cases.filter(function(c){
+      if(isCitReviewed(c.id)) return false;
+      return (c.timeline||[]).some(function(t){return t.cls==='citizen'||t.by==='المواطن';});
+    });
+    var badge=document.getElementById("cit-updates-badge");
+    if(badge){badge.style.display=unreviewed.length?"inline":"none";badge.textContent=unreviewed.length||'!';}
+  }catch(e){}
+document.getElementById('LD').textContent=new Date().toLocaleString('ar-LB',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}
 function getRoleCfg(){return ROLE_CFG[userRole]||ROLE_CFG.officer;}
 function canDo(action){return !!getRoleCfg()[action];}
 function guard(action,msg){
@@ -378,9 +402,13 @@ function applyRoleVisibility(){
   show('#nav-add',R.add,'flex');
   show('#BADD',R.add,'inline-flex');
   show('#nav-users',R.admin,'flex');
+  show('#nav-cit-updates',(R.admin||R.A),'flex');
+  show('#nav-whats-new',true,'flex'); // visible to all
   show('#nav-activity',R.activity,'flex');
   show('#nav-audit',R.audit,'flex');
   show('#nav-wa',R.wa,'flex');
+  show('#nav-water',(R.water||R.admin||R.mayor),'flex');
+  show('#nav-cit-msgs',R.admin||R.activity,'flex');
   show('.feature-export',R.export,'inline-flex');
   document.querySelectorAll('[onclick="printFiltered()"]').forEach(el=>el.style.display=R.print?'inline-flex':'none');
 }
@@ -458,13 +486,80 @@ function openActivityTracking(){
   document.getElementById('MB').innerHTML=`<div class="kpi-strip"><div class="kpi-box"><div class="kpi-num">${stats.total}</div><div class="kpi-lbl">إجمالي الأنشطة</div></div><div class="kpi-box"><div class="kpi-num">${stats.today}</div><div class="kpi-lbl">نشاط اليوم</div></div><div class="kpi-box"><div class="kpi-num">${stats.users}</div><div class="kpi-lbl">الموظفون النشطون</div></div><div class="kpi-box"><div class="kpi-num">20</div><div class="kpi-lbl">آخر السجلات المعروضة</div></div></div><div class="log-grid"><div class="log-card"><div class="admin-header">آخر نشاطات النظام</div><div class="log-list">${last}</div></div><div class="log-card"><div class="admin-header">الأكثر نشاطاً</div><div class="log-list">${top}</div></div></div><div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px"><button class="btn bg" onclick="closeM()">إغلاق</button><button class="btn bp" onclick="exportActivityJSON()">تصدير نشاط المستخدمين</button></div>`;
   document.getElementById('OV').classList.add('open');
 }
-function openAuditLog(){
+async function openAuditLog(){
   if(!guard('audit','🚫 سجل التدقيق غير متاح لهذا الدور')) return;
-  const rows=readLS(APP_AUDIT_KEY,[]);
-  const list=rows.slice(0,30).map(r=>`<div class="log-item"><div class="log-title">${r.action} — ${r.entity}</div><div class="log-meta">👤 ${r.user} — ${r.role}<br>📎 المرجع: ${r.ref||'—'}<br>📝 ${r.details||'—'}<br>🕒 ${fmtDT(r.at)}</div></div>`).join('') || '<div class="em">لا يوجد سجل تدقيق بعد</div>';
   document.getElementById('MT').textContent='🧾 سجل التدقيق والتعديلات';
-  document.getElementById('MB').innerHTML=`<div class="log-card"><div class="admin-header">آخر 30 عملية مسجلة</div><div class="log-list">${list}</div></div><div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px"><button class="btn bg" onclick="closeM()">إغلاق</button><button class="btn bp" onclick="exportAuditJSON()">تصدير سجل التدقيق</button></div>`;
+  document.getElementById('MB').innerHTML='<div style="text-align:center;padding:20px;color:var(--text3)">⏳ جاري التحميل…</div>';
   document.getElementById('OV').classList.add('open');
+
+  // Load from Supabase cases table - real audit from timeline
+  var auditRows = [];
+  try {
+    var res = await sb.from('cases')
+      .select('id,name,type,status,timeline,created_at')
+      .order('created_at',{ascending:false})
+      .limit(50);
+    if (!res.error && res.data) {
+      res.data.forEach(function(c){
+        var tl = c.timeline || [];
+        tl.forEach(function(t){
+          auditRows.push({
+            ref: '#'+c.id,
+            name: c.name,
+            action: t.a || '—',
+            by: t.by || '—',
+            date: t.d || '',
+            cls: t.cls || '',
+          });
+        });
+      });
+      // Sort by date desc
+      auditRows.sort(function(a,b){ return b.date.localeCompare(a.date); });
+    }
+  } catch(e) { console.log('audit load:', e.message); }
+
+  // Also include localStorage audit
+  var localRows = readLS(APP_AUDIT_KEY, []);
+  
+  var allRows = auditRows.slice(0, 100);
+  
+  if (!allRows.length && !localRows.length) {
+    document.getElementById('MB').innerHTML =
+      '<div style="text-align:center;padding:30px;color:var(--text3)">📭 لا يوجد سجل تدقيق بعد</div>';
+    return;
+  }
+
+  var listHtml = allRows.map(function(r){
+    var cls = r.cls === 'citizen' ? 'background:#fff4e0;border-color:var(--warn)' : 'background:var(--bg2);border-color:var(--border)';
+    return '<div style="padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;'+cls+'">'
+      + '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">'+r.action+'</div>'
+      + '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text3)">'
+      + '<span>📋 '+r.ref+'</span>'
+      + '<span>👤 '+r.by+'</span>'
+      + '<span>🕒 '+r.date+'</span>'
+      + (r.name ? '<span>🏷️ '+r.name+'</span>' : '')
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  // Add local audit rows too
+  if (localRows.length) {
+    listHtml += '<div style="font-size:12px;font-weight:700;color:var(--text3);margin:12px 0 8px;padding-top:12px;border-top:1px solid var(--border)">سجل النظام المحلي</div>';
+    listHtml += localRows.slice(0,20).map(function(r){
+      return '<div style="padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">'
+        + '<div style="font-size:12px;font-weight:600">'+r.action+' — '+r.entity+'</div>'
+        + '<div style="font-size:11px;color:var(--text3)">👤 '+(r.user||'—')+' · 🕒 '+(r.at||'—').slice(0,16).replace('T',' ')+'</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  document.getElementById('MB').innerHTML =
+    '<div style="font-size:13px;color:var(--text3);margin-bottom:12px">'+allRows.length+' عملية مسجلة من Supabase'+(localRows.length?' + '+localRows.length+' محلية':'')+'</div>'
+    + listHtml
+    + '<div style="margin-top:14px;display:flex;gap:8px">'
+    + '<button class="btn bg" onclick="closeM()" style="flex:1;justify-content:center">إغلاق</button>'
+    + '<button class="btn" onclick="if(confirm(\'حذف السجل المحلي؟\')){localStorage.removeItem(APP_AUDIT_KEY);openAuditLog();}" style="font-size:12px">🗑️ مسح المحلي</button>'
+    + '</div>';
 }
 function openWhatsAppRoles(){
   if(!guard('wa','🚫 إعدادات واتساب حسب الدور متاحة للإدارة فقط')) return;
@@ -654,7 +749,7 @@ function avc(n){if(!n)return AVS[0];let h=0;for(let c of n)h=(h*31+c.charCodeAt(
 function ini(n){if(!n)return'?';return n.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('');}
 function bH(s){const m={new:'bn','in-progress':'bip',review:'br2','pending-approval':'bpa',resolved:'bdo',closed:'bc'};return`<span class="badge ${m[s]||'bc'}"><span class="bd"></span>${SL[s]||s}</span>`;}
 function pH(p){const c={high:'ph',medium:'pm',low:'pl'};const i={high:'▲',medium:'●',low:'▼'};return`<span class="pr2 ${c[p]||'pm'}">${i[p]||'●'} ${PL[p]||p}</span>`;}
-function tH(t){const cl={complaint:'tc',welfare:'tw2',permit:'tp',inquiry:'ti'};return`<span class="tt ${cl[t]||''}">${TL[t]||t}</span>`;}
+function tH(t){const cl={complaint:'tc',welfare:'tw2',permit:'tp',inquiry:'ti',ifada:'tp'};const labels={complaint:'⚠️ شكوى',welfare:'🤝 رعاية اجتماعية',permit:'🏗️ ترخيص',inquiry:'❓ استفسار',ifada:'📜 إفادة عقارية'};return`<span class="tt ${cl[t]||''}">${labels[t]||TL[t]||t}</span>`;}
 function aH(c){if(!NA.includes(c.type)||!c.approval_state||c.approval_state==='none')return`<span class="ac ana">—</span>`;
 if(c.approval_state==='pending')return`<span class="ac ap">⏳</span>`;
 if(c.approval_state==='approved')return`<span class="ac ay">✓</span>`;
@@ -725,7 +820,29 @@ function render(){
 
 // ── DETAIL ────────────────────────────────────────────────────────────────────
 function openDetail(id){
+  // Auto-mark citizen updates as reviewed when opening case
+  if (typeof isCitReviewed === 'function' && !isCitReviewed(id)) {
+    var hasCitUpdate = false;
+    var caseObj = cases.find(function(x){return String(x.id)===String(id);});
+    if (caseObj) {
+      hasCitUpdate = (caseObj.timeline||[]).some(function(t){return t.cls==='citizen'||t.by==='المواطن';});
+    }
+    if (hasCitUpdate) {
+      localStorage.setItem('cit_reviewed_'+id, new Date().toISOString().slice(0,10));
+      // Update badge
+      var unreviewedNow = cases.filter(function(c){
+        if(isCitReviewed(c.id)) return false;
+        return (c.timeline||[]).some(function(t){return t.cls==='citizen'||t.by==='المواطن';});
+      });
+      var b=document.getElementById('cit-updates-badge');
+      if(b){b.style.display=unreviewedNow.length?'inline':'none';b.textContent=unreviewedNow.length||'!';}
+    }
+  }
   const c=cases.find(x=>String(x.id)===String(id));if(!c)return;
+  // Auto-mark citizen updates as reviewed
+  localStorage.setItem('cit_reviewed_'+String(id),'1');
+  // Update badge
+  var badge=document.getElementById('cit-updates-badge');if(badge)badge.style.display='none';
   const R=getRoleCfg();
   document.getElementById('MT').textContent='طلب #'+String(id).slice(-4);
   const[fc,bc]=avc(c.name);
@@ -754,6 +871,36 @@ function openDetail(id){
     <div class="fg"><div class="fl">وصف الطلب</div><div class="fv" style="white-space:pre-wrap">${c.description||'—'}</div></div>
     <div class="g2">
       <div><div class="fl">نوع الطلب</div>${tH(c.type)}</div>
+      ${(function(){
+        var cfg = (typeof REQUIRED_DOCS !== "undefined") ? REQUIRED_DOCS[c.type] : null;
+        if (!cfg || !cfg.docs || !cfg.docs.length) return "";
+        var req = cfg.docs.filter(function(d){return d.required;});
+        var opt = cfg.docs.filter(function(d){return !d.required;});
+        var html = '<div style="grid-column:1/-1;margin:8px 0 4px">'
+          + '<div style="background:linear-gradient(120deg,#0f4d82,#1a6eb5);color:#fff;padding:8px 14px;border-radius:10px 10px 0 0;font-weight:800;font-size:12px">'
+          + cfg.icon + ' المستندات المطلوبة — ' + cfg.label
+          + '</div><div style="background:#f8faff;border:1.5px solid #daeaf8;border-top:none;border-radius:0 0 10px 10px;padding:10px 14px">'
+          + '<div style="font-size:11px;color:#666;margin-bottom:8px">' + cfg.description + '</div>';
+        if (req.length) {
+          html += '<div style="font-size:11px;font-weight:700;color:#0f4d82;margin-bottom:5px">✅ إلزامية:</div>';
+          req.forEach(function(d){
+            html += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #e8eef8;font-size:12px">'
+              + '<span>' + d.icon + '</span><span>' + d.name + '</span>'
+              + '<span style="margin-right:auto;font-size:10px;background:#fdeaea;color:#b02020;padding:1px 7px;border-radius:4px;font-weight:700">مطلوب</span></div>';
+          });
+        }
+        if (opt.length) {
+          html += '<div style="font-size:11px;font-weight:700;color:#555;margin:7px 0 5px">📎 اختيارية:</div>';
+          opt.forEach(function(d){
+            html += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #eee;font-size:12px;color:#666">'
+              + '<span>' + d.icon + '</span><span>' + d.name + '</span>'
+              + '<span style="margin-right:auto;font-size:10px;background:#eef0f6;color:#666;padding:1px 7px;border-radius:4px">اختياري</span></div>';
+          });
+        }
+        html += '<div style="font-size:10px;color:#999;margin-top:7px;padding-top:6px;border-top:1px dashed #ddd">';
+        html += '💡 يمكن إرفاق المستندات في قسم الملفات أدناه</div></div></div>';
+        return html;
+      })()}
       <div><div class="fl">الأولوية</div>${pH(c.priority)}</div>
       <div><div class="fl">المسؤول</div><div class="fv">${c.assigned||'—'}</div></div>
       <div><div class="fl">التاريخ</div><div class="fv ltr">${(c.created_at||'').slice(0,10)}</div></div>
@@ -784,6 +931,19 @@ function openDetail(id){
     <div class="dv"></div>
     <div class="fg"><div class="fl">المستندات (${docs.length})</div><div class="dg">${docsH}</div><div style="margin-top:10px">${uz}</div></div>
     <div class="dv"></div>
+    ${(function(){
+      var citItems=(c.timeline||[]).filter(function(t){return t.cls==='citizen'||t.by==='المواطن';});
+      if(!citItems.length)return '';
+      return '<div style="border:2px solid var(--blue3);border-radius:12px;padding:12px 14px;margin-bottom:16px">'
+        +'<div style="font-size:12px;font-weight:800;color:var(--blue2);margin-bottom:10px">💬 تحديثات المواطن ('+citItems.length+')</div>'
+        +citItems.slice().reverse().map(function(t){
+          var isDoc=t.a.indexOf('📎')===0;
+          return '<div style="background:'+(isDoc?'#fff4e0':'#f0f8ea')+';border:1px solid '+(isDoc?'var(--warn)':'#a8d9b4')+';border-radius:8px;padding:9px 11px;margin-bottom:6px">'
+            +'<div style="font-size:13px;font-weight:600;color:'+(isDoc?'#c47800':'#1a4a2a')+'">'+(isDoc?t.a:t.a.replace('💬 تحديث من المواطن: ',''))+'</div>'
+            +'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+t.d+'</div></div>';
+        }).join('')
+        +'</div>';
+    })()}
     <div class="fl" style="margin-bottom:12px">سجل النشاط</div>
     <div class="tl">${tl.length?tl.slice().reverse().map(t=>`<div class="tli"><div class="tld ${t.cls||''}"></div><div class="tlln"></div><div><div class="tla">${t.a}</div><div class="tlm">${t.by||''} · <span class="ltr">${t.d||''}</span></div></div></div>`).join(''):'<div style="color:var(--text3);font-size:13px">لا يوجد نشاط</div>'}</div>
     <div class="dv"></div>
@@ -925,10 +1085,15 @@ function openProfile(){
         </div>
       </div>
     </div>
-    <div style="display:flex;gap:9px;flex-wrap:wrap">
+    <div style="margin-top:16px;border-top:2px solid var(--border);padding-top:14px">
+      <div style="font-size:13px;font-weight:800;color:var(--blue2);margin-bottom:10px">💬 تحديثات المواطنين على طلباتي المعيّنة</div>
+      <div id="profile-cu-list" style="font-size:13px;color:var(--text3);text-align:center;padding:10px">⏳ جاري التحميل…</div>
+    </div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:12px">
       <button class="btn bg" style="flex:1;justify-content:center" onclick="closeM()">إغلاق</button>
     </div>`;
   document.getElementById('OV').classList.add('open');
+  loadProfileCitUpdates();
 }
 
 // ── USER MANAGEMENT (Admin only) ──────────────────────────────────────────────
@@ -1157,6 +1322,7 @@ function openSettings(){
       <div class="ron" style="margin-top:14px">هذه النافذة للعرض فقط داخل هذا الإصدار الثابت من الملف.</div>
       <div style="display:flex;gap:9px;margin-top:12px">
         <button class="btn bg" style="flex:1;justify-content:center" onclick="closeM()">إغلاق</button>
+      <button class="btn" style="width:100%;justify-content:center;margin-top:8px" onclick="closeM();openEditWhatsNew()">✨ تعديل قسم ما الجديد</button>\n      <button class="btn" style="width:100%;justify-content:center;margin-top:8px" onclick="closeM();openManageRequiredDocs()">📋 إدارة المستندات المطلوبة</button>
       </div>
     </div>`;
   document.getElementById('OV').classList.add('open');
@@ -1224,8 +1390,10 @@ function mc(e){if(e.target===document.getElementById('OV'))closeM();}
           </div>
         </div>
       </div>
-      <div id="track-res" style="margin-top:14px"></div>
+      
     </div>
+
+    <div id="track-res" style="margin-top:14px"></div>
 
     <!-- SUBMIT REQUEST -->
     <div style="background:#fff;border:1px solid var(--border);border-radius:16px;padding:22px" id="submit-form-wrap">
@@ -1298,35 +1466,61 @@ function mc(e){if(e.target===document.getElementById('OV'))closeM();}
       <div style="font-size:11px;opacity:0.6">قضاء الشوف · محافظة جبل لبنان</div>
     </div>
   </div>
-  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:32px 16px;background:var(--bg)">
-    <div style="max-width:560px;width:100%;text-align:center">
-      <img src="data:image/png;base64,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" style="height:100px;margin-bottom:20px">
-      <div style="font-size:26px;font-weight:800;color:var(--blue2);margin-bottom:8px">نظام متابعة الطلبات</div>
-      <div style="font-size:15px;color:var(--text3);margin-bottom:36px">بلدية وادي الست — قضاء الشوف</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        <div onclick="showCitizenPortal()" style="background:#fff;border:2px solid var(--blue);border-radius:16px;padding:28px 20px;cursor:pointer;transition:all .15s" onmouseover="this.style.background='var(--blue3)'" onmouseout="this.style.background='#fff'">
-          <div style="font-size:40px;margin-bottom:12px">👥</div>
-          <div style="font-size:17px;font-weight:800;color:var(--blue2);margin-bottom:6px">بوابة المواطن</div>
+  <div style="flex:1;display:flex;align-items:flex-start;justify-content:center;padding:16px 16px 20px;background:var(--bg)">
+    <div style="max-width:480px;width:100%;text-align:center;padding:0 8px">
+      <img src="data:image/png;base64,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" style="height:72px;margin-bottom:10px">
+      <div style="font-size:24px;font-weight:800;color:var(--blue2);margin-bottom:4px">نظام متابعة الطلبات</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:12px">بلدية وادي الست — قضاء الشوف</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div onclick="showCitizenPortal()" style="background:#fff;border:2px solid var(--blue);border-radius:16px;padding:20px 16px;cursor:pointer;transition:all .15s" onmouseover="this.style.background='var(--blue3)'" onmouseout="this.style.background='#fff'">
+          <div style="font-size:34px;margin-bottom:8px">👥</div>
+          <div style="font-size:15px;font-weight:800;color:var(--blue2);margin-bottom:4px">بوابة المواطن</div>
           <div style="font-size:13px;color:var(--text3)">قدّم طلبك وتابع حالته</div>
         </div>
-        <div onclick="showStaffLogin()" style="background:#fff;border:2px solid var(--green);border-radius:16px;padding:28px 20px;cursor:pointer;transition:all .15s" onmouseover="this.style.background='var(--green3)'" onmouseout="this.style.background='#fff'">
-          <div style="font-size:40px;margin-bottom:12px">🔐</div>
-          <div style="font-size:17px;font-weight:800;color:var(--green2);margin-bottom:6px">دخول الموظفين</div>
+        <div onclick="showStaffLogin()" style="background:#fff;border:2px solid var(--green);border-radius:16px;padding:20px 16px;cursor:pointer;transition:all .15s" onmouseover="this.style.background='var(--green3)'" onmouseout="this.style.background='#fff'">
+          <div style="font-size:34px;margin-bottom:8px">🔐</div>
+          
+          <div style="font-size:15px;font-weight:800;color:var(--green2);margin-bottom:4px">دخول الموظفين</div>
           <div style="font-size:13px;color:var(--text3)">لوحة تحكم البلدية</div>
         </div>
 
-      <div style="margin-top:20px;text-align:center">
-        <button onclick="window.close()" style="width:100%;max-width:400px;padding:14px;border-radius:10px;border:none;background:linear-gradient(120deg,#0f4d82,#1a6eb5);color:#fff;font-size:17px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">🚪 خروج</button>
+      
+
+      <!-- WHAT'S NEW ON HOME PAGE -->
+      <div style="text-align:center;margin-top:16px;margin-bottom:16px">
+        <button onclick="openWhatsNewModal()" style="background:transparent;border:1.5px solid var(--blue);color:var(--blue);border-radius:20px;padding:10px 28px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);display:inline-flex;align-items:center;gap:8px;transition:all .2s" onmouseover="this.style.background='var(--blue3)'" onmouseout="this.style.background='transparent'">
+          ✨ ما الجديد في هذا الإصدار
+        </button>
       </div>
 
       </div>
     </div>
   </div>
+
+<!-- WHAT'S NEW MODAL -->
+<div id="wn-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)closeWnModal()">
+  <div style="background:#fff;border-radius:20px;max-width:520px;width:100%;max-height:85vh;overflow-y:auto;direction:rtl;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #eee;position:sticky;top:0;background:#fff;z-index:1;border-radius:20px 20px 0 0">
+      <button onclick="closeWnModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='none'">✕</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px;font-weight:800;color:#1a1a2e">ما الجديد</span>
+        <span style="font-size:22px">✨</span>
+      </div>
+    </div>
+    <div id="wn-modal-body" style="padding:16px 20px"></div>
+  </div>
+</div>
 </div>
 <script>
 
 
-// ── SETUP FUNCTIONS ───────────────────────────────────────────────────────────
+// ── SETUP FUNCTIONS ─────────────────────────────────────────────────────────
+// Render What's New on CP page immediately
+document.addEventListener('DOMContentLoaded', function(){
+  renderWhatsNewAdmin();
+  renderWhatsNewCitizen();
+});
+// ──
 
 
 
@@ -1491,6 +1685,26 @@ async function confirmPhone(){
     if(tl.length){h+='<div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:700">🕒 سجل النشاط</div><div style="display:flex;flex-direction:column;gap:10px">';h+=tl.slice().reverse().slice(0,8).map(t=>'<div style="display:flex;gap:12px;align-items:flex-start"><div style="width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:5px"></div><div><div style="font-size:13px;font-weight:600">'+t.a+'</div><div style="font-size:11px;color:var(--text3)">'+t.d+'</div></div></div>').join('');h+='</div>';}
     else h+='<div style="color:var(--text3);font-size:13px;padding:8px 0">لا يوجد نشاط بعد</div>';
     h+='</div>';
+    // Add update section (upload docs + notes)
+    h += '<div style="border-top:2px solid var(--border);margin-top:16px;padding-top:16px">';
+    h += '<div style="font-size:14px;font-weight:800;color:var(--blue2);margin-bottom:12px">📤 تحديث طلبك</div>';
+    // Add note
+    h += '<div style="margin-bottom:12px">';
+    h += '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">💬 إضافة ملاحظة أو معلومة إضافية</div>';
+    h += '<textarea id="cit-update-note" placeholder="اكتب أي معلومة إضافية أو تحديث تريد إرساله للبلدية…" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:var(--font);font-size:13px;resize:vertical;min-height:80px;outline:none;direction:rtl" onfocus="this.style.borderColor=\'var(--blue)\'"></textarea>';
+    h += '</div>';
+    // Upload docs
+    h += '<div style="margin-bottom:12px">';
+    h += '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">📎 إرفاق مستندات إضافية</div>';
+    h += '<label style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1.5px dashed var(--blue);border-radius:10px;cursor:pointer;font-size:13px;color:var(--blue)">';
+    h += '<input type="file" id="cit-update-files" multiple accept="image/*,.pdf,.doc,.docx" style="display:none" onchange="showCitUpdateFiles(this)">';
+    h += '📂 اضغط لاختيار الملفات (صور، PDF، وثائق)</label>';
+    h += '<div id="cit-update-file-list" style="margin-top:6px;font-size:12px;color:var(--text3)"></div>';
+    h += '</div>';
+    // Submit button
+    h += '<button onclick="submitCitUpdate(\'' + data.id + '\',\'' + (data.phone||'') + '\')" style="width:100%;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">✅ إرسال التحديث</button>';
+    h += '<div id="cit-update-msg" style="margin-top:8px;font-size:13px;text-align:center;min-height:18px"></div>';
+    h += '</div>';
     el.innerHTML=h;
   }catch(e){el.innerHTML='<div style="color:var(--danger);font-size:13px;text-align:center">خطأ: '+e.message+'</div>';}
 }
@@ -2463,6 +2677,7 @@ async function loadOfficers() {
 
 // ── SIDEBAR CATEGORIES BUTTON ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
+  renderWhatsNewCitizen();
   // Update citizen type select with dynamic categories
   updateCitizenTypeSelect();
   // Add ⚙️ إدارة button next to التصنيفات header
@@ -2886,6 +3101,1686 @@ function showRequiredDocs(typeId) {
     '<div style="font-size:11px;color:#888;margin-top:8px;padding-top:8px;border-top:1px dashed #ddd">' +
     '💡 يمكنك إرفاق المستندات في حقل الملفات أدناه أو إحضارها لمركز البلدية</div>' +
     '</div>';
+}
+
+
+// ── CITIZEN UPDATE FUNCTIONS ──────────────────────────────────────────────────
+function showCitUpdateFiles(input) {
+  if (!input || !input.files || !input.files.length) return;
+  var list = document.getElementById('cit-update-file-list');
+  if (!list) return;
+  list.innerHTML = Array.from(input.files).map(function(f){
+    return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0">📄 ' + f.name 
+      + ' <span style="color:var(--text3);font-size:11px">(' + (f.size/1024).toFixed(0) + ' KB)</span></div>';
+  }).join('');
+}
+
+async function submitCitUpdate(caseId, casePhone) {
+  var noteEl = document.getElementById('cit-update-note');
+  var filesInput = document.getElementById('cit-update-files');
+  var msgEl = document.getElementById('cit-update-msg');
+  var note = noteEl ? noteEl.value.trim() : '';
+  var files = filesInput ? Array.from(filesInput.files) : [];
+
+  function setMsg(txt, color) {
+    if (!msgEl) return;
+    msgEl.style.color = color || 'var(--text3)';
+    msgEl.textContent = txt;
+  }
+  function setBtn(txt, disabled) {
+    var b = document.querySelector('[onclick*="submitCitUpdate"]');
+    if (!b) return;
+    b.textContent = txt;
+    b.disabled = !!disabled;
+  }
+
+  if (!note && !files.length) {
+    setMsg('⚠️ أضف ملاحظة أو مستنداً على الأقل', 'var(--danger)');
+    return;
+  }
+
+  setBtn('⏳ جاري الإرسال…', true);
+  setMsg('⏳ جاري رفع التحديث…', 'var(--text3)');
+
+  try {
+    var res = await sb.from('cases').select('timeline,documents,notes').eq('id', caseId).single();
+    if (res.error) throw res.error;
+    var caseData = res.data;
+    var today = new Date().toISOString().slice(0,10);
+    var tl = Array.from(caseData.timeline || []);
+    var docs = Array.from(caseData.documents || []);
+    var updates = {};
+
+    if (note) {
+      tl.push({a: '💬 تحديث من المواطن: ' + note, by: 'المواطن', d: today, cls: 'citizen'});
+      updates.timeline = tl;
+      // Citizen note goes ONLY to timeline, not to internal notes
+      // Staff will see it in تحديثات المواطنين tab
+    }
+
+    if (files.length) {
+      setMsg('⏳ جاري رفع الملفات…', 'var(--text3)');
+      for (var fi = 0; fi < files.length; fi++) {
+        var f = files[fi];
+        var ext = f.name.split('.').pop().toLowerCase();
+        var path = caseId + '/update_' + Date.now() + '_' + fi + '.' + ext;
+        var upRes = await sb.storage.from('case-documents').upload(path, f, {upsert:true});
+        if (!upRes.error) {
+          var urlRes = sb.storage.from('case-documents').getPublicUrl(path);
+          docs.push({name:f.name, path:path, url:urlRes.data.publicUrl, type:ext, size:f.size, by:'citizen', date:today});
+        }
+      }
+      tl.push({a: '📎 رُفع ' + files.length + ' مستند من المواطن', by:'المواطن', d:today, cls:'citizen'});
+      updates.documents = docs;
+      updates.timeline = tl;
+    }
+
+    var saveRes = await sb.from('cases').update(updates).eq('id', caseId);
+    if (saveRes.error) throw saveRes.error;
+
+    setMsg('✅ تم إرسال تحديثك بنجاح! سيتم مراجعته من قِبل البلدية.', 'var(--green2)');
+    setBtn('✅ تم الإرسال', false);
+    if (noteEl) noteEl.value = '';
+    if (filesInput) filesInput.value = '';
+    var listEl = document.getElementById('cit-update-file-list');
+    if (listEl) listEl.innerHTML = '';
+
+  } catch(e) {
+    setMsg('خطأ: ' + e.message, 'var(--danger)');
+    setBtn('✅ إرسال التحديث', false);
+  }
+}
+
+
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ما الجديد — What's New (editable by admin, stored in Supabase settings)
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function openWhatsNew() {
+  document.getElementById('MT').textContent = '🆕 ما الجديد في هذا الإصدار';
+  var isAdmin = typeof getRoleCfg === 'function' ? getRoleCfg().admin : false;
+
+  // Load from Supabase settings
+  var items = [];
+  try {
+    var res = await sb.from('settings').select('value').eq('key','whats_new').single();
+    if (!res.error && res.data && res.data.value) items = res.data.value;
+  } catch(e) {}
+  if (!items.length) items = [
+    {id:1, title:'نظام إدارة الأدوار المتقدم', body:'إنشاء أدوار مخصصة مع تحديد الصلاحيات والإشعارات لكل دور', icon:'🎭', date:'2026-04-08', isNew:true},
+    {id:2, title:'بوابة المواطن المحسّنة', body:'إمكانية متابعة الطلب وإرفاق مستندات إضافية وإضافة ملاحظات', icon:'🌐', date:'2026-04-08', isNew:true},
+    {id:3, title:'إشعارات البريد الإلكتروني', body:'إرسال تلقائي عند تقديم طلب أو تغيير الحالة أو رد البلدية', icon:'📧', date:'2026-04-08', isNew:true},
+    {id:4, title:'طباعة الطلبات', body:'طباعة ملف PDF احترافي لكل طلب مع التوقيعات والسجل الكامل', icon:'🖨️', date:'2026-04-08', isNew:false},
+    {id:5, title:'إدارة التصنيفات', body:'إضافة وتعديل وحذف أنواع الطلبات بشكل ديناميكي', icon:'📋', date:'2026-04-08', isNew:false},
+  ];
+
+  var editBtn = isAdmin ? '<button class="btn bp" style="margin-bottom:16px" onclick="openEditWhatsNew()">✏️ تعديل ما الجديد</button>' : '';
+  var cards = items.map(function(item){
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;gap:14px;align-items:flex-start">'
+      + '<div style="font-size:28px;flex-shrink:0">' + item.icon + '</div>'
+      + '<div style="flex:1">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+      + '<div style="font-weight:800;font-size:14px">' + item.title + '</div>'
+      + (item.isNew ? '<span style="background:#e74c3c;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">جديد</span>' : '')
+      + '</div>'
+      + '<div style="font-size:13px;color:var(--text2);line-height:1.7">' + item.body + '</div>'
+      + '<div style="font-size:11px;color:var(--text3);margin-top:4px">' + item.date + '</div>'
+      + '</div></div>';
+  }).join('');
+
+  document.getElementById('MB').innerHTML = editBtn + cards;
+  document.getElementById('OV').classList.add('open');
+}
+
+async function openEditWhatsNew() {
+  var items = [];
+  try {
+    var res = await sb.from('settings').select('value').eq('key','whats_new').single();
+    if (!res.error && res.data && res.data.value) items = res.data.value;
+  } catch(e) {}
+
+  var rows = items.map(function(item, i){
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">'
+      + '<div style="display:flex;gap:8px;margin-bottom:8px">'
+      + '<input id="wn-icon-'+i+'" value="'+item.icon+'" class="fi" style="width:60px;padding:6px;height:auto;font-size:18px;text-align:center">'
+      + '<input id="wn-title-'+i+'" value="'+item.title+'" class="fi" style="flex:1;padding:6px 10px;height:auto">'
+      + '<label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;cursor:pointer">'
+      + '<input type="checkbox" id="wn-new-'+i+'" '+(item.isNew?'checked':'')+' style="accent-color:#e74c3c"> جديد</label>'
+      + '<button class="btn" style="padding:4px 10px;font-size:12px;color:var(--danger)" onclick="this.closest(\'div\').closest(\'div\').remove()">🗑️</button>'
+      + '</div>'
+      + '<textarea id="wn-body-'+i+'" class="fi" style="width:100%;padding:8px;height:auto;min-height:60px;resize:vertical">'+item.body+'</textarea>'
+      + '</div>';
+  }).join('');
+
+  document.getElementById('MB').innerHTML =
+    '<div class="admin-section">'
+    + '<div class="admin-header">✏️ تعديل ما الجديد</div>'
+    + '<div id="wn-list">' + rows + '</div>'
+    + '<button class="btn" style="width:100%;justify-content:center;margin-bottom:10px" onclick="addWhatsNewRow()">➕ إضافة بند جديد</button>'
+    + '<button class="btn bp" style="width:100%;justify-content:center" onclick="saveWhatsNew()">💾 حفظ</button>'
+    + '</div>';
+}
+
+function addWhatsNewRow() {
+  var list = document.getElementById('wn-list'); if(!list) return;
+  var i = list.children.length;
+  var div = document.createElement('div');
+  div.style.cssText = 'background:var(--bg2);border:1px solid var(--blue);border-radius:10px;padding:12px;margin-bottom:8px';
+  div.innerHTML = '<div style="display:flex;gap:8px;margin-bottom:8px">'
+    + '<input id="wn-icon-'+i+'" value="✨" class="fi" style="width:60px;padding:6px;height:auto;font-size:18px;text-align:center">'
+    + '<input id="wn-title-'+i+'" placeholder="عنوان الميزة" class="fi" style="flex:1;padding:6px 10px;height:auto">'
+    + '<label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;cursor:pointer">'
+    + '<input type="checkbox" id="wn-new-'+i+'" checked style="accent-color:#e74c3c"> جديد</label>'
+    + '<button class="btn" style="padding:4px 10px;font-size:12px;color:var(--danger)" onclick="this.closest(\'div\').closest(\'div\').remove()">🗑️</button>'
+    + '</div>'
+    + '<textarea id="wn-body-'+i+'" placeholder="وصف الميزة…" class="fi" style="width:100%;padding:8px;height:auto;min-height:60px;resize:vertical"></textarea>';
+  list.appendChild(div);
+}
+
+async function saveWhatsNew() {
+  var list = document.getElementById('wn-list'); if(!list) return;
+  var items = [];
+  for (var i = 0; i < list.children.length; i++) {
+    var icon = document.getElementById('wn-icon-'+i);
+    var title = document.getElementById('wn-title-'+i);
+    var body = document.getElementById('wn-body-'+i);
+    var isNew = document.getElementById('wn-new-'+i);
+    if (!title || !title.value.trim()) continue;
+    items.push({
+      id: Date.now() + i,
+      icon: icon ? icon.value.trim() : '✨',
+      title: title.value.trim(),
+      body: body ? body.value.trim() : '',
+      isNew: isNew ? isNew.checked : false,
+      date: new Date().toISOString().slice(0,10)
+    });
+  }
+  try {
+    await sb.from('settings').upsert({key:'whats_new', value:items, updated_at:new Date().toISOString()}, {onConflict:'key'});
+    toast('✅ تم حفظ ما الجديد');
+    openWhatsNew();
+  } catch(e) { toast('خطأ: '+e.message,'err'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// رسائل المواطنين — Citizen Updates Pipeline (separate from internal notes)
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function openCitMessages() {
+  // Mark all as read immediately
+  var badge = document.getElementById('cit-msg-badge');
+  if (badge) { badge.style.display = 'none'; badge.textContent = '0'; }
+  var navBadge = document.getElementById('cit-updates-badge');
+  if (navBadge) { navBadge.style.display = 'none'; }
+  // Save last-viewed timestamp
+  localStorage.setItem('cit_msgs_last_viewed', new Date().toISOString());
+
+  document.getElementById('MT').textContent = '💬 رسائل المواطنين';
+  document.getElementById('MB').innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ جاري التحميل…</div>';
+  document.getElementById('OV').classList.add('open');
+
+  try {
+    // Load all cases that have citizen updates in timeline
+    var res = await sb.from('cases').select('id,name,phone,type,status,timeline,assigned').order('id',{ascending:false});
+    if (res.error) throw res.error;
+
+    var msgs = [];
+    (res.data||[]).forEach(function(c) {
+      var tl = c.timeline || [];
+      tl.forEach(function(t) {
+        if (t.cls === 'citizen' || (t.by === 'المواطن')) {
+          msgs.push({caseId:c.id, caseName:c.name, caseType:c.type, caseStatus:c.status,
+            assigned:c.assigned, msg:t.a, date:t.d, read:t.read||false, tlIndex:tl.indexOf(t)});
+        }
+      });
+    });
+
+    msgs.sort(function(a,b){ return b.date.localeCompare(a.date); });
+    var lastViewed = localStorage.getItem('cit_msgs_last_viewed') || '';
+    var unread = lastViewed ? msgs.filter(function(m){
+      return m.date && m.date > lastViewed;
+    }).length : msgs.filter(function(m){return !m.read;}).length;
+
+    // Badge stays hidden since user is viewing now
+    // (already hidden at function start)
+
+    if (!msgs.length) {
+      document.getElementById('MB').innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3)">📭 لا توجد رسائل من المواطنين بعد</div>';
+      return;
+    }
+
+    var html = '<div style="margin-bottom:12px;font-size:13px;color:var(--text3)">' + msgs.length + ' رسالة — ' + unread + ' غير مقروءة</div>';
+    html += msgs.map(function(m){
+      var typeLabel = typeof getTLabel === 'function' ? getTLabel(m.caseType) : m.caseType;
+      var statusLabel = {new:'جديد','in-progress':'قيد المعالجة','pending-approval':'ينتظر الموافقة',resolved:'منجز',closed:'مغلق'}[m.caseStatus] || m.caseStatus;
+      var msgText = m.msg.replace('💬 تحديث من المواطن: ','').replace('📎 رُفع ','');
+      var isDocUpload = m.msg.indexOf('📎') === 0;
+      return '<div style="background:var(--bg2);border:1.5px solid '+(m.read?'var(--border)':'var(--blue)')+';border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer" onclick="openDetail(\''+m.caseId+'\')">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+        + '<div style="display:flex;align-items:center;gap:8px">'
+        + (m.read?'':'<span style="width:8px;height:8px;border-radius:50%;background:var(--blue);display:inline-block"></span>')
+        + '<strong style="font-size:13px">'+m.caseName+'</strong>'
+        + '<span style="font-size:11px;color:var(--text3)">#'+m.caseId+'</span>'
+        + '</div>'
+        + '<span style="font-size:11px;color:var(--text3)">'+m.date+'</span>'
+        + '</div>'
+        + '<div style="font-size:12px;color:var(--blue2);margin-bottom:4px">'+typeLabel+' · '+statusLabel+(m.assigned?' · 👤 '+m.assigned:'')+'</div>'
+        + '<div style="font-size:13px;color:var(--text2)">'+(isDocUpload?'📎 ':'💬 ')+msgText+'</div>'
+        + '</div>';
+    }).join('');
+
+    document.getElementById('MB').innerHTML = html;
+  } catch(e) {
+    document.getElementById('MB').innerHTML = '<div style="color:var(--danger);padding:14px;text-align:center">خطأ: '+e.message+'</div>';
+  }
+}
+
+// Check for citizen messages on load and update badge
+async function checkCitMessages() {
+  if (!sb || !dbR) return;
+  try {
+    var res = await sb.from('cases').select('timeline');
+    if (res.error) return;
+    var unread = 0;
+    (res.data||[]).forEach(function(c){
+      (c.timeline||[]).forEach(function(t){
+        if ((t.cls==='citizen'||t.by==='المواطن') && !t.read) unread++;
+      });
+    });
+    var badge = document.getElementById('cit-msg-badge');
+    if (badge) { badge.textContent = unread; badge.style.display = unread ? 'inline' : 'none'; }
+  } catch(e) {}
+}
+
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WHAT'S NEW SYSTEM — editable by admin, visible to all staff on login
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function getWhatsNew() {
+  try { return JSON.parse(localStorage.getItem('wadi_whatsnew') || 'null') || []; }
+  catch(e) { return []; }
+}
+function saveWhatsNew(items) { localStorage.setItem('wadi_whatsnew', JSON.stringify(items)); }
+
+// Show "What's New" popup on login (once per version)
+function maybeShowWhatsNew() {
+  var items = getWhatsNew();
+  if (!items.length) return;
+  var lastSeen = localStorage.getItem('wadi_news_seen');
+  var latest = items[0] ? items[0].date : '';
+  if (lastSeen === latest) return;
+  localStorage.setItem('wadi_news_seen', latest);
+  showWhatsNewPopup(items);
+}
+
+function showWhatsNewPopup(items) {
+  var overlay = document.createElement('div');
+  overlay.id = 'news-popup';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML =
+    '<div style="background:var(--bg);border-radius:16px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)">' +
+    '<div style="background:linear-gradient(120deg,#0f4d82,#1a6eb5);color:#fff;padding:18px 22px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between">' +
+    '<div><div style="font-size:16px;font-weight:800">🚀 ما الجديد في هذا الإصدار</div>' +
+    '<div style="font-size:12px;opacity:.8;margin-top:2px">' + (items[0] ? items[0].date : '') + '</div></div>' +
+    '<button onclick="document.getElementById(\'news-popup\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px">×</button>' +
+    '</div>' +
+    '<div style="padding:16px 20px">' +
+    items.map(function(item) {
+      return '<div style="border-bottom:1px solid var(--border);padding:12px 0">' +
+        '<div style="font-weight:700;font-size:14px;color:var(--blue2);margin-bottom:4px">' + item.title + '</div>' +
+        '<div style="font-size:13px;color:var(--text2);line-height:1.7">' + item.body + '</div>' +
+        (item.badge ? '<span style="font-size:10px;background:var(--blue3);color:var(--blue);padding:2px 8px;border-radius:4px;font-weight:700;margin-top:6px;display:inline-block">' + item.badge + '</span>' : '') +
+        '</div>';
+    }).join('') +
+    '<button onclick="document.getElementById(\'news-popup\').remove()" style="width:100%;margin-top:14px;padding:11px;background:var(--blue);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">✅ فهمت — تابع العمل</button>' +
+    '</div></div>';
+  document.body.appendChild(overlay);
+}
+
+function openManageNews() {
+  if (!guard('admin', '🚫 إدارة الأخبار متاحة للإدارة فقط')) return;
+  var items = getWhatsNew();
+  document.getElementById('MT').textContent = 'إدارة — ما الجديد';
+  document.getElementById('MB').innerHTML =
+    '<div class="admin-section">' +
+    '<div class="admin-header">🚀 مستجدات النظام</div>' +
+    '<div id="news-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">' +
+    (items.length ? items.map(function(item, i) {
+      return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+        '<input value="' + item.title + '" id="news-title-' + i + '" class="fi" style="flex:1;padding:6px 10px;height:auto;font-size:13px" placeholder="عنوان المستجد">' +
+        '<input value="' + (item.date||'') + '" id="news-date-' + i + '" class="fi" style="width:110px;padding:6px 10px;height:auto;font-size:12px;direction:ltr">' +
+        '<button class="btn" style="padding:5px 10px;font-size:11px;color:var(--danger)" onclick="removeNewsItem(' + i + ')">🗑️</button>' +
+        '</div>' +
+        '<textarea id="news-body-' + i + '" class="fi" style="width:100%;padding:8px 10px;height:auto;font-size:12px;resize:vertical;min-height:60px" placeholder="وصف المستجد">' + item.body + '</textarea>' +
+        '<input value="' + (item.badge||'') + '" id="news-badge-' + i + '" class="fi" style="width:150px;padding:5px 10px;height:auto;font-size:11px;margin-top:6px" placeholder="شارة (مثال: جديد)">' +
+        '</div>';
+    }).join('') : '<div style="text-align:center;padding:20px;color:var(--text3)">لا توجد مستجدات بعد</div>') +
+    '</div>' +
+    '<button class="btn" style="width:100%;justify-content:center;margin-bottom:10px" onclick="addNewsItem()">➕ إضافة مستجد</button>' +
+    '<button class="btn bp" style="width:100%;justify-content:center" onclick="saveNewsItems()">💾 حفظ وإرسال للموظفين</button>' +
+    '</div>';
+  document.getElementById('OV').classList.add('open');
+}
+
+function addNewsItem() {
+  var list = document.getElementById('news-list');
+  if (!list) return;
+  var i = list.querySelectorAll('[id^="news-title-"]').length;
+  var today = new Date().toISOString().slice(0,10);
+  var div = document.createElement('div');
+  div.style.cssText = 'background:var(--bg2);border:1.5px solid var(--blue);border-radius:10px;padding:12px';
+  div.innerHTML =
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+    '<input id="news-title-' + i + '" class="fi" style="flex:1;padding:6px 10px;height:auto;font-size:13px" placeholder="عنوان المستجد">' +
+    '<input value="' + today + '" id="news-date-' + i + '" class="fi" style="width:110px;padding:6px 10px;height:auto;font-size:12px;direction:ltr">' +
+    '<button class="btn" style="padding:5px 10px;font-size:11px;color:var(--danger)" onclick="this.closest(\'div\').parentNode.remove()">🗑️</button>' +
+    '</div>' +
+    '<textarea id="news-body-' + i + '" class="fi" style="width:100%;padding:8px 10px;height:auto;font-size:12px;resize:vertical;min-height:60px" placeholder="وصف المستجد"></textarea>' +
+    '<input id="news-badge-' + i + '" class="fi" style="width:150px;padding:5px 10px;height:auto;font-size:11px;margin-top:6px" placeholder="شارة (مثال: جديد)">';
+  list.appendChild(div);
+}
+
+function removeNewsItem(i) {
+  var items = getWhatsNew();
+  items.splice(i, 1);
+  saveWhatsNew(items);
+  openManageNews();
+}
+
+function saveNewsItems() {
+  var newItems = [];
+  var idx = 0;
+  while (document.getElementById('news-title-' + idx)) {
+    var title = (document.getElementById('news-title-' + idx) || {value:''}).value.trim();
+    var body  = (document.getElementById('news-body-' + idx)  || {value:''}).value.trim();
+    var date  = (document.getElementById('news-date-' + idx)  || {value:''}).value.trim();
+    var badge = (document.getElementById('news-badge-' + idx) || {value:''}).value.trim();
+    if (title || body) newItems.push({title, body, date, badge});
+    idx++;
+  }
+  saveWhatsNew(newItems);
+  // Save to Supabase too
+  if (window.sb && window.dbR) {
+    sb.from('settings').upsert({key:'wadi_whatsnew', value:newItems, updated_at:new Date().toISOString()}, {onConflict:'key'});
+  }
+  localStorage.removeItem('wadi_news_seen'); // Force re-show for all users
+  toast('✅ تم حفظ المستجدات — ستظهر لجميع الموظفين عند تسجيل الدخول');
+  closeM();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CITIZEN UPDATES — separate tab, not in ملاحظات داخلية
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function openCitUpdates() {
+  if (!guard('edit', '🚫 غير مصرح')) return;
+  document.getElementById('MT').textContent = 'تحديثات المواطنين';
+  document.getElementById('MB').innerHTML =
+    '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ جاري التحميل…</div>';
+  document.getElementById('OV').classList.add('open');
+  loadCitUpdates();
+}
+
+async function loadCitUpdates() {
+  var el = document.getElementById('MB');
+  if (!el) return;
+  try {
+    // Load all cases that have citizen updates in timeline
+    var res = await sb.from('cases')
+      .select('id,name,type,status,timeline,created_at')
+      .order('created_at', {ascending:false});
+    if (res.error) throw res.error;
+    var citUpdates = [];
+    (res.data || []).forEach(function(c) {
+      (c.timeline || []).forEach(function(t) {
+        if (t.by === 'المواطن' || t.cls === 'citizen') {
+          citUpdates.push({caseId:c.id, caseName:c.name, caseType:c.type, caseStatus:c.status, action:t.a, date:t.d});
+        }
+      });
+    });
+    citUpdates.sort(function(a,b){ return b.date > a.date ? 1 : -1; });
+    if (!citUpdates.length) {
+      el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3)"><div style="font-size:40px;margin-bottom:12px">📬</div><div style="font-size:15px">لا توجد تحديثات من المواطنين بعد</div></div>';
+      return;
+    }
+    el.innerHTML =
+      '<div style="font-size:13px;color:var(--text3);margin-bottom:12px;font-weight:600">' + citUpdates.length + ' تحديث من المواطنين</div>' +
+      citUpdates.map(function(u) {
+        var typeLbl = typeof getTLabel === 'function' ? getTLabel(u.caseType) : u.caseType;
+        var stLbl = (typeof SL !== 'undefined' ? SL[u.caseStatus] : null) || u.caseStatus || '';
+        return '<div style="background:var(--bg2);border:1px solid var(--border);border-right:4px solid var(--blue);border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer" onclick="openDetail(' + u.caseId + ')">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
+          '<span style="font-weight:700;font-size:14px">👤 ' + u.caseName + '</span>' +
+          '<span style="font-size:11px;color:var(--text3)">' + u.date + '</span>' +
+          '</div>' +
+          '<div style="font-size:13px;color:var(--text2);margin-bottom:6px">' + u.action + '</div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+          '<span style="font-size:11px;background:var(--blue3);color:var(--blue);padding:2px 8px;border-radius:4px">طلب #' + u.caseId + '</span>' +
+          '<span style="font-size:11px;background:var(--bg2);border:1px solid var(--border);padding:2px 8px;border-radius:4px">' + typeLbl + '</span>' +
+          '<span style="font-size:11px;background:var(--bg2);border:1px solid var(--border);padding:2px 8px;border-radius:4px">' + stLbl + '</span>' +
+          '</div></div>';
+      }).join('');
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--danger);text-align:center;padding:20px">خطأ: ' + e.message + '</div>';
+  }
+}
+
+// Update applyRoleVisibility to show/hide citizen updates nav
+var _origApplyRV = applyRoleVisibility;
+applyRoleVisibility = function() {
+  _origApplyRV();
+  var navCU = document.getElementById('nav-citupdates');
+  if (navCU) navCU.style.display = (typeof getRoleCfg === 'function' && getRoleCfg().edit) ? 'flex' : 'none';
+};
+
+
+
+async function loadProfileCitUpdates() {
+  var el = document.getElementById('profile-cu-list');
+  if (!el) return;
+  try {
+    var nm = currentUser && currentUser.user_metadata && currentUser.user_metadata.name;
+    var q = sb.from('cases').select('id,name,type,timeline').order('created_at',{ascending:false}).limit(50);
+    if (nm) q = q.eq('assigned', nm);
+    var res = await q;
+    if (res.error) throw res.error;
+    var updates = [];
+    (res.data||[]).forEach(function(c){
+      (c.timeline||[]).forEach(function(t){
+        if(t.by==='المواطن'||t.cls==='citizen'){
+          updates.push({caseId:c.id,caseName:c.name,action:t.a,date:t.d});
+        }
+      });
+    });
+    updates.sort(function(a,b){return b.date>a.date?1:-1;});
+    if(!updates.length){el.textContent='لا توجد تحديثات حديثة';return;}
+    el.innerHTML = updates.slice(0,5).map(function(u){
+      return '<div style="padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openDetail('+u.caseId+')">'
+        +'<span style="color:var(--blue);font-weight:600">طلب #'+u.caseId+' — '+u.caseName+'</span>'
+        +'<div style="color:var(--text2);font-size:11px;margin-top:2px">'+u.action+'</div>'
+        +'<div style="color:var(--text3);font-size:10px">'+u.date+'</div>'
+        +'</div>';
+    }).join('');
+  } catch(e) { if(el) el.textContent='تعذر التحميل'; }
+}
+
+
+// ── UPDATE CITIZEN MESSAGES BADGE ────────────────────────────────────────────
+async function updateCitMsgBadge() {
+  try {
+    var res = await sb.from('cases')
+      .select('timeline')
+      .order('id', {ascending:false})
+      .limit(100);
+    if (res.error || !res.data) return;
+    var count = 0;
+    res.data.forEach(function(c) {
+      (c.timeline||[]).forEach(function(t) {
+        if ((t.cls === 'citizen' || t.by === 'المواطن') && t.d === new Date().toISOString().slice(0,10)) {
+          count++;
+        }
+      });
+    });
+    var badge = document.getElementById('cit-msg-badge');
+    if (badge) {
+      badge.style.display = count > 0 ? 'inline' : 'none';
+      badge.textContent = count;
+    }
+  } catch(e) {}
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CITIZEN UPDATES TAB + WHAT'S NEW PAGE
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── CITIZEN UPDATES ────────────────────────────────────────────────────────── 
+async function openCitizenUpdates() {
+  document.getElementById('MT').textContent = 'تحديثات المواطنين';
+  document.getElementById('MB').innerHTML =
+    '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ جاري التحميل…</div>';
+  document.getElementById('OV').classList.add('open');
+
+  try {
+    var res = await sb.from('cases')
+      .select('id,name,phone,type,status,timeline,documents,notes,created_at')
+      .order('created_at', {ascending: false})
+      .limit(100);
+    if (res.error) throw res.error;
+
+    // Filter cases that have citizen updates (timeline entries with cls:'citizen')
+    var updated = (res.data || []).filter(function(c) {
+      if (localStorage.getItem('cit_reviewed_' + c.id)) return false;
+      var tl = c.timeline || [];
+      return tl.some(function(t) { return t.cls === 'citizen' || (t.by === 'المواطن'); });
+    });
+
+    if (!updated.length) {
+      document.getElementById('MB').innerHTML =
+        '<div style="text-align:center;padding:40px;color:var(--text3)">' +
+        '<div style="font-size:48px;margin-bottom:12px">📭</div>' +
+        '<div style="font-size:15px;font-weight:700">لا يوجد تحديثات من المواطنين</div>' +
+        '<div style="font-size:13px;margin-top:6px">ستظهر هنا عندما يضيف مواطن ملاحظة أو مستنداً</div>' +
+        '</div>';
+      return;
+    }
+
+    var html = '<div style="display:flex;flex-direction:column;gap:10px">';
+    updated.forEach(function(c) {
+      var tl = c.timeline || [];
+      var citizenUpdates = tl.filter(function(t) {
+        return t.cls === 'citizen' || t.by === 'المواطن';
+      });
+      var docs = (c.documents || []).filter(function(d) { return d.by === 'citizen'; });
+      var typeLabel = typeof getTLabel === 'function' ? getTLabel(c.type) : c.type;
+      var statusLabel = (typeof SL !== 'undefined' ? SL : {})[c.status] || c.status;
+
+      html += '<div data-cid="' + c.id + '" style="background:var(--bg2);border:1.5px solid var(--blue3);border-radius:12px;padding:14px;cursor:pointer;transition:opacity .3s" onclick="openDetail(' + c.id + ')">';
+      html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">';
+      html += '<div style="width:38px;height:38px;border-radius:50%;background:var(--blue3);color:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0">';
+      html += (c.name || '?').split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase() || '?';
+      html += '</div>';
+      html += '<div style="flex:1;min-width:100px">';
+      html += '<div style="font-weight:700;font-size:14px">' + (c.name || '—') + '</div>';
+      html += '<div style="font-size:11px;color:var(--text3)">طلب #' + c.id + ' · ' + typeLabel + '</div>';
+      html += '</div>';
+      html += '<span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:var(--blue3);color:var(--blue)">' + statusLabel + '</span>';
+      html += '<span style="font-size:11px;background:#fff4e0;color:var(--warn);padding:3px 10px;border-radius:20px;font-weight:700">' + citizenUpdates.length + ' تحديث</span>';
+      html += '</div>';
+
+      // Show citizen updates
+      html += '<div style="display:flex;flex-direction:column;gap:6px">';
+      citizenUpdates.slice(-3).forEach(function(t) {
+        var isDoc = t.a && t.a.indexOf('📎') >= 0;
+        var isNote = t.a && t.a.indexOf('💬') >= 0;
+        html += '<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 10px;background:#fff;border-radius:8px;border:1px solid var(--border)">';
+        html += '<span style="font-size:14px;flex-shrink:0">' + (isDoc ? '📎' : isNote ? '💬' : '🔔') + '</span>';
+        html += '<div style="flex:1;min-width:0">';
+        html += '<div style="font-size:12.5px;color:var(--text)">' + (t.a || '') + '</div>';
+        html += '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + (t.d || '') + '</div>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+
+      if (docs.length) {
+        html += '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">';
+        docs.forEach(function(d) {
+          html += '<a href="' + d.url + '" target="_blank" onclick="event.stopPropagation()" ' +
+            'style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;' +
+            'background:var(--blue3);border:1px solid var(--blue);border-radius:8px;' +
+            'color:var(--blue);font-size:11px;font-weight:600;text-decoration:none">' +
+            '📎 ' + d.name + '</a>';
+        });
+        html += '</div>';
+      }
+
+      html += '<div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between">';
+      html += '<span style="font-size:11px;color:var(--blue);font-weight:600">اضغط لفتح الطلب ←</span>';
+      html += '<button onclick="event.stopPropagation();dismissCitUpdate(' + c.id + ')" ' +
+        'style="padding:5px 14px;background:var(--green3);color:var(--green2);border:1.5px solid var(--green);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">' +
+        '✓ تم المراجعة</button>';
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+
+    document.getElementById('MB').innerHTML = html;
+  } catch(e) {
+    document.getElementById('MB').innerHTML =
+      '<div style="color:var(--danger);font-size:13px;text-align:center;padding:20px">خطأ: ' + e.message + '</div>';
+  }
+}
+
+// ── WHAT'S NEW PAGE ────────────────────────────────────────────────────────── 
+function openWhatsNew() {
+  document.getElementById('MT').textContent = '✨ ما الجديد';
+  document.getElementById('MB').innerHTML = buildWhatsNewHTML();
+  document.getElementById('OV').classList.add('open');
+}
+
+function buildWhatsNewHTML() {
+  var versions = [
+    {
+      version: 'الإصدار 2.5',
+      date: 'أبريل 2026',
+      color: '#1a6eb5',
+      bg: '#daeaf8',
+      features: [
+        {icon:'📜', title:'إفادة عقارية', desc:'خدمة جديدة — تقديم طلب إفادة عقارية مع قائمة المستندات المطلوبة تلقائياً'},
+        {icon:'📋', title:'قائمة المستندات المطلوبة', desc:'عند اختيار نوع الطلب تظهر المستندات الإلزامية والاختيارية في نموذج التقديم ولوحة التحكم'},
+        {icon:'📤', title:'تحديث الطلب من المواطن', desc:'يمكن للمواطن إضافة ملاحظات ورفع مستندات جديدة على طلبه بعد تقديمه'},
+        {icon:'📊', title:'تبويب تحديثات المواطنين', desc:'موظفو البلدية يرون جميع تحديثات المواطنين في تبويب مخصص'},
+        {icon:'🖨️', title:'طباعة الطلب', desc:'طباعة ملف PDF احترافي لأي طلب يشمل المعلومات والتوقيعات والسجل الكامل'},
+        {icon:'📧', title:'إشعارات البريد الإلكتروني', desc:'إشعارات تلقائية للمواطن والموظفين عند كل حدث مهم عبر Brevo'},
+      ]
+    },
+    {
+      version: 'الإصدار 2.0',
+      date: 'مارس 2026',
+      color: '#1e5429',
+      bg: '#d4edda',
+      features: [
+        {icon:'🎭', title:'نظام الأدوار المتقدم', desc:'إنشاء أدوار مخصصة مع 27 صلاحية وتخصيص كل موظف بشكل فردي'},
+        {icon:'👥', title:'إدارة الموظفين الكاملة', desc:'إضافة وتعديل وحذف الموظفين مع تغيير الأدوار والصلاحيات من لوحة التحكم'},
+        {icon:'📋', title:'إدارة التصنيفات', desc:'إضافة وتعديل وحذف تصنيفات الطلبات بشكل ديناميكي محفوظة في قاعدة البيانات'},
+        {icon:'📊', title:'نشاط الموظفين', desc:'تتبع كامل لنشاط كل موظف ومتى قام بكل عملية'},
+        {icon:'🧾', title:'سجل التعديلات', desc:'سجل دقيق لكل تعديل على الطلبات مع التاريخ والمستخدم'},
+        {icon:'📱', title:'إشعارات واتساب', desc:'إعداد إشعارات واتساب لكل دور حسب الأحداث المطلوبة'},
+      ]
+    },
+    {
+      version: 'الإصدار 1.0',
+      date: 'فبراير 2026',
+      color: '#6535a8',
+      bg: '#ede8f8',
+      features: [
+        {icon:'🏛️', title:'إطلاق النظام', desc:'نظام متابعة الطلبات والشكاوى لبلدية وادي الست'},
+        {icon:'🌐', title:'بوابة المواطن', desc:'صفحة خارجية لتقديم الطلبات ومتابعتها برقم مرجعي'},
+        {icon:'🔐', title:'نظام تسجيل الدخول', desc:'تسجيل دخول آمن للموظفين مع أدوار متعددة'},
+        {icon:'💾', title:'قاعدة بيانات Supabase', desc:'حفظ جميع البيانات بشكل آمن في السحابة'},
+        {icon:'📁', title:'رفع الملفات', desc:'رفع وحفظ المستندات المرفقة بكل طلب'},
+      ]
+    }
+  ];
+
+  var h = '<style>.wn-card{border-radius:12px;overflow:hidden;margin-bottom:16px}.wn-hdr{padding:10px 16px;display:flex;align-items:center;gap:10px;font-weight:800;font-size:14px}.wn-body{padding:10px 14px;display:flex;flex-direction:column;gap:6px}.wn-item{display:flex;align-items:flex-start;gap:10px;padding:8px;background:#fff;border-radius:8px;border:1px solid rgba(0,0,0,.06)}.wn-ico{font-size:20px;flex-shrink:0;margin-top:1px}.wn-txt-title{font-size:13px;font-weight:700;color:var(--text)}.wn-txt-desc{font-size:12px;color:var(--text3);margin-top:2px;line-height:1.5}</style>';
+
+  versions.forEach(function(v) {
+    h += '<div class="wn-card" style="border:1.5px solid ' + v.color + '20">';
+    h += '<div class="wn-hdr" style="background:' + v.bg + ';color:' + v.color + '">';
+    h += '<span style="font-size:22px">🚀</span>';
+    h += '<div><div>' + v.version + '</div><div style="font-size:11px;font-weight:400;opacity:.7">' + v.date + '</div></div>';
+    h += '<span style="margin-right:auto;background:' + v.color + ';color:#fff;padding:2px 10px;border-radius:20px;font-size:11px">' + v.features.length + ' ميزة</span>';
+    h += '</div>';
+    h += '<div class="wn-body" style="background:' + v.bg + '40">';
+    v.features.forEach(function(f) {
+      h += '<div class="wn-item">';
+      h += '<span class="wn-ico">' + f.icon + '</span>';
+      h += '<div><div class="wn-txt-title">' + f.title + '</div>';
+      h += '<div class="wn-txt-desc">' + f.desc + '</div></div>';
+      h += '</div>';
+    });
+    h += '</div></div>';
+  });
+
+  h += '<div style="text-align:center;padding:14px;font-size:12px;color:var(--text3);border-top:1px solid var(--border);margin-top:8px">';
+  h += 'بلدية وادي الست · Powered by IanTrading SAL © 2026</div>';
+
+  return h;
+}
+
+
+// ── WHAT'S NEW SYSTEM ─────────────────────────────────────────────────────────
+const WN_DEFAULT = [
+  {icon:'🎭', title:'نظام إدارة الأدوار المتقدم', desc:'إنشاء أدوار مخصصة مع تحديد الصلاحيات والإشعارات لكل دور', isNew:true, date:'2026-04-08', color:'var(--blue3)', titleColor:'var(--blue2)'},
+  {icon:'🌐', title:'بوابة المواطن المحسّنة', desc:'إمكانية متابعة الطلب وإرفاق مستندات إضافية وإضافة ملاحظات', isNew:true, date:'2026-04-08', color:'#f0f8ea', titleColor:'var(--green2)'},
+  {icon:'📧', title:'إشعارات البريد الإلكتروني', desc:'إرسال تلقائي عند تقديم طلب أو تغيير الحالة أو رد البلدية', isNew:true, date:'2026-04-08', color:'#f5f0ff', titleColor:'#6535a8'},
+  {icon:'🖨️', title:'طباعة الطلبات', desc:'طباعة ملف PDF احترافي لكل طلب مع التوقيعات والسجل الكامل', isNew:false, date:'2026-04-08', color:'#fff4e0', titleColor:'var(--warn)'},
+  {icon:'📋', title:'إدارة التصنيفات', desc:'إضافة وتعديل وحذف أنواع الطلبات بشكل ديناميكي', isNew:false, date:'2026-04-08', color:'#eef0f6', titleColor:'var(--text2)'},
+];
+
+function getWhatsNew() {
+  try { return JSON.parse(localStorage.getItem('wadi_whats_new') || 'null') || WN_DEFAULT; }
+  catch(e) { return WN_DEFAULT; }
+}
+function saveWhatsNew(data) {
+  localStorage.setItem('wadi_whats_new', JSON.stringify(data));
+  // Save to Supabase
+  if (dbR && sb) {
+    sb.from('settings').upsert({key:'wadi_whats_new', value:data, updated_at:new Date().toISOString()},{onConflict:'key'})
+    .then(function(r){ if(!r.error) console.log('✅ whats_new saved'); });
+  }
+  renderWhatsNewAdmin();
+  renderWhatsNewCitizen();
+}
+
+function renderWhatsNewAdmin() {
+  var el = document.getElementById('whats-new-preview');
+  if (!el) return;
+  var items = getWhatsNew();
+  el.innerHTML = items.map(function(item) {
+    return '<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">'
+      + '<div style="flex:1">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+      + '<div style="font-size:14px;font-weight:800;color:var(--text)">' + item.title + '</div>'
+      + (item.isNew !== false ? '<span style="background:#ff4757;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">جديد</span>' : '')
+      + '</div>'
+      + '<div style="font-size:12px;color:var(--text2);line-height:1.6">' + item.desc + '</div>'
+      + '<div style="font-size:11px;color:var(--text3);margin-top:4px">' + (item.date || new Date().toISOString().slice(0,10)) + '</div>'
+      + '</div>'
+      + '<div style="width:44px;height:44px;border-radius:12px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">' + item.icon + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function renderWhatsNewCitizen() {
+  var items = getWhatsNew();
+  // Update citizen portal what's new body
+  var el = document.getElementById('whats-new-body');
+  if (!el) return;
+  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px">'
+    + items.map(function(item) {
+      return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;background:' + item.color + ';border-radius:10px">'
+        + '<span style="font-size:18px;flex-shrink:0">' + item.icon + '</span>'
+        + '<div><div style="font-size:13px;font-weight:700;color:' + item.titleColor + '">' + item.title + '</div>'
+        + '<div style="font-size:12px;color:var(--text2);margin-top:2px">' + item.desc + '</div></div>'
+        + '</div>';
+    }).join('')
+    + '</div>'
+    + '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);font-size:11px;color:var(--text3);text-align:center">💡 لأي استفسار تواصل مع البلدية على الرقم الرسمي</div>';
+}
+
+function openEditWhatsNew() {
+  var items = getWhatsNew();
+  document.getElementById('MT').textContent = 'تعديل ما الجديد';
+  document.getElementById('MB').innerHTML =
+    '<div class="admin-section">'
+    + '<div class="admin-header">✨ تعديل قسم "ما الجديد"</div>'
+    + '<div style="font-size:12px;color:var(--text3);margin-bottom:14px">يظهر هذا المحتوى في بوابة المواطن والصفحة الرئيسية</div>'
+    + '<div id="wn-items-edit" style="display:flex;flex-direction:column;gap:10px">'
+    + items.map(function(item, i) {
+      return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px">'
+        + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+        + '<input id="wn-icon-' + i + '" value="' + item.icon + '" style="width:50px;padding:4px;border:1px solid var(--border);border-radius:6px;font-size:18px;text-align:center">'
+        + '<input id="wn-title-' + i + '" value="' + item.title + '" class="fi" style="flex:1;padding:6px 10px;height:auto;font-size:13px;font-weight:700">'
+        + '<button onclick="deleteWnItem(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--danger)">🗑️</button>'
+        + '</div>'
+        + '<textarea id="wn-desc-' + i + '" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;resize:none;font-family:var(--font);direction:rtl" rows="2">' + item.desc + '</textarea>'
+        + '</div>';
+    }).join('')
+    + '</div>'
+    + '<button onclick="addWnItem()" class="btn" style="width:100%;justify-content:center;margin-top:10px">➕ إضافة بند جديد</button>'
+    + '<button onclick="saveWnItems()" class="btn bp" style="width:100%;justify-content:center;margin-top:8px">💾 حفظ وتحديث</button>'
+    + '</div>';
+  document.getElementById('OV').classList.add('open');
+}
+
+function addWnItem() {
+  var list = document.getElementById('wn-items-edit');
+  if (!list) return;
+  var i = list.children.length;
+  var div = document.createElement('div');
+  div.style.cssText = 'background:var(--bg2);border:1.5px solid var(--blue);border-radius:10px;padding:12px';
+  div.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+    + '<input id="wn-icon-' + i + '" value="🆕" style="width:50px;padding:4px;border:1px solid var(--border);border-radius:6px;font-size:18px;text-align:center">'
+    + '<input id="wn-title-' + i + '" placeholder="العنوان" class="fi" style="flex:1;padding:6px 10px;height:auto;font-size:13px;font-weight:700">'
+    + '<button onclick="wnDelNew(this)" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--danger)">🗑️</button>'
+    + '</div>'
+    + '<textarea id="wn-desc-' + i + '" placeholder="الوصف…" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;resize:none;font-family:var(--font);direction:rtl" rows="2"></textarea>';
+  list.appendChild(div);
+}
+
+function deleteWnItem(i) {
+  var items = getWhatsNew();
+  items.splice(i, 1);
+  saveWhatsNew(items);
+  openEditWhatsNew();
+}
+
+function saveWnItems() {
+  var list = document.getElementById('wn-items-edit');
+  if (!list) return;
+  var newItems = [];
+  var colors = ['var(--blue3)','#f0f8ea','#fff4e0','#f5f0ff','#fdeaea','#eef0f6'];
+  var titleColors = ['var(--blue2)','var(--green2)','var(--warn)','#6535a8','var(--danger)','var(--text2)'];
+  for (var i = 0; i < list.children.length; i++) {
+    var icon = document.getElementById('wn-icon-' + i);
+    var title = document.getElementById('wn-title-' + i);
+    var desc = document.getElementById('wn-desc-' + i);
+    if (!title || !title.value.trim()) continue;
+    newItems.push({
+      icon: icon ? icon.value.trim() : '✨',
+      title: title.value.trim(),
+      desc: desc ? desc.value.trim() : '',
+      isNew: true,
+      date: new Date().toISOString().slice(0,10),
+      color: colors[i % colors.length],
+      titleColor: titleColors[i % titleColors.length],
+    });
+  }
+  if (!newItems.length) { toast('أضف بنداً واحداً على الأقل', 'err'); return; }
+  saveWhatsNew(newItems);
+  toast('✅ تم حفظ قسم ما الجديد');
+  closeM();
+}
+
+// Load from Supabase on login
+async function loadWhatsNewFromDB() {
+  if (!dbR || !sb) return;
+  try {
+    var res = await sb.from('settings').select('value').eq('key','wadi_whats_new').single();
+    if (!res.error && res.data && res.data.value) {
+      localStorage.setItem('wadi_whats_new', JSON.stringify(res.data.value));
+    }
+  } catch(e) {}
+  renderWhatsNewAdmin();
+  renderWhatsNewCitizen();
+}
+
+
+function wnDelNew(btn){var p=btn.parentElement;if(p&&p.parentElement)p.parentElement.remove();}
+
+// ── WHAT'S NEW MODAL (Welcome Page) ──────────────────────────────────────────
+const WN_VERSIONS = [
+  {
+    version: '2.5', date: 'أبريل 2026', color: '#eef5ff', badgeColor: '#3b82f6',
+    features: [
+      {icon:'📜', title:'إفادة عقارية', desc:'خدمة جديدة — تقديم طلب إفادة عقارية مع قائمة المستندات المطلوبة تلقائياً'},
+      {icon:'📋', title:'قائمة المستندات المطلوبة', desc:'عند اختيار نوع الطلب تظهر المستندات الإلزامية والاختيارية في نموذج التقديم ولوحة التحكم'},
+      {icon:'📤', title:'تحديث الطلب من المواطن', desc:'يمكن للمواطن إضافة ملاحظات ورفع مستندات جديدة على طلبه بعد تقديمه'},
+      {icon:'📊', title:'تبويب تحديثات المواطنين', desc:'موظفو البلدية يرون جميع تحديثات المواطنين في تبويب مخصص'},
+      {icon:'🖨️', title:'طباعة الطلب', desc:'طباعة ملف PDF احترافي لأي طلب يشمل المعلومات والتوقيعات والسجل الكامل'},
+      {icon:'📧', title:'إشعارات البريد الإلكتروني', desc:'إشعارات تلقائية للمواطن والموظفين عند كل حدث مهم عبر Brevo'},
+    ]
+  },
+  {
+    version: '2.0', date: 'مارس 2026', color: '#f0fdf4', badgeColor: '#22c55e',
+    features: [
+      {icon:'🎭', title:'نظام الأدوار المتقدم', desc:'إنشاء أدوار مخصصة مع 27 صلاحية وتخصيص كل موظف بشكل فردي'},
+      {icon:'👥', title:'إدارة الموظفين الكاملة', desc:'إضافة وتعديل وإيقاف الحسابات مع تغيير الأدوار والصلاحيات'},
+      {icon:'📋', title:'إدارة التصنيفات', desc:'إضافة وتعديل وحذف أنواع الطلبات ديناميكياً — تُحفظ في Supabase'},
+      {icon:'🔔', title:'إشعارات واتساب', desc:'إعداد قنوات إشعار واتساب لكل دور'},
+      {icon:'📊', title:'نشاط الموظفين', desc:'متابعة نشاط كل موظف وسجل التعديلات'},
+      {icon:'🌐', title:'بوابة المواطن', desc:'بوابة مستقلة لتقديم ومتابعة الطلبات مع التحقق برقم الهاتف'},
+    ]
+  },
+];
+
+function openWhatsNewModal() {
+  var modal = document.getElementById('wn-modal');
+  var body = document.getElementById('wn-modal-body');
+  if (!modal || !body) return;
+  
+  body.innerHTML = WN_VERSIONS.map(function(v) {
+    return '<div style="background:' + v.color + ';border-radius:14px;padding:14px 16px;margin-bottom:16px">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+      + '<div>'
+      + '<div style="font-size:16px;font-weight:800;color:#1a1a2e">الإصدار ' + v.version + '</div>'
+      + '<div style="font-size:12px;color:#888;margin-top:2px">' + v.date + '</div>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;gap:8px">'
+      + '<span style="background:' + v.badgeColor + ';color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">' + v.features.length + ' ميزة</span>'
+      + '<span style="font-size:26px">🚀</span>'
+      + '</div>'
+      + '</div>'
+      + '<div style="background:#fff;border-radius:10px;overflow:hidden">'
+      + v.features.map(function(f, i) {
+          return '<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px' + (i < v.features.length-1 ? ';border-bottom:1px solid #f0f0f0' : '') + '">'
+            + '<div style="flex:1">'
+            + '<div style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:3px">' + f.title + '</div>'
+            + '<div style="font-size:12px;color:#666;line-height:1.6">' + f.desc + '</div>'
+            + '</div>'
+            + '<div style="width:38px;height:38px;border-radius:10px;background:#f8f8f8;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">' + f.icon + '</div>'
+            + '</div>';
+        }).join('')
+      + '</div>'
+      + '</div>';
+  }).join('');
+  
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeWnModal() {
+  var modal = document.getElementById('wn-modal');
+  if (modal) modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+
+// ── DISMISS CITIZEN UPDATE ────────────────────────────────────────────────────
+function dismissCitUpdate(caseId) {
+  var key = 'cit_reviewed_' + caseId;
+  localStorage.setItem(key, '1');
+  // Find and remove the card by data-cid
+  var card = document.querySelector('[data-cid="' + caseId + '"]');
+  if (card) {
+    card.style.opacity = '0';
+    card.style.transition = 'opacity .3s';
+    setTimeout(function(){ 
+      if (card.parentElement) card.parentElement.removeChild(card);
+      // Check if no more cards
+      var mb = document.getElementById('MB');
+      if (mb) {
+        var remaining = mb.querySelectorAll('[data-cid]');
+        if (!remaining.length) {
+          mb.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3)">' +
+            '<div style="font-size:48px;margin-bottom:12px">✅</div>' +
+            '<div style="font-size:15px;font-weight:700">تم مراجعة جميع التحديثات</div>' +
+            '</div>';
+        }
+      }
+    }, 300);
+  }
+  toast('✅ تم تحديد طلب #' + caseId + ' كمراجع');
+  // Update badge
+  var unreviewedAfter = (typeof cases !== 'undefined' ? cases : []).filter(function(c){
+    if(isCitReviewed(c.id)) return false;
+    return (c.timeline||[]).some(function(t){return t.cls==='citizen'||t.by==='المواطن';});
+  });
+  var bd=document.getElementById('cit-updates-badge');
+  if(bd){bd.style.display=unreviewedAfter.length?'inline':'none';bd.textContent=unreviewedAfter.length||'!';}
+}
+
+function isCitReviewed(caseId) {
+  return !!localStorage.getItem('cit_reviewed_' + caseId);
+}
+
+// ── MANAGE REQUIRED DOCS ──────────────────────────────────────────────────────
+function openManageRequiredDocs() {
+  document.getElementById('MT').textContent = 'إدارة المستندات المطلوبة';
+  var cats = typeof getCats === 'function' ? getCats() : [
+    {id:'complaint',icon:'⚠️',label:'شكوى'},
+    {id:'welfare',icon:'🤝',label:'رعاية اجتماعية'},
+    {id:'permit',icon:'🏗️',label:'ترخيص'},
+    {id:'inquiry',icon:'❓',label:'استفسار'},
+    {id:'ifada',icon:'📜',label:'إفادة عقارية'},
+  ];
+
+  var tabsHtml = cats.map(function(c, i) {
+    return '<div class="adtab' + (i===0?' on':'') + '" onclick="adTab(this,\'rdoc-' + c.id + '\')" data-cat="' + c.id + '">' + c.icon + ' ' + c.label + '</div>';
+  }).join('');
+
+  var panelsHtml = cats.map(function(c, i) {
+    return '<div id="rdoc-' + c.id + '" style="display:' + (i===0?'block':'none') + '">' + buildDocPanel(c.id, c.label) + '</div>';
+  }).join('');
+
+  document.getElementById('MB').innerHTML =
+    '<style>.adtab{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--bg2);color:var(--text2)}.adtab.on{background:var(--blue);color:#fff;border-color:var(--blue)}</style>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">' + tabsHtml + '</div>' +
+    panelsHtml;
+  document.getElementById('OV').classList.add('open');
+}
+
+function buildDocPanel(catId, catLabel) {
+  var rdocs = getRequiredDocs(catId);
+  var rows = rdocs.map(function(d, i) {
+    return '<div data-idx="' + i + '" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px">' +
+      '<input value="' + d.icon + '" id="rdi-' + catId + '-' + i + '" style="width:44px;padding:4px;border:1px solid var(--border);border-radius:6px;font-size:18px;text-align:center">' +
+      '<input value="' + d.name + '" id="rdn-' + catId + '-' + i + '" class="fi" style="flex:1;padding:6px 10px;height:auto;font-size:13px" placeholder="اسم المستند">' +
+      '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;white-space:nowrap">' +
+        '<input type="checkbox" id="rdr-' + catId + '-' + i + '" ' + (d.required?'checked':'') + ' style="accent-color:var(--danger);width:14px;height:14px"> إلزامي</label>' +
+      '<button onclick="deleteRDoc(\'' + catId + '\',' + i + ')" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--danger);padding:0 4px">🗑️</button>' +
+    '</div>';
+  }).join('');
+
+  return '<div id="rdoc-body-' + catId + '">' + rows + '</div>' +
+    '<button onclick="addRDocRow(\'' + catId + '\')" class="btn" style="width:100%;justify-content:center;margin-bottom:10px">➕ إضافة مستند</button>' +
+    '<button onclick="saveRDocs(\'' + catId + '\',\'' + catLabel + '\')" class="btn bp" style="width:100%;justify-content:center">💾 حفظ</button>';
+}
+
+function getRequiredDocs(catId) {
+  try {
+    var saved = JSON.parse(localStorage.getItem('rdocs_' + catId) || 'null');
+    if (saved) return saved;
+  } catch(e) {}
+  // Return from REQUIRED_DOCS default if available
+  if (typeof REQUIRED_DOCS !== 'undefined' && REQUIRED_DOCS[catId]) {
+    return REQUIRED_DOCS[catId].docs || [];
+  }
+  return [];
+}
+
+function saveRDocsToStorage(catId, docs) {
+  localStorage.setItem('rdocs_' + catId, JSON.stringify(docs));
+  // Save to Supabase settings
+  if (dbR && sb) {
+    var key = 'rdocs_' + catId;
+    sb.from('settings').upsert({key:key, value:docs, updated_at:new Date().toISOString()},{onConflict:'key'})
+    .catch(function(e){ console.log('saveRDocs:', e.message); });
+  }
+  // Update REQUIRED_DOCS in memory
+  if (typeof REQUIRED_DOCS !== 'undefined' && REQUIRED_DOCS[catId]) {
+    REQUIRED_DOCS[catId].docs = docs;
+  }
+}
+
+function addRDocRow(catId) {
+  var body = document.getElementById('rdoc-body-' + catId);
+  if (!body) return;
+  var i = body.children.length;
+  var div = document.createElement('div');
+  div.setAttribute('data-idx', i);
+  div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg2);border:1.5px solid var(--blue);border-radius:10px;margin-bottom:8px';
+  div.innerHTML =
+    '<input value="📄" id="rdi-' + catId + '-' + i + '" style="width:44px;padding:4px;border:1px solid var(--border);border-radius:6px;font-size:18px;text-align:center">' +
+    '<input placeholder="اسم المستند الجديد" id="rdn-' + catId + '-' + i + '" class="fi" style="flex:1;padding:6px 10px;height:auto;font-size:13px">' +
+    '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" id="rdr-' + catId + '-' + i + '" checked style="accent-color:var(--danger);width:14px;height:14px"> إلزامي</label>' +
+    '<button onclick="this.closest(\'[data-idx]\').remove()" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--danger);padding:0 4px">🗑️</button>';
+  body.appendChild(div);
+}
+
+function deleteRDoc(catId, idx) {
+  var docs = getRequiredDocs(catId);
+  docs.splice(idx, 1);
+  saveRDocsToStorage(catId, docs);
+  // Rebuild panel
+  var panel = document.getElementById('rdoc-' + catId);
+  var cats = typeof getCats === 'function' ? getCats() : [];
+  var cat = cats.find(function(c){return c.id===catId;}) || {label:catId};
+  if (panel) panel.innerHTML = buildDocPanel(catId, cat.label);
+  toast('🗑️ تم حذف المستند');
+}
+
+function saveRDocs(catId, catLabel) {
+  var body = document.getElementById('rdoc-body-' + catId);
+  if (!body) return;
+  var docs = [];
+  var rows = body.querySelectorAll('[data-idx]');
+  rows.forEach(function(row, i) {
+    var ico = document.getElementById('rdi-' + catId + '-' + i);
+    var name = document.getElementById('rdn-' + catId + '-' + i);
+    var req = document.getElementById('rdr-' + catId + '-' + i);
+    if (!name || !name.value.trim()) return;
+    docs.push({
+      icon: ico ? ico.value.trim() : '📄',
+      name: name.value.trim(),
+      required: req ? req.checked : true,
+    });
+  });
+  saveRDocsToStorage(catId, docs);
+  toast('✅ تم حفظ مستندات ' + catLabel);
+}
+
+// Load required docs from Supabase on login
+async function loadRequiredDocsFromDB() {
+  if (!dbR || !sb) return;
+  try {
+    var cats = typeof getCats === 'function' ? getCats() : [];
+    for (var i = 0; i < cats.length; i++) {
+      var key = 'rdocs_' + cats[i].id;
+      var res = await sb.from('settings').select('value').eq('key', key).single();
+      if (!res.error && res.data && res.data.value) {
+        localStorage.setItem(key, JSON.stringify(res.data.value));
+        if (typeof REQUIRED_DOCS !== 'undefined' && REQUIRED_DOCS[cats[i].id]) {
+          REQUIRED_DOCS[cats[i].id].docs = res.data.value;
+        }
+      }
+    }
+  } catch(e) { console.log('loadRequiredDocsFromDB:', e.message); }
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// نظام دورة مياه الري — Irrigation Water Schedule System
+// أصحاب حقوق الري — Water Rights Owners (created by municipality only)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── STORAGE ───────────────────────────────────────────────────────────────────
+function getIrrOwners() {
+  try { return JSON.parse(localStorage.getItem('wadi_irr_owners') || '[]'); } catch(e) { return []; }
+}
+function saveIrrOwners(d) {
+  localStorage.setItem('wadi_irr_owners', JSON.stringify(d));
+  if (dbR && sb) sb.from('settings').upsert({key:'wadi_irr_owners',value:d,updated_at:new Date().toISOString()},{onConflict:'key'}).catch(function(){});
+}
+function getIrrSettings() {
+  try { return JSON.parse(localStorage.getItem('wadi_irr_settings') || '{}'); } catch(e) { return {}; }
+}
+function saveIrrSettings(d) {
+  localStorage.setItem('wadi_irr_settings', JSON.stringify(d));
+  if (dbR && sb) sb.from('settings').upsert({key:'wadi_irr_settings',value:d,updated_at:new Date().toISOString()},{onConflict:'key'}).catch(function(){});
+}
+
+const IRR_DAYS = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+
+function irrAddHours(t,h) {
+  if(!t) return '—';
+  var p=t.split(':'),hr=parseInt(p[0])+parseInt(h),mn=parseInt(p[1]||0),x='';
+  if(hr>=24){hr=hr%24;x=' (+يوم)';}
+  return (hr<10?'0':'')+hr+':'+(mn<10?'0':'')+mn+x;
+}
+function irrSubHours(t,h) {
+  if(!t) return '—';
+  var p=t.split(':'),hr=parseInt(p[0])-parseInt(h),mn=parseInt(p[1]||0);
+  if(hr<0) hr=24+hr;
+  return (hr<10?'0':'')+hr+':'+(mn<10?'0':'')+mn;
+}
+
+// ── DEFAULT NOTIFICATION SETTINGS ─────────────────────────────────────────────
+function getIrrDefaultSettings() {
+  return {
+    senderName: 'لجنة الري — بلدية وادي الست',
+    senderEmail: 'noreply@municipality-wadi-el-sitt.org',
+    notifications: {
+      evening_before: {
+        enabled: true,
+        label: 'مساء يوم السبق',
+        icon: '🌙',
+        subject: 'تذكير: دور الري غداً {day}',
+        body: 'السيد/ة {name}،\nنذكّركم أن دور الري الخاص بكم سيكون غداً {day}.\nالوقت: {start} حتى {end} ({hours} ساعة)\nالقطعة: {land}\nيرجى التحضير مسبقاً.'
+      },
+      morning: {
+        enabled: true,
+        label: 'صباح يوم الدور',
+        icon: '🌅',
+        subject: 'تذكير: دور الري اليوم {day}',
+        body: 'السيد/ة {name}،\nتذكير: دور الري الخاص بكم اليوم {day}.\nالوقت: {start} حتى {end} ({hours} ساعة)\nالقطعة: {land}'
+      },
+      one_hour: {
+        enabled: true,
+        label: 'ساعة قبل البدء',
+        icon: '⏰',
+        subject: 'تنبيه: الري يبدأ بعد ساعة — {day}',
+        body: 'السيد/ة {name}،\nتنبيه: دور الري الخاص بكم يبدأ في الساعة {start} (بعد ساعة).\nتأكد من جاهزية الأرض.\nالقطعة: {land}'
+      },
+      end: {
+        enabled: false,
+        label: 'عند انتهاء الدور',
+        icon: '🏁',
+        subject: 'انتهى وقت دور الري — {day}',
+        body: 'السيد/ة {name}،\nانتهى وقت دور الري الخاص بكم.\nكان من {start} حتى {end}.\nالقطعة: {land}\nشكراً للالتزام بالجدول.'
+      }
+    },
+    emailColors: {
+      evening_before: '#1a6eb5',
+      morning: '#e67e22',
+      one_hour: '#e74c3c',
+      end: '#27ae60'
+    }
+  };
+}
+
+function getMergedIrrSettings() {
+  var saved = getIrrSettings();
+  var def = getIrrDefaultSettings();
+  // Deep merge notifications
+  if (saved.notifications) {
+    Object.keys(def.notifications).forEach(function(k) {
+      if (saved.notifications[k]) {
+        def.notifications[k] = Object.assign({}, def.notifications[k], saved.notifications[k]);
+      }
+    });
+  }
+  return Object.assign({}, def, saved, { notifications: def.notifications });
+}
+
+function fillTemplate(tpl, owner, dayName) {
+  var end = irrAddHours(owner.startTime, owner.hours);
+  return (tpl||'')
+    .replace(/{name}/g, owner.name||'')
+    .replace(/{day}/g, dayName||'')
+    .replace(/{start}/g, owner.startTime||'')
+    .replace(/{end}/g, end)
+    .replace(/{hours}/g, owner.hours||'')
+    .replace(/{land}/g, owner.landName||owner.landRef||'—')
+    .replace(/{phone}/g, owner.phone||'')
+    .replace(/{area}/g, owner.area||'');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MAIN OPEN
+// ══════════════════════════════════════════════════════════════════════════════
+function openWaterSchedule() {
+  document.getElementById('MT').textContent = '💧 نظام الري';
+  document.getElementById('MB').innerHTML = `
+    <style>
+      .irtab{padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--bg2);color:var(--text2);white-space:nowrap}
+      .irtab.on{background:#1a6eb5;color:#fff;border-color:#1a6eb5}
+      .ircard{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+      .ircard:hover{border-color:#1a6eb5}
+      .irbadge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700}
+    </style>
+    <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="irtab on" onclick="irTab(this,'ir-list')">📋 أصحاب الحقوق</div>
+      <div class="irtab" onclick="irTab(this,'ir-add')">➕ تسجيل حق ري</div>
+      <div class="irtab" onclick="irTab(this,'ir-week');renderIrrWeek()">📅 الجدول الأسبوعي</div>
+      <div class="irtab" onclick="irTab(this,'ir-notify');renderIrrNotifPanel()">🔔 الإشعارات</div>
+      <div class="irtab" onclick="irTab(this,'ir-settings');renderIrrSettings()">⚙️ الإعدادات</div>
+    </div>
+
+    <!-- LIST -->
+    <div id="ir-list">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <input type="text" id="ir-search" placeholder="🔍 بحث بالاسم أو رقم الهاتف…" class="fi" style="flex:1;min-width:160px" oninput="renderIrrList()">
+        <select id="ir-day-f" class="fi" style="width:150px" onchange="renderIrrList()">
+          <option value="">كل الأيام</option>
+          ${IRR_DAYS.map((d,i)=>`<option value="${i}">${d}</option>`).join('')}
+        </select>
+      </div>
+      <div id="irr-list-body"></div>
+    </div>
+
+    <!-- ADD -->
+    <div id="ir-add" style="display:none">
+      <div class="admin-section">
+        <div class="admin-header">🌿 تسجيل صاحب حق ري جديد</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:14px">هذا السجل يُنشأ من البلدية فقط — ليس للمواطن العادي</div>
+        
+        <div style="font-size:13px;font-weight:700;color:var(--blue2);margin:12px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)">👤 بيانات الشخص</div>
+        <div class="fg"><div class="fl">الاسم الكامل *</div><input type="text" class="fi" id="ir-name" placeholder="اسم صاحب حق الري"></div>
+        <div class="fg"><div class="fl">رقم الهاتف *</div><input type="tel" class="fi" id="ir-phone" placeholder="03xxxxxx" style="direction:ltr"></div>
+        <div class="fg"><div class="fl">البريد الإلكتروني</div><input type="email" class="fi" id="ir-email" placeholder="للإشعارات (اختياري)" style="direction:ltr"></div>
+        <div class="fg"><div class="fl">المنطقة / الحارة</div><input type="text" class="fi" id="ir-area" placeholder="مثال: حي الجنوب"></div>
+
+        <div style="font-size:13px;font-weight:700;color:var(--blue2);margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)">🌿 بيانات حق الري</div>
+        <div class="fg"><div class="fl">اسم / وصف القطعة</div><input type="text" class="fi" id="ir-land" placeholder="مثال: بستان الزيتون — أرض رقم 5"></div>
+        <div class="fg"><div class="fl">رقم سند الحق</div><input type="text" class="fi" id="ir-ref" placeholder="رقم وثيقة حق الري (اختياري)"></div>
+        <div class="fg"><div class="fl">المساحة</div><input type="text" class="fi" id="ir-area2" placeholder="مثال: 2000 م² أو 5 دونم"></div>
+        <div class="fg"><div class="fl">نوع المحصول</div><input type="text" class="fi" id="ir-crop" placeholder="مثال: زيتون، تفاح، كرمة"></div>
+
+        <div style="font-size:13px;font-weight:700;color:var(--blue2);margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)">📅 جدول الري</div>
+        <div class="fg">
+          <div class="fl">يوم الدور *</div>
+          <select class="fi" id="ir-day">
+            ${IRR_DAYS.map((d,i)=>`<option value="${i}">${d}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fg"><div class="fl">وقت البداية *</div><input type="time" class="fi" id="ir-start" value="08:00" style="direction:ltr"></div>
+        <div class="fg">
+          <div class="fl">مدة الري (ساعات) *</div>
+          <select class="fi" id="ir-hours">
+            ${[0.5,1,1.5,2,3,4,6,8,12,24].map(h=>`<option value="${h}">${h < 1 ? '30 دقيقة' : h+' ساعة'}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fg">
+          <div class="fl">التكرار</div>
+          <select class="fi" id="ir-repeat">
+            <option value="weekly">أسبوعي (كل أسبوع)</option>
+            <option value="biweekly">كل أسبوعين</option>
+            <option value="custom">حسب الجدول</option>
+          </select>
+        </div>
+        <div class="fg"><div class="fl">ملاحظات</div><textarea class="fi" id="ir-notes" rows="2" style="resize:none" placeholder="أي ملاحظات خاصة بهذا الحق"></textarea></div>
+        <button class="btn bp" style="width:100%;justify-content:center;margin-top:14px" onclick="saveIrrOwner()">✓ تسجيل حق الري</button>
+        <div id="ir-msg" style="margin-top:8px;text-align:center;font-size:13px;min-height:18px"></div>
+      </div>
+    </div>
+
+    <!-- WEEK -->
+    <div id="ir-week" style="display:none"><div id="irr-week-body"></div></div>
+
+    <!-- NOTIFICATIONS -->
+    <div id="ir-notify" style="display:none"><div id="irr-notif-body"></div></div>
+
+    <!-- SETTINGS -->
+    <div id="ir-settings" style="display:none"><div id="irr-settings-body"></div></div>
+  `;
+
+  document.getElementById('OV').classList.add('open');
+  renderIrrList();
+}
+
+function irTab(el, id) {
+  document.querySelectorAll('.irtab').forEach(function(t){t.classList.remove('on');});
+  el.classList.add('on');
+  ['ir-list','ir-add','ir-week','ir-notify','ir-settings'].forEach(function(tid){
+    var e=document.getElementById(tid); if(e) e.style.display=tid===id?'block':'none';
+  });
+}
+
+// ── LIST ──────────────────────────────────────────────────────────────────────
+function renderIrrList() {
+  var el=document.getElementById('irr-list-body'); if(!el) return;
+  var owners=getIrrOwners();
+  var q=(document.getElementById('ir-search')||{value:''}).value.toLowerCase();
+  var df=(document.getElementById('ir-day-f')||{value:''}).value;
+  var list=owners.filter(function(o){
+    return (!q||(o.name||'').toLowerCase().includes(q)||(o.phone||'').includes(q)||(o.landName||'').toLowerCase().includes(q))
+        && (df===''||String(o.day)===String(df));
+  });
+  if(!list.length){
+    el.innerHTML='<div style="text-align:center;padding:30px;color:var(--text3)">'+
+      (owners.length?'لا توجد نتائج':'📭 لا يوجد أصحاب حقوق ري بعد — سجّل من تبويب ➕')+'</div>'; return;
+  }
+  el.innerHTML=list.map(function(o){
+    var end=irrAddHours(o.startTime,o.hours);
+    var repeatLabel={'weekly':'أسبوعي','biweekly':'كل أسبوعين','custom':'خاص'}[o.repeat]||'أسبوعي';
+    return '<div class="ircard">'
+      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+      +'<div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#1e5429,#2d7a3e);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0">🌿</div>'
+      +'<div style="flex:1;min-width:120px">'
+      +'<div style="font-weight:700;font-size:14px">'+o.name+'</div>'
+      +'<div style="font-size:12px;color:var(--text3)">📞 '+(o.phone||'—')+(o.email?' · 📧 '+o.email:'')+'</div>'
+      +(o.landName?'<div style="font-size:11px;color:var(--text3)">🌿 '+o.landName+(o.crop?' ('+o.crop+')':'')+'</div>':'')
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">'
+      +'<span class="irbadge" style="background:#daeaf8;color:#0f4d82">'+IRR_DAYS[o.day]+'</span>'
+      +'<span class="irbadge" style="background:#d4edda;color:#1e5429">⏰ '+o.startTime+' — '+end+'</span>'
+      +'<span class="irbadge" style="background:#fff4e0;color:var(--warn)">💧 '+o.hours+'س · '+repeatLabel+'</span>'
+      +'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">'
+      +'<button class="btn" style="padding:5px 12px;font-size:12px" onclick="editIrrOwner(\''+o.id+'\')">✏️ تعديل</button>'
+      +(o.email
+        ?'<button class="btn" style="padding:5px 12px;font-size:12px;background:#eef5ff;color:#1a6eb5;border-color:#bbd6f5" onclick="sendIrrSingle(\''+o.id+'\',\'evening_before\')">📧 إشعار غداً</button>'
+        :'<span style="font-size:11px;color:var(--text3);padding:5px 0">بدون بريد</span>')
+      +'<button class="btn" style="padding:5px 12px;font-size:12px;color:var(--danger)" onclick="deleteIrrOwner(\''+o.id+'\',\''+o.name+'\')">🗑️</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+
+// ── WEEK VIEW ─────────────────────────────────────────────────────────────────
+function renderIrrWeek() {
+  var el=document.getElementById('irr-week-body'); if(!el) return;
+  var owners=getIrrOwners();
+  var html='<div style="display:flex;flex-direction:column;gap:10px">';
+  IRR_DAYS.forEach(function(dn,i){
+    var ds=owners.filter(function(o){return o.day===i;})
+                 .sort(function(a,b){return (a.startTime||'').localeCompare(b.startTime||'');});
+    var tot=ds.reduce(function(s,o){return s+parseFloat(o.hours||0);},0);
+    html+='<div style="border:1.5px solid '+(ds.length?'#1a6eb5':'var(--border)')+';border-radius:12px;overflow:hidden">'
+      +'<div style="background:'+(ds.length?'linear-gradient(120deg,#1e5429,#2d7a3e)':'var(--bg2)')+';color:'+(ds.length?'#fff':'var(--text3)')+';padding:10px 14px;display:flex;align-items:center;justify-content:space-between">'
+      +'<strong>'+dn+'</strong>'
+      +'<span style="font-size:12px;opacity:.9">'+ds.length+' حق · '+tot+'س إجمالي</span>'
+      +'</div>';
+    if(ds.length){
+      html+='<div style="padding:8px">';
+      ds.forEach(function(o,idx){
+        var end=irrAddHours(o.startTime,o.hours);
+        html+='<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;margin-bottom:4px;background:'+(idx%2===0?'var(--bg2)':'#fff')+'">'
+          +'<span style="font-size:12px;color:var(--text3);min-width:110px;direction:ltr">'+o.startTime+' — '+end+'</span>'
+          +'<span style="font-weight:700;font-size:13px;flex:1">'+o.name+'</span>'
+          +(o.landName?'<span style="font-size:11px;color:var(--text3)">🌿 '+o.landName+'</span>':'')
+          +'<span style="background:#d4edda;color:#1e5429;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">💧 '+o.hours+'س</span>'
+          +'</div>';
+      });
+      html+='</div>';
+    } else {
+      html+='<div style="padding:10px 14px;font-size:12px;color:var(--text3)">لا يوجد دور ري هذا اليوم</div>';
+    }
+    html+='</div>';
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+// ── NOTIFICATION PANEL ────────────────────────────────────────────────────────
+function renderIrrNotifPanel() {
+  var el=document.getElementById('irr-notif-body'); if(!el) return;
+  var settings=getMergedIrrSettings();
+  var owners=getIrrOwners();
+  var today=new Date().getDay(), tomorrow=(today+1)%7;
+  var counts={};
+  IRR_DAYS.forEach(function(d,i){
+    counts[i]=owners.filter(function(o){return o.day===i;}).length;
+  });
+
+  var notifBtns=Object.keys(settings.notifications).map(function(k){
+    var n=settings.notifications[k];
+    if(!n.enabled) return '';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);margin-bottom:8px">'
+      +'<div>'
+      +'<div style="font-weight:700;font-size:13px">'+n.icon+' '+n.label+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+n.subject.replace(/{day}/g,'اليوم المحدد')+'</div>'
+      +'</div>'
+      +'<button class="btn bp" style="padding:6px 14px;font-size:12px" onclick="sendIrrNotif(\''+k+'\')">إرسال</button>'
+      +'</div>';
+  }).join('');
+
+  el.innerHTML='<div class="admin-section">'
+    +'<div class="admin-header">📧 إرسال إشعارات الري</div>'
+    +'<div class="fg"><div class="fl">اليوم المستهدف</div>'
+    +'<select class="fi" id="irnotif-day" onchange="updateIrrPreview()">'
+    +IRR_DAYS.map(function(d,i){return '<option value="'+i+'"'+(i===tomorrow?' selected':'')+'>'+d+' ('+counts[i]+' حق)</option>';}).join('')
+    +'</select></div>'
+    +'<div id="irr-notif-preview" style="margin:10px 0;padding:10px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--text3)"></div>'
+    +'<div style="margin:12px 0 8px;font-size:13px;font-weight:700;color:var(--text)">اختر نوع الإشعار:</div>'
+    +notifBtns
+    +'<div id="irr-notif-result" style="margin-top:10px;text-align:center;font-size:13px;min-height:18px"></div>'
+    +'</div>';
+
+  updateIrrPreview();
+}
+
+function updateIrrPreview() {
+  var sel=document.getElementById('irnotif-day'); if(!sel) return;
+  var day=parseInt(sel.value);
+  var el=document.getElementById('irr-notif-preview'); if(!el) return;
+  var owners=getIrrOwners().filter(function(o){return o.day===day;});
+  var withEmail=owners.filter(function(o){return o.email;});
+  el.innerHTML='<strong>'+IRR_DAYS[day]+'</strong>: '
+    +owners.length+' حق ري · '
+    +'<span style="color:var(--green2)">📧 '+withEmail.length+' لديهم بريد</span>'
+    +(owners.length-withEmail.length?' · <span style="color:var(--warn)">'+( owners.length-withEmail.length)+' بدون بريد</span>':'');
+}
+
+async function sendIrrNotif(type) {
+  var sel=document.getElementById('irnotif-day'); if(!sel) return;
+  var day=parseInt(sel.value);
+  var result=document.getElementById('irr-notif-result');
+  var dayName=IRR_DAYS[day];
+  var settings=getMergedIrrSettings();
+  var notif=settings.notifications[type];
+  if(!notif||!notif.enabled){toast('هذا النوع من الإشعارات مُعطَّل من الإعدادات','err');return;}
+  var owners=getIrrOwners().filter(function(o){return o.day===day&&o.email;});
+  if(!owners.length){if(result){result.style.color='var(--danger)';result.textContent='لا يوجد أصحاب حقوق بريد في يوم '+dayName;} return;}
+  if(result){result.style.color='var(--text3)';result.textContent='⏳ جاري الإرسال…';}
+  var BKEY='xsmtpsib-0421702005db0037488fcf8571d71affe52db33a95300e80847392294f871b55-fxFDF0zqQLSVMDAA';
+  var sent=0,failed=0;
+  for(var i=0;i<owners.length;i++){
+    var o=owners[i];
+    var subject=fillTemplate(notif.subject,o,dayName);
+    var bodyText=fillTemplate(notif.body,o,dayName);
+    var htmlBody=buildIrrEmail(o,dayName,type,settings,bodyText);
+    try {
+      var r=await fetch('https://api.brevo.com/v3/smtp/email',{
+        method:'POST',headers:{'api-key':BKEY,'Content-Type':'application/json'},
+        body:JSON.stringify({
+          sender:{name:settings.senderName,email:settings.senderEmail},
+          to:[{email:o.email,name:o.name}],
+          subject:subject,htmlContent:htmlBody
+        })
+      });
+      if(r.ok||r.status===201) sent++; else failed++;
+    } catch(e){failed++;}
+  }
+  if(result){
+    result.style.color=failed===0?'var(--green2)':'var(--warn)';
+    result.textContent='✅ أُرسل '+sent+' إشعار'+(failed?' · ❌ فشل '+failed:'');
+  }
+}
+
+async function sendIrrSingle(id,type) {
+  var o=getIrrOwners().find(function(x){return x.id===id;});
+  if(!o||!o.email){toast('⚠️ لا يملك بريداً إلكترونياً','err');return;}
+  var settings=getMergedIrrSettings();
+  var notif=settings.notifications[type||'evening_before'];
+  var dayName=IRR_DAYS[o.day];
+  var subject=fillTemplate(notif.subject,o,dayName);
+  var bodyText=fillTemplate(notif.body,o,dayName);
+  var BKEY='xsmtpsib-0421702005db0037488fcf8571d71affe52db33a95300e80847392294f871b55-fxFDF0zqQLSVMDAA';
+  try {
+    var r=await fetch('https://api.brevo.com/v3/smtp/email',{
+      method:'POST',headers:{'api-key':BKEY,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        sender:{name:settings.senderName,email:settings.senderEmail},
+        to:[{email:o.email,name:o.name}],
+        subject:subject,
+        htmlContent:buildIrrEmail(o,dayName,type,settings,bodyText)
+      })
+    });
+    toast(r.ok||r.status===201?'✅ أُرسل الإشعار لـ '+o.name:'⚠️ فشل الإرسال','');
+  } catch(e){toast('⚠️ '+e.message,'err');}
+}
+
+function buildIrrEmail(o,dayName,type,settings,bodyText) {
+  var end=irrAddHours(o.startTime,o.hours);
+  var color=(settings.emailColors||{})[type]||'#1e5429';
+  var notif=settings.notifications[type];
+  var icon=notif?notif.icon:'💧';
+  // Convert \n to <br>
+  var bodyHtml=bodyText.replace(/\n/g,'<br>');
+  return '<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><style>'
+    +'body{font-family:Tahoma,Arial,sans-serif;background:#f0f6f0;direction:rtl;padding:16px;margin:0}'
+    +'.card{background:#fff;border-radius:16px;max-width:520px;margin:0 auto;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1)}'
+    +'.hdr{background:'+color+';color:#fff;padding:20px 24px;text-align:center}'
+    +'.body{padding:22px 26px;font-size:15px;line-height:1.9;color:#333}'
+    +'.infobox{background:#f0f9f0;border:2px solid #a8d9b4;border-radius:12px;padding:16px;margin:14px 0;text-align:center}'
+    +'.big{font-size:24px;font-weight:800;color:'+color+';margin:6px 0}'
+    +'.ft{background:#f8f9fb;padding:12px;font-size:12px;color:#999;text-align:center;border-top:1px solid #eee}'
+    +'</style></head><body><div class="card">'
+    +'<div class="hdr"><h2 style="margin:0;font-size:18px">'+icon+' نظام الري — بلدية وادي الست</h2></div>'
+    +'<div class="body">'
+    +'<p>'+bodyHtml+'</p>'
+    +'<div class="infobox">'
+    +'<div class="big">📅 '+dayName+'</div>'
+    +'<div class="big">⏰ '+o.startTime+' — '+end+'</div>'
+    +'<div style="font-size:20px;font-weight:800;color:#1e5429;margin-top:8px">💧 '+o.hours+' ساعة</div>'
+    +(o.landName?'<div style="font-size:13px;color:#555;margin-top:8px">🌿 '+o.landName+'</div>':'')
+    +'</div>'
+    +'</div>'
+    +'<div class="ft">بلدية وادي الست · قضاء الشوف · Powered by IanTrading SAL © 2026</div>'
+    +'</div></body></html>';
+}
+
+// ── SETTINGS PANEL ────────────────────────────────────────────────────────────
+function renderIrrSettings() {
+  var el=document.getElementById('irr-settings-body'); if(!el) return;
+  var s=getMergedIrrSettings();
+  var notifRows=Object.keys(s.notifications).map(function(k){
+    var n=s.notifications[k];
+    var c=s.emailColors[k]||'#1e5429';
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+      +'<span style="font-size:20px">'+n.icon+'</span>'
+      +'<div style="flex:1;font-weight:700;font-size:14px;color:var(--text)">'+n.label+'</div>'
+      +'<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">'
+      +'<input type="checkbox" id="isn-en-'+k+'" '+(n.enabled?'checked':'')+' style="accent-color:var(--blue);width:15px;height:15px"> مفعّل</label>'
+      +'</div>'
+      +'<div class="fg"><div class="fl" style="font-size:12px">موضوع الإيميل</div><input type="text" class="fi" id="isn-sub-'+k+'" value="'+n.subject+'" style="font-size:12px"></div>'
+      +'<div class="fg"><div class="fl" style="font-size:12px">نص الرسالة</div><textarea class="fi" id="isn-body-'+k+'" rows="3" style="resize:none;font-size:12px">'+n.body+'</textarea></div>'
+      +'<div class="fg"><div class="fl" style="font-size:12px">لون الإيميل</div>'
+      +'<input type="color" id="isn-color-'+k+'" value="'+c+'" style="width:50px;height:32px;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:2px"></div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:6px">المتغيرات: {name} {day} {start} {end} {hours} {land} {phone} {area}</div>'
+      +'</div>';
+  }).join('');
+
+  el.innerHTML='<div class="admin-section">'
+    +'<div class="admin-header">⚙️ إعدادات نظام الري</div>'
+    +'<div class="fg"><div class="fl">اسم المرسِل</div><input type="text" class="fi" id="irset-sender-name" value="'+s.senderName+'"></div>'
+    +'<div class="fg"><div class="fl">بريد المرسِل</div><input type="email" class="fi" id="irset-sender-email" value="'+s.senderEmail+'" style="direction:ltr"></div>'
+    +'<div style="font-size:13px;font-weight:700;color:var(--blue2);margin:16px 0 10px;padding-bottom:4px;border-bottom:1px solid var(--border)">🔔 إعدادات الإشعارات الأربعة</div>'
+    +notifRows
+    +'<button class="btn bp" style="width:100%;justify-content:center;margin-top:14px" onclick="saveIrrSettingsForm()">💾 حفظ جميع الإعدادات</button>'
+    +'<div id="irset-msg" style="margin-top:8px;text-align:center;font-size:13px;min-height:18px"></div>'
+    +'</div>';
+}
+
+function saveIrrSettingsForm() {
+  var s=getMergedIrrSettings();
+  s.senderName=(document.getElementById('irset-sender-name')||{value:s.senderName}).value.trim();
+  s.senderEmail=(document.getElementById('irset-sender-email')||{value:s.senderEmail}).value.trim();
+  Object.keys(s.notifications).forEach(function(k){
+    var enEl=document.getElementById('isn-en-'+k);
+    var subEl=document.getElementById('isn-sub-'+k);
+    var bodyEl=document.getElementById('isn-body-'+k);
+    var colorEl=document.getElementById('isn-color-'+k);
+    if(enEl) s.notifications[k].enabled=enEl.checked;
+    if(subEl) s.notifications[k].subject=subEl.value.trim();
+    if(bodyEl) s.notifications[k].body=bodyEl.value.trim();
+    if(colorEl) s.emailColors[k]=colorEl.value;
+  });
+  saveIrrSettings(s);
+  var msg=document.getElementById('irset-msg');
+  if(msg){msg.style.color='var(--green2)';msg.textContent='✅ تم حفظ الإعدادات';}
+  toast('✅ تم حفظ إعدادات الري');
+}
+
+// ── SAVE / EDIT / DELETE ──────────────────────────────────────────────────────
+function saveIrrOwner() {
+  var name=(document.getElementById('ir-name')||{value:''}).value.trim();
+  var phone=(document.getElementById('ir-phone')||{value:''}).value.trim();
+  var msg=document.getElementById('ir-msg');
+  if(!name){if(msg){msg.style.color='var(--danger)';msg.textContent='يرجى إدخال الاسم';}return;}
+  if(!phone){if(msg){msg.style.color='var(--danger)';msg.textContent='يرجى إدخال رقم الهاتف';}return;}
+  var owner={
+    id:'ir_'+Date.now().toString(36),
+    name:name, phone:phone,
+    email:(document.getElementById('ir-email')||{value:''}).value.trim(),
+    area:(document.getElementById('ir-area')||{value:''}).value.trim(),
+    landName:(document.getElementById('ir-land')||{value:''}).value.trim(),
+    landRef:(document.getElementById('ir-ref')||{value:''}).value.trim(),
+    landSize:(document.getElementById('ir-area2')||{value:''}).value.trim(),
+    crop:(document.getElementById('ir-crop')||{value:''}).value.trim(),
+    day:parseInt((document.getElementById('ir-day')||{value:'0'}).value),
+    startTime:(document.getElementById('ir-start')||{value:'08:00'}).value,
+    hours:parseFloat((document.getElementById('ir-hours')||{value:'2'}).value),
+    repeat:(document.getElementById('ir-repeat')||{value:'weekly'}).value,
+    notes:(document.getElementById('ir-notes')||{value:''}).value.trim(),
+    createdAt:new Date().toISOString().slice(0,10)
+  };
+  var owners=getIrrOwners(); owners.push(owner); saveIrrOwners(owners);
+  if(msg){msg.style.color='var(--green2)';msg.textContent='✅ تم تسجيل حق الري لـ '+name;}
+  ['ir-name','ir-phone','ir-email','ir-area','ir-land','ir-ref','ir-area2','ir-crop','ir-notes'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  updateWaterBadge();
+}
+
+function deleteIrrOwner(id,name) {
+  if(!confirm('حذف سجل '+name+'؟')) return;
+  saveIrrOwners(getIrrOwners().filter(function(o){return o.id!==id;}));
+  renderIrrList(); updateWaterBadge(); toast('🗑️ تم حذف '+name);
+}
+
+function editIrrOwner(id) {
+  var o=getIrrOwners().find(function(x){return x.id===id;}); if(!o) return;
+  document.getElementById('MB').innerHTML='<div>'
+    +'<div style="font-weight:700;font-size:16px;margin-bottom:14px;color:var(--blue2)">✏️ تعديل: '+o.name+'</div>'
+    +'<div class="admin-section">'
+    +'<div class="fg"><div class="fl">الاسم</div><input type="text" class="fi" id="ire-name" value="'+(o.name||'')+'"></div>'
+    +'<div class="fg"><div class="fl">الهاتف</div><input type="tel" class="fi" id="ire-phone" value="'+(o.phone||'')+'" style="direction:ltr"></div>'
+    +'<div class="fg"><div class="fl">البريد</div><input type="email" class="fi" id="ire-email" value="'+(o.email||'')+'" style="direction:ltr"></div>'
+    +'<div class="fg"><div class="fl">المنطقة</div><input type="text" class="fi" id="ire-area" value="'+(o.area||'')+'"></div>'
+    +'<div class="fg"><div class="fl">اسم القطعة</div><input type="text" class="fi" id="ire-land" value="'+(o.landName||'')+'"></div>'
+    +'<div class="fg"><div class="fl">رقم السند</div><input type="text" class="fi" id="ire-ref" value="'+(o.landRef||'')+'"></div>'
+    +'<div class="fg"><div class="fl">المساحة</div><input type="text" class="fi" id="ire-size" value="'+(o.landSize||'')+'"></div>'
+    +'<div class="fg"><div class="fl">المحصول</div><input type="text" class="fi" id="ire-crop" value="'+(o.crop||'')+'"></div>'
+    +'<div class="fg"><div class="fl">اليوم</div><select class="fi" id="ire-day">'
+    +IRR_DAYS.map(function(d,i){return '<option value="'+i+'"'+(i===o.day?' selected':'')+'>'+d+'</option>';}).join('')+'</select></div>'
+    +'<div class="fg"><div class="fl">وقت البداية</div><input type="time" class="fi" id="ire-start" value="'+(o.startTime||'08:00')+'" style="direction:ltr"></div>'
+    +'<div class="fg"><div class="fl">المدة (ساعات)</div><select class="fi" id="ire-hours">'
+    +[0.5,1,1.5,2,3,4,6,8,12,24].map(function(h){return '<option value="'+h+'"'+(h===o.hours?' selected':'')+'>'+h+'س</option>';}).join('')+'</select></div>'
+    +'<div class="fg"><div class="fl">التكرار</div><select class="fi" id="ire-repeat">'
+    +'<option value="weekly"'+(o.repeat==='weekly'?' selected':'')+'>أسبوعي</option>'
+    +'<option value="biweekly"'+(o.repeat==='biweekly'?' selected':'')+'>كل أسبوعين</option>'
+    +'<option value="custom"'+(o.repeat==='custom'?' selected':'')+'>خاص</option>'
+    +'</select></div>'
+    +'<div class="fg"><div class="fl">ملاحظات</div><textarea class="fi" id="ire-notes" rows="2" style="resize:none">'+(o.notes||'')+'</textarea></div>'
+    +'<button class="btn bp" style="width:100%;justify-content:center;margin-top:12px" onclick="saveIrrEdit(\''+id+'\')">💾 حفظ</button>'
+    +'<button class="btn" style="width:100%;justify-content:center;margin-top:8px" onclick="openWaterSchedule()">← رجوع</button>'
+    +'</div></div>';
+}
+
+function saveIrrEdit(id) {
+  var owners=getIrrOwners(), idx=owners.findIndex(function(o){return o.id===id;}); if(idx<0) return;
+  owners[idx]=Object.assign(owners[idx],{
+    name:(document.getElementById('ire-name')||{value:''}).value.trim(),
+    phone:(document.getElementById('ire-phone')||{value:''}).value.trim(),
+    email:(document.getElementById('ire-email')||{value:''}).value.trim(),
+    area:(document.getElementById('ire-area')||{value:''}).value.trim(),
+    landName:(document.getElementById('ire-land')||{value:''}).value.trim(),
+    landRef:(document.getElementById('ire-ref')||{value:''}).value.trim(),
+    landSize:(document.getElementById('ire-size')||{value:''}).value.trim(),
+    crop:(document.getElementById('ire-crop')||{value:''}).value.trim(),
+    day:parseInt((document.getElementById('ire-day')||{value:'0'}).value),
+    startTime:(document.getElementById('ire-start')||{value:'08:00'}).value,
+    hours:parseFloat((document.getElementById('ire-hours')||{value:'2'}).value),
+    repeat:(document.getElementById('ire-repeat')||{value:'weekly'}).value,
+    notes:(document.getElementById('ire-notes')||{value:''}).value.trim(),
+  });
+  saveIrrOwners(owners); toast('✅ تم حفظ التعديلات'); openWaterSchedule();
+}
+
+function updateWaterBadge() {
+  var n=getIrrOwners().length, b=document.getElementById('water-badge');
+  if(b){b.textContent=n||'';b.style.display=n?'inline':'none';}
+}
+
+async function loadWaterFromDB() {
+  if(!dbR||!sb) return;
+  try {
+    var r1=await sb.from('settings').select('value').eq('key','wadi_irr_owners').single();
+    if(!r1.error&&r1.data&&r1.data.value) localStorage.setItem('wadi_irr_owners',JSON.stringify(r1.data.value));
+    var r2=await sb.from('settings').select('value').eq('key','wadi_irr_settings').single();
+    if(!r2.error&&r2.data&&r2.data.value) localStorage.setItem('wadi_irr_settings',JSON.stringify(r2.data.value));
+    updateWaterBadge();
+  } catch(e){}
 }
 
 </script>
