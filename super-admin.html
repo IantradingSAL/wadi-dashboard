@@ -3,14 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Super Admin — Municipal System</title>
+<title>Super Admin — نظام البلديات</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--blue:#1a6eb5;--blue2:#0f4d82;--green2:#1e5429;--text:#1a1a2e;--text2:#444;--text3:#888;--border:#e0e6ef;--bg:#f5f7fa;--bg2:#f0f2f7;--danger:#e74c3c;--font:'Tahoma',Arial,sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:var(--font);direction:rtl;background:var(--bg);min-height:100vh;color:var(--text);font-size:14px;}
 .header{background:linear-gradient(120deg,#1a1a2e,#2d2d5e);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:12px;}
-.header-title{font-size:16px;font-weight:800;}
 .main{max-width:900px;margin:0 auto;padding:20px 16px;}
 .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px;}
 .card-title{font-size:16px;font-weight:800;color:var(--blue2);margin-bottom:14px;padding-bottom:10px;border-bottom:1.5px solid var(--border);}
@@ -22,7 +21,7 @@ body{font-family:var(--font);direction:rtl;background:var(--bg);min-height:100vh
 .btn.bp{background:var(--blue);color:#fff;border-color:var(--blue);}
 .btn.bg{background:#1a1a2e;color:#fff;border-color:#1a1a2e;}
 .mun-card{background:var(--bg2);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .15s;}
-.mun-card:hover,.mun-card.active{border-color:var(--blue);background:#eef5ff;}
+.mun-card:hover{border-color:var(--blue);background:#eef5ff;}
 .color-swatch{width:28px;height:28px;border-radius:6px;border:1px solid rgba(0,0,0,.1);flex-shrink:0;}
 .tab{padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border-radius:8px;border:1.5px solid var(--border);background:var(--bg2);color:var(--text2);}
 .tab.on{background:var(--blue);color:#fff;border-color:var(--blue);}
@@ -30,17 +29,16 @@ body{font-family:var(--font);direction:rtl;background:var(--bg);min-height:100vh
 </head>
 <body>
 
-<!-- Header -->
 <div class="header">
   <span style="font-size:28px">🏛</span>
   <div>
-    <div class="header-title">لوحة تحكم Super Admin</div>
-    <div style="font-size:11px;opacity:.7">Municipal Management System</div>
+    <div style="font-size:16px;font-weight:800;">لوحة تحكم Super Admin</div>
+    <div style="font-size:11px;opacity:.7;">Municipal Management System</div>
   </div>
-  <button id="logout-btn" onclick="doLogout()" class="btn" style="margin-right:auto;background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff;font-size:12px;padding:6px 14px;">خروج</button>
+  <button id="logout-btn" onclick="doLogout()" class="btn" style="margin-right:auto;background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff;font-size:12px;padding:6px 14px;display:none;">خروج</button>
 </div>
 
-<!-- Login Screen -->
+<!-- Login -->
 <div id="login-screen" style="display:flex;align-items:center;justify-content:center;min-height:80vh;padding:20px;">
   <div class="card" style="max-width:380px;width:100%;text-align:center;">
     <div style="font-size:40px;margin-bottom:12px">🔐</div>
@@ -50,206 +48,173 @@ body{font-family:var(--font);direction:rtl;background:var(--bg);min-height:100vh
     <input type="password" class="fi" id="li-pw" placeholder="كلمة المرور" style="margin-bottom:12px;direction:ltr" onkeydown="if(event.key==='Enter')doLogin()">
     <div id="li-err" style="color:var(--danger);font-size:13px;margin-bottom:10px;min-height:18px;"></div>
     <button class="btn bg" style="width:100%;justify-content:center;" onclick="doLogin()">🚀 دخول</button>
+    <a href="index.html" style="display:block;margin-top:14px;font-size:13px;color:var(--text3)">← العودة للرئيسية</a>
   </div>
 </div>
 
 <!-- App -->
 <div id="app-screen" style="display:none;">
   <div class="main">
-    <!-- Tabs -->
     <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
-      <div class="tab on" onclick="showTab(this,'tab-mun')">🏛 البلديات</div>
-      <div class="tab" onclick="showTab(this,'tab-new-mun')">➕ بلدية جديدة</div>
-      <div class="tab" onclick="showTab(this,'tab-admins')">👤 Super Admins</div>
+      <div class="tab on" id="tab-mun-btn" onclick="showTab('tab-mun')">🏛 البلديات</div>
+      <div class="tab" id="tab-new-btn" onclick="showTab('tab-new')">➕ بلدية جديدة</div>
+      <div class="tab" id="tab-admins-btn" onclick="showTab('tab-admins')">👤 Super Admins</div>
     </div>
 
-    <!-- MUNICIPALITIES LIST -->
+    <!-- MUNICIPALITIES -->
     <div id="tab-mun">
       <div class="card">
         <div class="card-title">🏛 البلديات المسجلة</div>
         <div id="mun-list">⏳ جاري التحميل…</div>
       </div>
-      <!-- Edit Municipality -->
-      <div id="mun-edit-card" style="display:none;" class="card">
-        <div class="card-title" id="mun-edit-title">✏️ تعديل البلدية</div>
+      <div id="mun-edit-card" class="card" style="display:none;">
+        <div class="card-title" id="mun-edit-title">✏️ تعديل</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-          <div class="fg" style="grid-column:1/-1">
-            <div class="fl">اسم البلدية (عربي) *</div>
-            <input type="text" class="fi" id="me-name">
-          </div>
+          <div class="fg" style="grid-column:1/-1"><div class="fl">الاسم العربي *</div><input type="text" class="fi" id="me-name"></div>
+          <div class="fg"><div class="fl">المنطقة</div><input type="text" class="fi" id="me-region"></div>
+          <div class="fg"><div class="fl">الموقع</div><input type="text" class="fi" id="me-website" style="direction:ltr"></div>
           <div class="fg">
-            <div class="fl">اسم البلدية (إنجليزي)</div>
-            <input type="text" class="fi" id="me-name-en" style="direction:ltr">
-          </div>
-          <div class="fg">
-            <div class="fl">المنطقة / القضاء</div>
-            <input type="text" class="fi" id="me-region">
-          </div>
-          <div class="fg">
-            <div class="fl">الموقع الإلكتروني</div>
-            <input type="text" class="fi" id="me-website" style="direction:ltr" placeholder="https://...">
-          </div>
-          <div class="fg">
-            <div class="fl">البريد الإلكتروني</div>
-            <input type="email" class="fi" id="me-email" style="direction:ltr">
-          </div>
-          <div class="fg">
-            <div class="fl">☀️ اللون الأساسي</div>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <input type="color" id="me-color1" value="#1a6eb5" style="width:50px;height:36px;border:1px solid var(--border);border-radius:8px;cursor:pointer;padding:2px;">
-              <input type="text" class="fi" id="me-color1-hex" value="#1a6eb5" style="direction:ltr;" oninput="syncColor('me-color1','me-color1-hex')">
+            <div class="fl">اللون الأساسي ☀️</div>
+            <div style="display:flex;gap:8px;">
+              <input type="color" id="me-c1" value="#1a6eb5" oninput="document.getElementById('me-c1t').value=this.value;updateEditPreview()" style="width:46px;height:36px;border:1px solid var(--border);border-radius:8px;cursor:pointer;padding:2px;">
+              <input type="text" class="fi" id="me-c1t" value="#1a6eb5" style="direction:ltr;" oninput="if(/^#[0-9A-Fa-f]{6}$/.test(this.value)){document.getElementById('me-c1').value=this.value;updateEditPreview();}">
             </div>
           </div>
           <div class="fg">
-            <div class="fl">🌿 اللون الثانوي</div>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <input type="color" id="me-color2" value="#1e5429" style="width:50px;height:36px;border:1px solid var(--border);border-radius:8px;cursor:pointer;padding:2px;">
-              <input type="text" class="fi" id="me-color2-hex" value="#1e5429" style="direction:ltr;" oninput="syncColor('me-color2','me-color2-hex')">
+            <div class="fl">اللون الثانوي 🌿</div>
+            <div style="display:flex;gap:8px;">
+              <input type="color" id="me-c2" value="#1e5429" oninput="document.getElementById('me-c2t').value=this.value;updateEditPreview()" style="width:46px;height:36px;border:1px solid var(--border);border-radius:8px;cursor:pointer;padding:2px;">
+              <input type="text" class="fi" id="me-c2t" value="#1e5429" style="direction:ltr;" oninput="if(/^#[0-9A-Fa-f]{6}$/.test(this.value)){document.getElementById('me-c2').value=this.value;updateEditPreview();}">
             </div>
           </div>
           <div class="fg" style="grid-column:1/-1">
-            <div class="fl">الشعار (رفع صورة)</div>
+            <div class="fl">الشعار (صورة)</div>
             <label style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--bg2);border:1.5px dashed var(--blue);border-radius:10px;cursor:pointer;font-size:13px;color:var(--blue);">
-              <input type="file" id="me-logo" accept="image/*" style="display:none" onchange="previewLogo(this)">
-              📷 اختر شعار جديد (PNG / SVG / JPG)
+              <input type="file" id="me-logo" accept="image/*" style="display:none" onchange="previewEditLogo(this)">
+              📷 رفع شعار جديد
             </label>
-            <div id="me-logo-preview" style="margin-top:10px;display:flex;align-items:center;gap:12px;"></div>
+            <div id="me-logo-prev" style="margin-top:8px;"></div>
           </div>
           <div class="fg" style="grid-column:1/-1">
-            <div class="fl">🎨 معاينة الهوية البصرية</div>
-            <div id="me-preview" style="border-radius:12px;overflow:hidden;border:1.5px solid var(--border);">
-              <div id="me-preview-header" style="padding:12px 16px;display:flex;align-items:center;gap:10px;color:#fff;">
-                <img id="me-preview-logo" src="data:image/png;base64,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" style="height:36px;">
-                <div>
-                  <div id="me-preview-name" style="font-weight:800;font-size:14px;">اسم البلدية</div>
-                  <div id="me-preview-region" style="font-size:11px;opacity:.7;">المنطقة</div>
-                </div>
-              </div>
+            <div class="fl">معاينة</div>
+            <div id="me-prev-hdr" style="border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;color:#fff;">
+              <img id="me-prev-logo" src="" style="height:32px;display:none">
+              <span id="me-prev-name" style="font-weight:800;font-size:14px;">اسم البلدية</span>
             </div>
           </div>
         </div>
-        <div style="display:flex;gap:8px;margin-top:14px;">
-          <button class="btn bp" style="flex:1;justify-content:center;" onclick="saveMunEdit()">💾 حفظ التغييرات</button>
-          <button class="btn" style="padding:9px 18px;" onclick="cancelMunEdit()">إلغاء</button>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <button class="btn bp" style="flex:1;justify-content:center;" onclick="saveMunEdit()">💾 حفظ</button>
+          <button class="btn" onclick="document.getElementById('mun-edit-card').style.display='none'">إلغاء</button>
         </div>
         <div id="me-msg" style="margin-top:8px;text-align:center;font-size:13px;min-height:18px;"></div>
       </div>
     </div>
 
     <!-- NEW MUNICIPALITY -->
-    <div id="tab-new-mun" style="display:none;">
+    <div id="tab-new" style="display:none;">
       <div class="card">
         <div class="card-title">➕ إضافة بلدية جديدة</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-          <div class="fg" style="grid-column:1/-1">
-            <div class="fl">اسم البلدية (عربي) *</div>
-            <input type="text" class="fi" id="nm-name" placeholder="مثال: بلدية المصيلح">
-          </div>
-          <div class="fg">
-            <div class="fl">اسم البلدية (إنجليزي)</div>
-            <input type="text" class="fi" id="nm-name-en" style="direction:ltr">
-          </div>
-          <div class="fg">
-            <div class="fl">المنطقة / القضاء</div>
-            <input type="text" class="fi" id="nm-region">
-          </div>
-          <div class="fg">
-            <div class="fl">الموقع الإلكتروني</div>
-            <input type="text" class="fi" id="nm-website" style="direction:ltr" placeholder="https://...">
-          </div>
-          <div class="fg">
-            <div class="fl">اللون الأساسي</div>
-            <input type="color" class="fi" id="nm-color1" value="#1a6eb5" style="height:42px;padding:4px;">
-          </div>
-          <div class="fg">
-            <div class="fl">اللون الثانوي</div>
-            <input type="color" class="fi" id="nm-color2" value="#1e5429" style="height:42px;padding:4px;">
-          </div>
-          <div class="fg" style="grid-column:1/-1">
-            <div class="fl">الشعار</div>
-            <label style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--bg2);border:1.5px dashed var(--blue);border-radius:10px;cursor:pointer;font-size:13px;color:var(--blue);">
-              <input type="file" id="nm-logo" accept="image/*" style="display:none" onchange="previewNewLogo(this)">
-              📷 رفع شعار البلدية
-            </label>
-            <div id="nm-logo-preview" style="margin-top:8px;"></div>
-          </div>
+        <div class="fg"><div class="fl">الاسم العربي *</div><input type="text" class="fi" id="nm-name" placeholder="مثال: بلدية المصيلح"></div>
+        <div class="fg"><div class="fl">المنطقة</div><input type="text" class="fi" id="nm-region"></div>
+        <div class="fg"><div class="fl">الموقع</div><input type="text" class="fi" id="nm-website" style="direction:ltr" placeholder="https://..."></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div class="fg"><div class="fl">اللون الأساسي</div><input type="color" class="fi" id="nm-c1" value="#1a6eb5" style="height:42px;padding:4px;"></div>
+          <div class="fg"><div class="fl">اللون الثانوي</div><input type="color" class="fi" id="nm-c2" value="#1e5429" style="height:42px;padding:4px;"></div>
         </div>
-        <button class="btn bp" style="width:100%;justify-content:center;margin-top:14px;" onclick="createMunicipality()">✓ إنشاء البلدية</button>
+        <div class="fg">
+          <div class="fl">الشعار</div>
+          <label style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--bg2);border:1.5px dashed var(--blue);border-radius:10px;cursor:pointer;font-size:13px;color:var(--blue);">
+            <input type="file" id="nm-logo" accept="image/*" style="display:none" onchange="previewNewLogo(this)">
+            📷 رفع شعار
+          </label>
+          <div id="nm-logo-prev" style="margin-top:8px;"></div>
+        </div>
+        <button class="btn bp" style="width:100%;justify-content:center;margin-top:12px;" onclick="createMunicipality()">✓ إنشاء البلدية</button>
         <div id="nm-msg" style="margin-top:8px;text-align:center;font-size:13px;min-height:18px;"></div>
       </div>
     </div>
 
-    <!-- SUPER ADMINS -->
+    <!-- ADMINS -->
     <div id="tab-admins" style="display:none;">
       <div class="card">
-        <div class="card-title">👤 قائمة Super Admins</div>
-        <div id="admins-list">⏳ جاري التحميل…</div>
+        <div class="card-title">👤 Super Admins</div>
+        <div id="admins-list">⏳</div>
         <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px;">
-          <div class="fl">إضافة Super Admin جديد</div>
-          <div style="display:flex;gap:8px;margin-top:8px;">
-            <input type="email" class="fi" id="new-admin-email" placeholder="email@example.com" style="flex:1;direction:ltr;">
-            <input type="text" class="fi" id="new-admin-name" placeholder="الاسم" style="width:160px;">
-            <button class="btn bp" onclick="addSuperAdmin()">➕ إضافة</button>
+          <div class="fl">إضافة Super Admin</div>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <input type="email" class="fi" id="new-adm-em" placeholder="email@example.com" style="flex:1;min-width:160px;direction:ltr;">
+            <input type="text" class="fi" id="new-adm-name" placeholder="الاسم" style="width:140px;">
+            <button class="btn bp" onclick="addSuperAdmin()">➕</button>
           </div>
-          <div id="admin-msg" style="margin-top:8px;font-size:13px;min-height:18px;"></div>
+          <div id="adm-msg" style="margin-top:8px;font-size:13px;min-height:18px;"></div>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<div id="toast-c" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:8px;align-items:center;"></div>
+<div id="toast-c" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;"></div>
 
 <script>
-const SB_URL='https://onjbwhkmmtqnymhjnplw.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
-const SUPER_ADMIN_EMAIL = 'imadaehn@gmail.com';
-let sb=null, dbR=false, currentMunId=null, newLogoB64=null, editLogoB64=null;
+var SB_URL = 'https://onjbwhkmmtqnymhjnplw.supabase.co';
+var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uamJ3aGttbXRxbnltaGpucGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDY4MjUsImV4cCI6MjA5MDM4MjgyNX0.lhlsRdOqVHZuOXCJa0lCNuZkYJHhf1AZ_zOwqHHAeG4';
+var KNOWN_SUPER = ['imadaehn@gmail.com'];
+var sb = null;
+var currentMunId = null;
+var editLogoB64 = null;
+var newLogoB64 = null;
 
-window.addEventListener('DOMContentLoaded',function(){
-  sb=window.supabase.createClient(SB_URL,SB_KEY,{realtime:{enabled:false}});
-  dbR=true;
-  document.getElementById('logout-btn').style.display='none';
-  sb.auth.getUser().then(function(r){
-    if(r.data&&r.data.user) checkSuperAdmin(r.data.user);
+function toast(msg, type) {
+  var c = document.getElementById('toast-c');
+  var t = document.createElement('div');
+  t.style.cssText = 'background:' + (type==='err'?'#e74c3c':type==='warn'?'#e67e22':'#222') + ';color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;pointer-events:all;';
+  t.textContent = msg; c.appendChild(t);
+  setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);}, 3000);
+}
+
+window.addEventListener('DOMContentLoaded', function() {
+  try {
+    sb = window.supabase.createClient(SB_URL, SB_KEY, {realtime:{enabled:false}});
+  } catch(e) {
+    document.getElementById('li-err').textContent = 'خطأ في تحميل المكتبة: ' + e.message;
+    return;
+  }
+  document.getElementById('logout-btn').style.display = 'none';
+  sb.auth.getUser().then(function(r) {
+    if (r.data && r.data.user) checkSuperAdmin(r.data.user);
   });
 });
 
-async function doLogin(){
-  var em=document.getElementById('li-em').value.trim();
-  var pw=document.getElementById('li-pw').value;
-  var err=document.getElementById('li-err');
-  if(!em||!pw){err.textContent='يرجى الإدخال';return;}
-  err.textContent='⏳ جاري الدخول…';
-  var r=await sb.auth.signInWithPassword({email:em,password:pw});
-  if(r.error){err.textContent='خطأ: '+r.error.message;return;}
-  await checkSuperAdmin(r.data.user);
+async function doLogin() {
+  var em = (document.getElementById('li-em').value || '').trim();
+  var pw = document.getElementById('li-pw').value || '';
+  var err = document.getElementById('li-err');
+  if (!em || !pw) { err.textContent = 'يرجى إدخال البريد وكلمة المرور'; return; }
+  err.textContent = '⏳ جاري الدخول…';
+  try {
+    if (!sb) sb = window.supabase.createClient(SB_URL, SB_KEY, {realtime:{enabled:false}});
+    var r = await sb.auth.signInWithPassword({email:em, password:pw});
+    if (r.error) { err.textContent = 'خطأ: ' + r.error.message; return; }
+    await checkSuperAdmin(r.data.user);
+  } catch(e) { err.textContent = 'خطأ: ' + e.message; }
 }
 
-async function checkSuperAdmin(user){
+async function checkSuperAdmin(user) {
   var meta = user.user_metadata || {};
   var role = meta.role || '';
   var email = user.email || '';
-
-  // Check 1: known hardcoded super admin email
-  var knownAdmins = ['imadaehn@gmail.com'];
-  var isKnown = knownAdmins.indexOf(email) >= 0;
-
-  // Check 2: role is mayor or admin
-  var isAdminRole = (role === 'mayor' || role === 'admin');
-
-  // Check 3: super_admins table (if it exists)
-  var inTable = false;
-  try {
-    var r = await sb.from('super_admins').select('id').eq('email', email).single();
-    if (!r.error && r.data) inTable = true;
-  } catch(e) {}
-
-  if (!isKnown && !isAdminRole && !inTable) {
+  var ok = KNOWN_SUPER.indexOf(email) >= 0 || role === 'mayor' || role === 'admin';
+  if (!ok) {
+    try {
+      var r = await sb.from('super_admins').select('id').eq('email', email).single();
+      if (!r.error && r.data) ok = true;
+    } catch(e) {}
+  }
+  if (!ok) {
     document.getElementById('li-err').textContent = '⚠️ ليس لديك صلاحية Super Admin';
     await sb.auth.signOut(); return;
   }
-
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'block';
   document.getElementById('logout-btn').style.display = 'flex';
@@ -257,244 +222,200 @@ async function checkSuperAdmin(user){
   loadSuperAdmins();
 }
 
-function doLogout(){
-  sb.auth.signOut().then(function(){location.reload();});
-}
+function doLogout() { sb.auth.signOut().then(function(){location.reload();}); }
 
-function showTab(el, id){
-  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});
-  el.classList.add('on');
-  ['tab-mun','tab-new-mun','tab-admins'].forEach(function(tid){
-    var e=document.getElementById(tid); if(e) e.style.display=tid===id?'block':'none';
+function showTab(id) {
+  ['tab-mun','tab-new','tab-admins'].forEach(function(t){
+    var el = document.getElementById(t); if(el) el.style.display = t===id ? 'block' : 'none';
+    var btn = document.getElementById(t+'-btn'); if(btn) btn.className = 'tab' + (t===id?' on':'');
   });
 }
 
-// ── MUNICIPALITIES ────────────────────────────────────────────────────────────
-async function loadMunicipalities(){
-  var el=document.getElementById('mun-list');
-  var r=await sb.from('municipalities').select('*').order('created_at');
-  if(r.error){
-    // Table might not exist yet - show helpful message with create button
-    el.innerHTML='<div style="background:#fff9e6;border:1.5px solid #f5c842;border-radius:12px;padding:16px;text-align:center">'
-      +'<div style="font-size:28px;margin-bottom:8px">⚠️</div>'
-      +'<div style="font-weight:700;margin-bottom:8px">جدول البلديات غير موجود بعد</div>'
-      +'<div style="font-size:13px;color:var(--text3);margin-bottom:12px">بلدية وادي الست ستُضاف تلقائياً</div>'
-      +'<button class="btn bp" onclick="createDefaultMunicipality()">✓ إنشاء البلديات الافتراضية</button>'
-      +'</div>';
-    return;
+// MUNICIPALITIES
+async function loadMunicipalities() {
+  var el = document.getElementById('mun-list');
+  try {
+    var r = await sb.from('municipalities').select('*').order('created_at');
+    if (r.error) throw new Error(r.error.message);
+    var muns = r.data || [];
+    if (!muns.length) { el.innerHTML = '<div style="color:var(--text3);padding:20px;text-align:center">لا توجد بلديات — أضف من تبويب ➕</div>'; return; }
+    var html = '';
+    muns.forEach(function(m) {
+      html += '<div class="mun-card" data-munid="' + m.id + '">';
+      html += '<div style="width:44px;height:44px;border-radius:10px;overflow:hidden;background:#f0f0f0;display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
+      html += m.logo_base64 ? '<img src="' + m.logo_base64 + '" style="width:100%;height:100%;object-fit:contain">' : '<span style="font-size:24px">🏛</span>';
+      html += '</div><div style="flex:1"><div style="font-weight:700;font-size:14px">' + m.name + '</div>';
+      html += '<div style="font-size:12px;color:var(--text3)">' + (m.region||'') + '</div></div>';
+      html += '<div class="color-swatch" style="background:' + (m.primary_color||'#1a6eb5') + '"></div>';
+      html += '<div class="color-swatch" style="background:' + (m.secondary_color||'#1e5429') + '"></div>';
+      html += '<span style="font-size:11px;background:' + (m.is_active?'#d4edda':'#fdeaea') + ';color:' + (m.is_active?'#1e5429':'#e74c3c') + ';padding:3px 10px;border-radius:20px;font-weight:700">' + (m.is_active?'نشطة':'موقوفة') + '</span>';
+      html += '</div>';
+    });
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div style="background:#fff9e6;border:1.5px solid #f5c842;border-radius:12px;padding:16px;text-align:center">'
+      + '<div style="font-size:24px;margin-bottom:8px">⚠️</div>'
+      + '<div style="font-weight:700;margin-bottom:8px">جدول municipalities غير موجود بعد</div>'
+      + '<div style="font-size:13px;color:var(--text3);margin-bottom:12px">' + e.message + '</div>'
+      + '<a href="https://supabase.com/dashboard/project/onjbwhkmmtqnymhjnplw/sql/new" target="_blank" class="btn bp" style="text-decoration:none;display:inline-flex">فتح SQL Editor</a>'
+      + '</div>';
   }
-  var muns=r.data||[];
-  if(!muns.length){el.innerHTML='<div style="color:var(--text3)">لا توجد بلديات بعد</div>';return;}
-  el.innerHTML=muns.map(function(m){
-    return '<div class="mun-card" onclick="editMunicipality(''+m.id+'')">'
-      +'<div style="width:44px;height:44px;border-radius:10px;overflow:hidden;background:#f0f0f0;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
-      +(m.logo_base64?'<img src="'+m.logo_base64+'" style="width:100%;height:100%;object-fit:contain">':'<span style="font-size:24px">🏛</span>')
-      +'</div>'
-      +'<div style="flex:1">'
-      +'<div style="font-weight:700;font-size:14px">'+m.name+'</div>'
-      +'<div style="font-size:12px;color:var(--text3)">'+(m.region||'')+(m.website?' · '+m.website:'')+'</div>'
-      +'</div>'
-      +'<div style="display:flex;gap:6px;">'
-      +'<div class="color-swatch" style="background:'+(m.primary_color||'#1a6eb5')+'" title="اللون الأساسي"></div>'
-      +'<div class="color-swatch" style="background:'+(m.secondary_color||'#1e5429')+'" title="اللون الثانوي"></div>'
-      +'</div>'
-      +'<div style="font-size:12px;background:'+(m.is_active?'#d4edda':'#fdeaea')+';color:'+(m.is_active?'#1e5429':'#e74c3c')+';padding:3px 10px;border-radius:20px;font-weight:700;">'+(m.is_active?'نشطة':'موقوفة')+'</div>'
-      +'</div>';
-  }).join('');
 }
 
-async function editMunicipality(id){
-  var r=await sb.from('municipalities').select('*').eq('id',id).single();
-  if(r.error||!r.data){toast('خطأ في التحميل','err');return;}
-  var m=r.data;
-  currentMunId=id; editLogoB64=m.logo_base64||null;
-  document.getElementById('me-name').value=m.name||'';
-  document.getElementById('me-name-en').value=m.name_en||'';
-  document.getElementById('me-region').value=m.region||'';
-  document.getElementById('me-website').value=m.website||'';
-  document.getElementById('me-email').value=m.email||'';
-  document.getElementById('me-color1').value=m.primary_color||'#1a6eb5';
-  document.getElementById('me-color1-hex').value=m.primary_color||'#1a6eb5';
-  document.getElementById('me-color2').value=m.secondary_color||'#1e5429';
-  document.getElementById('me-color2-hex').value=m.secondary_color||'#1e5429';
-  var lp=document.getElementById('me-logo-preview');
-  if(m.logo_base64) lp.innerHTML='<img src="'+m.logo_base64+'" style="height:60px;border-radius:8px;"><span style="font-size:12px;color:var(--text3);margin-right:8px;">الشعار الحالي</span>';
-  else lp.innerHTML='<span style="font-size:12px;color:var(--text3);">لا يوجد شعار</span>';
-  document.getElementById('mun-edit-title').textContent='✏️ تعديل: '+m.name;
-  document.getElementById('mun-edit-card').style.display='block';
-  updatePreview();
+document.addEventListener('click', function(e) {
+  var rmBtn = e.target.closest ? e.target.closest('[data-rmadm-id]') : null;
+  if (rmBtn) { removeSuperAdmin(rmBtn.getAttribute('data-rmadm-id'), rmBtn.getAttribute('data-rmadm-em')); return; }
+
+  var card = e.target.closest ? e.target.closest('[data-munid]') : null;
+  if (card) editMunicipality(card.getAttribute('data-munid'));
+});
+
+async function editMunicipality(id) {
+  var r = await sb.from('municipalities').select('*').eq('id', id).single();
+  if (r.error || !r.data) { toast('خطأ في التحميل', 'err'); return; }
+  var m = r.data;
+  currentMunId = id; editLogoB64 = m.logo_base64 || null;
+  document.getElementById('me-name').value = m.name || '';
+  document.getElementById('me-region').value = m.region || '';
+  document.getElementById('me-website').value = m.website || '';
+  document.getElementById('me-c1').value = m.primary_color || '#1a6eb5';
+  document.getElementById('me-c1t').value = m.primary_color || '#1a6eb5';
+  document.getElementById('me-c2').value = m.secondary_color || '#1e5429';
+  document.getElementById('me-c2t').value = m.secondary_color || '#1e5429';
+  var lp = document.getElementById('me-logo-prev');
+  lp.innerHTML = editLogoB64 ? '<img src="' + editLogoB64 + '" style="height:50px;border-radius:8px;">' : '<span style="font-size:12px;color:var(--text3)">لا يوجد شعار</span>';
+  document.getElementById('mun-edit-title').textContent = '✏️ تعديل: ' + m.name;
+  document.getElementById('mun-edit-card').style.display = 'block';
+  document.getElementById('me-msg').textContent = '';
+  updateEditPreview();
   document.getElementById('mun-edit-card').scrollIntoView({behavior:'smooth'});
 }
 
-function cancelMunEdit(){
-  document.getElementById('mun-edit-card').style.display='none';
-  currentMunId=null; editLogoB64=null;
+function updateEditPreview() {
+  var c1 = document.getElementById('me-c1').value;
+  var c2 = document.getElementById('me-c2').value;
+  var name = document.getElementById('me-name').value || 'اسم البلدية';
+  var hdr = document.getElementById('me-prev-hdr');
+  if (hdr) hdr.style.background = 'linear-gradient(120deg,' + c1 + ',' + c2 + ')';
+  var pn = document.getElementById('me-prev-name'); if(pn) pn.textContent = name;
+  var pl = document.getElementById('me-prev-logo');
+  if (pl) { pl.style.display = editLogoB64 ? 'block' : 'none'; if(editLogoB64) pl.src = editLogoB64; }
 }
 
-function syncColor(pickerId, hexId){
-  var hex=document.getElementById(hexId).value;
-  if(/^#[0-9A-Fa-f]{6}$/.test(hex)) document.getElementById(pickerId).value=hex;
-  updatePreview();
-}
-
-function updatePreview(){
-  var c1=document.getElementById('me-color1').value;
-  var c2=document.getElementById('me-color2').value;
-  var name=document.getElementById('me-name').value||'اسم البلدية';
-  var region=document.getElementById('me-region').value||'المنطقة';
-  var hdr=document.getElementById('me-preview-header');
-  if(hdr) hdr.style.background='linear-gradient(120deg,'+c1+','+c2+')';
-  var pn=document.getElementById('me-preview-name'); if(pn) pn.textContent=name;
-  var pr=document.getElementById('me-preview-region'); if(pr) pr.textContent=region;
-  if(editLogoB64){var pl=document.getElementById('me-preview-logo'); if(pl) pl.src=editLogoB64;}
-}
-
-document.addEventListener('input',function(e){
-  if(['me-color1','me-color2','me-name','me-region'].includes(e.target.id)) updatePreview();
-  if(e.target.id==='me-color1') document.getElementById('me-color1-hex').value=e.target.value;
-  if(e.target.id==='me-color2') document.getElementById('me-color2-hex').value=e.target.value;
-});
-
-function previewLogo(input){
-  var f=input.files[0]; if(!f) return;
-  var reader=new FileReader();
-  reader.onload=function(e){
-    editLogoB64=e.target.result;
-    var lp=document.getElementById('me-logo-preview');
-    lp.innerHTML='<img src="'+editLogoB64+'" style="height:60px;border-radius:8px;"><span style="font-size:12px;color:var(--text3);margin-right:8px;">شعار جديد</span>';
-    updatePreview();
+function previewEditLogo(input) {
+  var f = input.files[0]; if(!f) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    editLogoB64 = e.target.result;
+    var lp = document.getElementById('me-logo-prev');
+    lp.innerHTML = '<img src="' + editLogoB64 + '" style="height:50px;border-radius:8px;">';
+    updateEditPreview();
   };
   reader.readAsDataURL(f);
 }
 
-function previewNewLogo(input){
-  var f=input.files[0]; if(!f) return;
-  var reader=new FileReader();
-  reader.onload=function(e){
-    newLogoB64=e.target.result;
-    document.getElementById('nm-logo-preview').innerHTML='<img src="'+newLogoB64+'" style="height:50px;border-radius:8px;">';
+function previewNewLogo(input) {
+  var f = input.files[0]; if(!f) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    newLogoB64 = e.target.result;
+    document.getElementById('nm-logo-prev').innerHTML = '<img src="' + newLogoB64 + '" style="height:44px;border-radius:8px;">';
   };
   reader.readAsDataURL(f);
 }
 
-async function saveMunEdit(){
-  var msg=document.getElementById('me-msg');
-  if(!currentMunId){msg.style.color='var(--danger)';msg.textContent='لا توجد بلدية محددة';return;}
-  msg.style.color='var(--text3)'; msg.textContent='⏳ جاري الحفظ…';
-  var updates={
-    name:document.getElementById('me-name').value.trim(),
-    name_en:document.getElementById('me-name-en').value.trim(),
-    region:document.getElementById('me-region').value.trim(),
-    website:document.getElementById('me-website').value.trim(),
-    email:document.getElementById('me-email').value.trim(),
-    primary_color:document.getElementById('me-color1').value,
-    secondary_color:document.getElementById('me-color2').value,
+async function saveMunEdit() {
+  var msg = document.getElementById('me-msg');
+  if (!currentMunId) return;
+  msg.style.color = 'var(--text3)'; msg.textContent = '⏳ جاري الحفظ…';
+  var updates = {
+    name: document.getElementById('me-name').value.trim(),
+    region: document.getElementById('me-region').value.trim(),
+    website: document.getElementById('me-website').value.trim(),
+    primary_color: document.getElementById('me-c1').value,
+    secondary_color: document.getElementById('me-c2').value
   };
-  if(editLogoB64) updates.logo_base64=editLogoB64;
-  var r=await sb.from('municipalities').update(updates).eq('id',currentMunId);
-  if(r.error){msg.style.color='var(--danger)';msg.textContent='خطأ: '+r.error.message;return;}
-  msg.style.color='var(--green2)';msg.textContent='✅ تم الحفظ بنجاح!';
+  if (editLogoB64) updates.logo_base64 = editLogoB64;
+  var r = await sb.from('municipalities').update(updates).eq('id', currentMunId);
+  if (r.error) { msg.style.color='var(--danger)'; msg.textContent='خطأ: '+r.error.message; return; }
+  msg.style.color = 'var(--green2)'; msg.textContent = '✅ تم الحفظ!';
   toast('✅ تم تحديث بيانات البلدية');
   loadMunicipalities();
-  setTimeout(cancelMunEdit, 1500);
+  setTimeout(function(){document.getElementById('mun-edit-card').style.display='none';}, 1500);
 }
 
-async function createMunicipality(){
-  var name=document.getElementById('nm-name').value.trim();
-  var msg=document.getElementById('nm-msg');
-  if(!name){msg.style.color='var(--danger)';msg.textContent='يرجى إدخال اسم البلدية';return;}
-  msg.style.color='var(--text3)';msg.textContent='⏳ جاري الإنشاء…';
-  var mun={
-    name:name,
-    name_en:document.getElementById('nm-name-en').value.trim()||null,
-    region:document.getElementById('nm-region').value.trim()||null,
-    website:document.getElementById('nm-website').value.trim()||null,
-    primary_color:document.getElementById('nm-color1').value,
-    secondary_color:document.getElementById('nm-color2').value,
-    is_active:true
+async function createMunicipality() {
+  var name = (document.getElementById('nm-name').value||'').trim();
+  var msg = document.getElementById('nm-msg');
+  if (!name) { msg.style.color='var(--danger)'; msg.textContent='يرجى إدخال الاسم'; return; }
+  msg.style.color='var(--text3)'; msg.textContent='⏳ جاري الإنشاء…';
+  var mun = {
+    name: name,
+    region: (document.getElementById('nm-region').value||'').trim()||null,
+    website: (document.getElementById('nm-website').value||'').trim()||null,
+    primary_color: document.getElementById('nm-c1').value,
+    secondary_color: document.getElementById('nm-c2').value,
+    is_active: true
   };
-  if(newLogoB64) mun.logo_base64=newLogoB64;
-  var r=await sb.from('municipalities').insert([mun]).select().single();
-  if(r.error){
+  if (newLogoB64) mun.logo_base64 = newLogoB64;
+  var r = await sb.from('municipalities').insert([mun]).select().single();
+  if (r.error) {
     msg.style.color='var(--danger)';
-    msg.textContent=r.error.message.includes('does not exist')
-      ?'⚠️ جدول municipalities غير موجود — نفّذ migration_v1.sql أولاً'
-      :'خطأ: '+r.error.message;
+    msg.textContent = r.error.message.includes('does not exist')
+      ? '⚠️ جدول municipalities غير موجود — نفّذ migration_v1.sql أولاً'
+      : 'خطأ: '+r.error.message;
     return;
   }
-  msg.style.color='var(--green2)';msg.textContent='✅ تم إنشاء البلدية بنجاح! ID: '+r.data.id;
+  msg.style.color='var(--green2)'; msg.textContent='✅ تم الإنشاء! ID: '+r.data.id;
   toast('✅ تم إنشاء البلدية: '+name);
-  ['nm-name','nm-name-en','nm-region','nm-website'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
-  newLogoB64=null;
-  document.getElementById('nm-logo-preview').innerHTML='';
+  ['nm-name','nm-region','nm-website'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  newLogoB64=null; document.getElementById('nm-logo-prev').innerHTML='';
   loadMunicipalities();
 }
 
-async function loadSuperAdmins(){
-  var el=document.getElementById('admins-list'); if(!el) return;
-  var r=await sb.from('super_admins').select('*').order('created_at');
-  if(r.error){el.innerHTML='<div style="color:var(--text3)">⚠️ جدول super_admins غير موجود بعد</div>';return;}
-  var admins=r.data||[];
-  el.innerHTML=admins.map(function(a){
-    return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg2);border-radius:8px;margin-bottom:6px">'
-      +'<span style="font-size:18px">👤</span>'
-      +'<div style="flex:1"><div style="font-weight:700">'+( a.name||'—')+'</div><div style="font-size:12px;color:var(--text3);direction:ltr">'+a.email+'</div></div>'
-      +(a.email!==SUPER_ADMIN_EMAIL?'<button onclick="removeSuperAdmin(''+a.id+'',''+a.email+'')" class="btn" style="color:var(--danger);padding:5px 10px;font-size:12px">🗑️</button>':'<span style="font-size:11px;background:#daeaf8;color:var(--blue2);padding:2px 8px;border-radius:10px">مدير النظام</span>')
-      +'</div>';
-  }).join('');
+async function loadSuperAdmins() {
+  var el = document.getElementById('admins-list'); if(!el) return;
+  try {
+    var r = await sb.from('super_admins').select('*').order('created_at');
+    if (r.error) throw new Error(r.error.message);
+    var admins = r.data||[];
+    var html = '';
+    admins.forEach(function(a) {
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg2);border-radius:8px;margin-bottom:6px">';
+      html += '<span style="font-size:18px">👤</span>';
+      html += '<div style="flex:1"><div style="font-weight:700">'+(a.name||'—')+'</div>';
+      html += '<div style="font-size:12px;color:var(--text3);direction:ltr">'+a.email+'</div></div>';
+      if (KNOWN_SUPER.indexOf(a.email) >= 0) {
+        html += '<span style="font-size:11px;background:#daeaf8;color:var(--blue2);padding:2px 8px;border-radius:10px">مدير النظام</span>';
+      } else {
+        html += '<button class="btn" data-rmadm-id="'+a.id+'" data-rmadm-em="'+a.email+'" style="color:var(--danger);padding:5px 10px;font-size:12px">🗑️</button>';
+      }
+      html += '</div>';
+    });
+    el.innerHTML = html || '<div style="color:var(--text3);padding:10px">لا يوجد Super Admins بعد</div>';
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px">⚠️ جدول super_admins غير موجود بعد — نفّذ migration_v1.sql</div>';
+  }
 }
 
-async function addSuperAdmin(){
-  var em=document.getElementById('new-admin-email').value.trim();
-  var name=document.getElementById('new-admin-name').value.trim();
-  var msg=document.getElementById('admin-msg');
+async function addSuperAdmin() {
+  var em=(document.getElementById('new-adm-em').value||'').trim();
+  var name=(document.getElementById('new-adm-name').value||'').trim();
+  var msg=document.getElementById('adm-msg');
   if(!em){msg.style.color='var(--danger)';msg.textContent='يرجى إدخال البريد';return;}
   var r=await sb.from('super_admins').insert([{email:em,name:name||null}]);
   if(r.error){msg.style.color='var(--danger)';msg.textContent='خطأ: '+r.error.message;return;}
   msg.style.color='var(--green2)';msg.textContent='✅ تمت الإضافة';
-  document.getElementById('new-admin-email').value='';
-  document.getElementById('new-admin-name').value='';
+  document.getElementById('new-adm-em').value='';
+  document.getElementById('new-adm-name').value='';
   loadSuperAdmins();
 }
 
-async function removeSuperAdmin(id, email){
-  if(!confirm('حذف '+email+'؟')) return;
+async function removeSuperAdmin(id, email) {
+  if(!confirm('حذف '+email+'؟'))return;
   await sb.from('super_admins').delete().eq('id',id);
-  loadSuperAdmins();
-  toast('🗑️ تم الحذف');
+  loadSuperAdmins(); toast('🗑️ تم الحذف');
 }
-
-function toast(msg,type){
-  var c=document.getElementById('toast-c');
-  var t=document.createElement('div');
-  t.style.cssText='background:'+(type==='err'?'#e74c3c':'#222')+';color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;';
-  t.textContent=msg;c.appendChild(t);
-  setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},3000);
-}
-
-
-async function createDefaultMunicipality() {
-  var el = document.getElementById('mun-list');
-  if(el) el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ جاري الإنشاء…</div>';
-  try {
-    // Create municipalities table and insert wadi el sitt
-    var sqls = [
-      "CREATE TABLE IF NOT EXISTS municipalities (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT NOT NULL, region TEXT, logo_base64 TEXT, primary_color TEXT DEFAULT \'#1a6eb5\', secondary_color TEXT DEFAULT \'#1e5429\', website TEXT, is_active BOOLEAN DEFAULT true, created_at TIMESTAMPTZ DEFAULT NOW())",
-      "INSERT INTO municipalities (id,name,region) VALUES (\'00000000-0000-0000-0000-000000000001\',\'بلدية وادي الست\',\'قضاء الشوف\') ON CONFLICT (id) DO NOTHING",
-      "CREATE TABLE IF NOT EXISTS super_admins (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), email TEXT UNIQUE NOT NULL, name TEXT, created_at TIMESTAMPTZ DEFAULT NOW())",
-      "INSERT INTO super_admins (email,name) VALUES (\'imadaehn@gmail.com\',\'Super Admin\') ON CONFLICT (email) DO NOTHING"
-    ];
-    // Run via Supabase RPC if available, otherwise show SQL
-    toast('تحتاج تشغيل migration_v1.sql في Supabase SQL Editor', 'warn');
-    if(el) el.innerHTML = '<div style="background:#f0fdf4;border:1.5px solid #a8d9b4;border-radius:12px;padding:16px;font-size:13px">'
-      +'<div style="font-weight:700;color:#1e5429;margin-bottom:8px">✅ بلدية وادي الست ستظهر بعد تشغيل الـ SQL</div>'
-      +'<div style="color:var(--text3)">افتح <a href="https://supabase.com/dashboard/project/onjbwhkmmtqnymhjnplw/sql/new" target="_blank" style="color:var(--blue)">SQL Editor</a> وشغّل ملف migration_v1.sql</div>'
-      +'</div>';
-  } catch(e) {
-    toast('خطأ: ' + e.message, 'err');
-  }
-}
-
 </script>
 </body>
 </html>
