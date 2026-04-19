@@ -4263,8 +4263,9 @@ async function loadRequiredDocsFromDB() {
 
 
 // ══════════════════════════════════════════════════════════════════════════════
-// نظام دورة مياه الري — Wadi El Sitt Irrigation System v4
-// 160 ساعة مباعة، 75 مشترك، تناوب نهار/ليل أسبوعياً
+// نظام دورة مياه الري — Wadi El Sitt v5
+// المنطق: دورة متسلسلة 160 ساعة — كل شخص له عدد ساعات — يوم الدور يُحسب تلقائياً
+// التناوب: دورة 1=نهار، دورة 2=ليل، دورة 3=نهار...
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ── STORAGE ───────────────────────────────────────────────────────────────────
@@ -4277,19 +4278,16 @@ function saveIrrOwners(d) {
   if (dbR && sb) sb.from('settings').upsert({key:'wadi_irr_owners',value:d,updated_at:new Date().toISOString()},{onConflict:'key'}).catch(function(){});
 }
 function getIrrConfig() {
-  try {
-    return Object.assign({
-      dayStart: '06:00',    // وقت بداية النهار
-      nightStart: '18:00',  // وقت بداية الليل
-      totalHours: 160,      // إجمالي ساعات الري المباعة
-      weekRef: '2026-04-21', // أسبوع مرجعي (نهار)
-      senderName: 'لجنة الري — بلدية وادي الست',
-      senderEmail: 'noreply@municipality-wadi-el-sitt.org'
-    }, JSON.parse(localStorage.getItem('wadi_irr_config') || '{}'));
-  } catch(e) {
-    return { dayStart:'06:00', nightStart:'18:00', totalHours:160, weekRef:'2026-04-21',
-             senderName:'لجنة الري — بلدية وادي الست', senderEmail:'noreply@municipality-wadi-el-sitt.org' };
-  }
+  var def = {
+    dayStart: '06:00',      // وقت بداية النهار
+    nightStart: '18:00',    // وقت بداية الليل
+    totalHours: 160,        // إجمالي الساعات المباعة
+    cycleStartDate: '2026-04-20', // تاريخ بداية أول دورة (نهار)
+    senderName: 'لجنة الري — بلدية وادي الست',
+    senderEmail: 'noreply@municipality-wadi-el-sitt.org'
+  };
+  try { return Object.assign({}, def, JSON.parse(localStorage.getItem('wadi_irr_config') || '{}')); }
+  catch(e) { return def; }
 }
 function saveIrrConfig(d) {
   localStorage.setItem('wadi_irr_config', JSON.stringify(d));
@@ -4304,127 +4302,146 @@ function saveIrrSettings(d) {
   if (dbR && sb) sb.from('settings').upsert({key:'wadi_irr_settings',value:d,updated_at:new Date().toISOString()},{onConflict:'key'}).catch(function(){});
 }
 
-// ── HELPERS ───────────────────────────────────────────────────────────────────
-const IRR_DAYS = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+// ── CORE CYCLE LOGIC ──────────────────────────────────────────────────────────
+const IRR_DAYS_AR = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 
-// Add minutes to HH:MM string, returns {time, dayOffset}
-function addMinutes(timeStr, minutes) {
-  var p = timeStr.split(':');
-  var total = parseInt(p[0])*60 + parseInt(p[1]) + parseInt(minutes);
-  var days = Math.floor(total / 1440);
-  total = total % 1440;
-  var h = Math.floor(total / 60), m = total % 60;
+// Add minutes to a datetime, returns new datetime
+function addMinsToDate(dateObj, minutes) {
+  return new Date(dateObj.getTime() + minutes * 60000);
+}
+
+// Format date to HH:MM
+function fmtTime(dateObj) {
+  var h = dateObj.getHours(), m = dateObj.getMinutes();
+  return (h<10?'0':'')+h+':'+(m<10?'0':'')+m;
+}
+
+// Format date to Arabic day + date
+function fmtDateAr(dateObj) {
+  var days = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+  return days[dateObj.getDay()] + ' ' + dateObj.toLocaleDateString('ar-LB');
+}
+
+// Get current cycle info
+// Returns: { cycleNum, isDay, cycleStart (Date), cycleEnd (Date) }
+function getCurrentCycleInfo() {
+  var cfg = getIrrConfig();
+  var owners = getIrrOwners().sort(function(a,b){ return (a.order||0)-(b.order||0); });
+  var totalMinutes = owners.reduce(function(s,o){ return s + (parseFloat(o.hours)||0)*60; }, 0);
+  if (totalMinutes <= 0) totalMinutes = cfg.totalHours * 60;
+
+  var cycleStart = new Date(cfg.cycleStartDate);
+  cycleStart.setHours(
+    parseInt((cfg.dayStart||'06:00').split(':')[0]),
+    parseInt((cfg.dayStart||'06:00').split(':')[1]),
+    0, 0
+  );
+
+  var now = new Date();
+  // Find which cycle we're in
+  var elapsed = now - cycleStart; // ms
+  if (elapsed < 0) elapsed = 0;
+  var cycleMs = totalMinutes * 60000;
+  var cycleNum = Math.floor(elapsed / cycleMs); // 0-based
+  var thisCycleStart = new Date(cycleStart.getTime() + cycleNum * cycleMs);
+  var thisCycleEnd = new Date(thisCycleStart.getTime() + cycleMs);
+  var isDay = (cycleNum % 2 === 0); // even=day, odd=night
+
   return {
-    time: (h<10?'0':'')+h+':'+(m<10?'0':'')+m,
-    dayOffset: days
+    cycleNum: cycleNum + 1, // 1-based for display
+    isDay: isDay,
+    cycleStart: thisCycleStart,
+    cycleEnd: thisCycleEnd,
+    totalMinutes: totalMinutes
   };
 }
 
-function addHoursStr(timeStr, hours) {
-  var result = addMinutes(timeStr, hours * 60);
-  return result.time + (result.dayOffset > 0 ? ' (+يوم)' : '');
-}
-
-// Determine if current week is DAY or NIGHT
-// Uses weekRef (Monday of a known DAY week) as anchor
-function isCurrentWeekDay() {
+// Get schedule for a specific owner in a specific cycle (0=current, 1=next, -1=prev)
+function getOwnerSchedule(owner, cycleOffset) {
   var cfg = getIrrConfig();
-  var ref = new Date(cfg.weekRef);
-  var now = new Date();
-  // Get Monday of current week
-  var dow = now.getDay();
-  var monday = new Date(now);
-  monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
-  monday.setHours(0,0,0,0);
-  ref.setHours(0,0,0,0);
-  var diffWeeks = Math.round((monday - ref) / (7 * 24 * 3600 * 1000));
-  return diffWeeks % 2 === 0; // even = day (reference week), odd = night
-}
-
-function getCurrentCycleLabel() {
-  return isCurrentWeekDay() ? '☀️ نهار' : '🌙 ليل';
-}
-
-function getStartTimeForOwner(owner, isDay) {
-  var cfg = getIrrConfig();
-  var base = isDay ? cfg.dayStart : cfg.nightStart;
-  // owner.order = position in sequence (1-based)
-  // Calculate cumulative hours of all owners before this one
+  cycleOffset = cycleOffset || 0;
   var owners = getIrrOwners().sort(function(a,b){ return (a.order||0)-(b.order||0); });
-  var cumMinutes = 0;
+
+  // Cumulative minutes before this owner
+  var cumMins = 0;
   for (var i = 0; i < owners.length; i++) {
     if (owners[i].id === owner.id) break;
-    cumMinutes += (parseFloat(owners[i].hours) || 0) * 60;
+    cumMins += (parseFloat(owners[i].hours)||0) * 60;
   }
-  var result = addMinutes(base, cumMinutes);
-  return result.time;
+
+  var cycleInfo = getCurrentCycleInfo();
+  var targetCycleNum = cycleInfo.cycleNum - 1 + cycleOffset; // 0-based
+  var isDay = (targetCycleNum % 2 === 0);
+
+  // Cycle start datetime
+  var totalMs = cycleInfo.totalMinutes * 60000;
+  var cycleStart0 = new Date(cycleInfo.cycleStart.getTime() + cycleOffset * totalMs);
+
+  // Owner's start = cycle start + cumulative minutes
+  var ownerStart = addMinsToDate(cycleStart0, cumMins);
+  var ownerEnd = addMinsToDate(ownerStart, (parseFloat(owner.hours)||0) * 60);
+
+  return {
+    isDay: isDay,
+    cycleLabel: isDay ? '☀️ نهار' : '🌙 ليل',
+    cycleNum: targetCycleNum + 1,
+    startDate: ownerStart,
+    endDate: ownerEnd,
+    startTime: fmtTime(ownerStart),
+    endTime: fmtTime(ownerEnd),
+    startDateStr: fmtDateAr(ownerStart),
+    endDateStr: fmtDateAr(ownerEnd),
+    sameDay: ownerStart.toDateString() === ownerEnd.toDateString()
+  };
 }
 
-function getOwnerScheduleThisWeek(owner) {
-  var isDay = isCurrentWeekDay();
-  var start = getStartTimeForOwner(owner, isDay);
-  var end = addHoursStr(start, parseFloat(owner.hours) || 0);
-  return { isDay: isDay, start: start, end: end, label: isDay ? '☀️ نهار' : '🌙 ليل' };
+function getTotalAllocatedHours() {
+  return getIrrOwners().reduce(function(s,o){ return s+(parseFloat(o.hours)||0); },0);
+}
+function getRemainingHours() {
+  return getIrrConfig().totalHours - getTotalAllocatedHours();
 }
 
-function getOwnerScheduleNextWeek(owner) {
-  var isDay = !isCurrentWeekDay(); // next week is opposite
-  var start = getStartTimeForOwner(owner, isDay);
-  var end = addHoursStr(start, parseFloat(owner.hours) || 0);
-  return { isDay: isDay, start: start, end: end, label: isDay ? '☀️ نهار' : '🌙 ليل' };
-}
-
+// ── NOTIFICATION SETTINGS ─────────────────────────────────────────────────────
 function getMergedIrrSettings() {
   var def = {
     senderName: 'لجنة الري — بلدية وادي الست',
     senderEmail: 'noreply@municipality-wadi-el-sitt.org',
     notifications: {
-      evening_before: { enabled:true, label:'مساء يوم السبق', icon:'🌙',
-        subject:'تذكير: دور الري غداً — {day}',
-        body:'السيد/ة {name}،\nتذكير: دور الري غداً {day}\nالوقت: {start} حتى {end} ({hours} ساعة)\nنوع الدور: {cycle}\nالقطعة: {land}' },
+      tomorrow: { enabled:true, label:'قبل يوم (مساءً)', icon:'🌙',
+        subject:'تذكير: دور الري غداً',
+        body:'السيد/ة {name}،\nتذكير: دور الري غداً {startDate}\nالوقت: {startTime} حتى {endTime} ({hours} ساعة)\nالدورة: {cycle}\nالقطعة: {land}' },
       morning: { enabled:true, label:'صباح يوم الدور', icon:'🌅',
-        subject:'تذكير: دور الري اليوم — {day}',
-        body:'السيد/ة {name}،\nدور الري اليوم {day}\nالوقت: {start} حتى {end}\nنوع الدور: {cycle}' },
+        subject:'تذكير: دور الري اليوم',
+        body:'السيد/ة {name}،\nدور الري اليوم {startDate}\nالوقت: {startTime} — {endTime}\nالدورة: {cycle}' },
       one_hour: { enabled:true, label:'ساعة قبل البدء', icon:'⏰',
-        subject:'تنبيه: الري يبدأ بعد ساعة — {day}',
-        body:'السيد/ة {name}،\nتنبيه: دور الري يبدأ في الساعة {start} (بعد ساعة)\nالقطعة: {land}' },
+        subject:'تنبيه: الري يبدأ بعد ساعة',
+        body:'السيد/ة {name}،\nتنبيه: دور الري يبدأ الساعة {startTime} (بعد ساعة)\nالقطعة: {land}' },
       end: { enabled:false, label:'عند انتهاء الدور', icon:'🏁',
-        subject:'انتهى دور الري — {day}',
-        body:'السيد/ة {name}،\nانتهى وقت دور الري من {start} حتى {end}\nشكراً للالتزام.' }
+        subject:'انتهى دور الري',
+        body:'السيد/ة {name}،\nانتهى دور الري من {startTime} حتى {endTime}.\nشكراً للالتزام.' }
     },
-    emailColors: { evening_before:'#1a6eb5', morning:'#e67e22', one_hour:'#e74c3c', end:'#27ae60' }
+    emailColors: { tomorrow:'#1a6eb5', morning:'#e67e22', one_hour:'#e74c3c', end:'#27ae60' }
   };
   var saved = getIrrSettings();
-  if (saved.notifications) {
-    Object.keys(def.notifications).forEach(function(k){
-      if (saved.notifications[k]) def.notifications[k] = Object.assign({}, def.notifications[k], saved.notifications[k]);
-    });
-  }
-  return Object.assign({}, def, saved, {notifications: def.notifications});
+  if (saved.notifications) Object.keys(def.notifications).forEach(function(k){
+    if(saved.notifications[k]) def.notifications[k]=Object.assign({},def.notifications[k],saved.notifications[k]);
+  });
+  return Object.assign({},def,saved,{notifications:def.notifications});
 }
 
-function fillTemplate(tpl, owner, dayName, schedule) {
-  var sch = schedule || getOwnerScheduleThisWeek(owner);
+function fillIrrTemplate(tpl, owner, sch) {
   return (tpl||'')
     .replace(/{name}/g, owner.name||'')
-    .replace(/{day}/g, dayName||IRR_DAYS[owner.day]||'')
-    .replace(/{start}/g, sch.start||'')
-    .replace(/{end}/g, sch.end||'')
+    .replace(/{startDate}/g, sch.startDateStr||'')
+    .replace(/{endDate}/g, sch.endDateStr||'')
+    .replace(/{startTime}/g, sch.startTime||'')
+    .replace(/{endTime}/g, sch.endTime||'')
     .replace(/{hours}/g, owner.hours||'')
-    .replace(/{cycle}/g, sch.label||'')
-    .replace(/{land}/g, owner.landName||owner.landRef||'—')
+    .replace(/{cycle}/g, sch.cycleLabel||'')
+    .replace(/{land}/g, owner.landName||'—')
     .replace(/{phone}/g, owner.phone||'')
     .replace(/{area}/g, owner.area||'');
-}
-
-// ── TOTAL HOURS VALIDATION ───────────────────────────────────────────────────
-function getTotalAllocatedHours() {
-  return getIrrOwners().reduce(function(s,o){ return s + (parseFloat(o.hours)||0); }, 0);
-}
-
-function getRemainingHours() {
-  var cfg = getIrrConfig();
-  return cfg.totalHours - getTotalAllocatedHours();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -4432,121 +4449,111 @@ function getRemainingHours() {
 // ══════════════════════════════════════════════════════════════════════════════
 function openWaterSchedule() {
   var cfg = getIrrConfig();
-  var owners = getIrrOwners();
+  var owners = getIrrOwners().sort(function(a,b){return (a.order||0)-(b.order||0);});
   var totalAlloc = getTotalAllocatedHours();
   var remaining = getRemainingHours();
-  var isDay = isCurrentWeekDay();
-  var cycleLabel = getCurrentCycleLabel();
+  var cycleInfo = getCurrentCycleInfo();
+
+  var nextCycleStart = cycleInfo.cycleEnd;
+  var nextIsDay = !cycleInfo.isDay;
 
   document.getElementById('MT').textContent = '💧 نظام دورة الري';
-  document.getElementById('MB').innerHTML = `
-    <style>
-      .irtab{padding:8px 13px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--bg2);color:var(--text2);white-space:nowrap}
-      .irtab.on{background:#1a6eb5;color:#fff;border-color:#1a6eb5}
-      .ircard{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px}
-      .ircard:hover{border-color:#1a6eb5}
-      .cycle-day{background:#fff9e6;border:1.5px solid #f5c842;color:#7d5a00}
-      .cycle-night{background:#eef0ff;border:1.5px solid #6c7ae0;color:#3a3fa8}
-    </style>
+  var html_content = '<style>'
+    +'.irtab{padding:8px 13px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--bg2);color:var(--text2);white-space:nowrap}'
+    +'.irtab.on{background:#1a6eb5;color:#fff;border-color:#1a6eb5}'
+    +'.ircard{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px}'
+    +'</style>'
 
-    <!-- Cycle Status Banner -->
-    <div style="background:${isDay?'linear-gradient(120deg,#e67e22,#f39c12)':'linear-gradient(120deg,#2c3e6b,#3a4fa8)'};color:#fff;border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
-      <span style="font-size:28px">${isDay?'☀️':'🌙'}</span>
-      <div style="flex:1">
-        <div style="font-weight:800;font-size:15px">هذا الأسبوع: ${cycleLabel}</div>
-        <div style="font-size:12px;opacity:.85">الأسبوع القادم: ${isDay?'🌙 ليل':'☀️ نهار'} &nbsp;|&nbsp; بداية النهار: ${cfg.dayStart} &nbsp;|&nbsp; بداية الليل: ${cfg.nightStart}</div>
-      </div>
-      <div style="text-align:center;background:rgba(255,255,255,.15);border-radius:8px;padding:6px 12px">
-        <div style="font-size:20px;font-weight:800">${totalAlloc}/${cfg.totalHours}</div>
-        <div style="font-size:10px;opacity:.8">ساعة مخصصة</div>
-      </div>
-    </div>
+    // Current cycle banner
+    +'<div style="background:linear-gradient(120deg,'+(cycleInfo.isDay?'#e67e22,#f39c12':'#2c3e6b,#3a4fa8')+');color:#fff;border-radius:12px;padding:12px 16px;margin-bottom:12px">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
+    +'<div>'
+    +'<div style="font-size:14px;font-weight:800">الدورة '+(cycleInfo.isDay?'☀️ النهارية':'🌙 الليلية')+' رقم '+cycleInfo.cycleNum+'</div>'
+    +'<div style="font-size:11px;opacity:.85;margin-top:2px">'
+    +'بدأت: '+fmtDateAr(cycleInfo.cycleStart)+' '+fmtTime(cycleInfo.cycleStart)
+    +' | تنتهي: '+fmtDateAr(cycleInfo.cycleEnd)+' '+fmtTime(cycleInfo.cycleEnd)
+    +'</div>'
+    +'</div>'
+    +'<div style="text-align:center;background:rgba(255,255,255,.15);border-radius:8px;padding:6px 12px">'
+    +'<div style="font-size:18px;font-weight:800">'+totalAlloc+'/'+cfg.totalHours+'</div>'
+    +'<div style="font-size:10px;opacity:.8">ساعة مخصصة</div>'
+    +'</div>'
+    +'</div>'
+    +'<div style="font-size:11px;opacity:.8;margin-top:6px">الدورة القادمة: '+(nextIsDay?'☀️ نهار':'🌙 ليل')+' — تبدأ '+fmtDateAr(nextCycleStart)+' '+fmtTime(nextCycleStart)+'</div>'
+    +'</div>'
 
-    <!-- Hours progress bar -->
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
-        <span style="font-weight:700">ساعات مخصصة: ${totalAlloc}س من ${cfg.totalHours}س</span>
-        <span style="color:${remaining>=0?'var(--green2)':'var(--danger)'}">متبقي: ${remaining}س</span>
-      </div>
-      <div style="background:#eee;border-radius:20px;height:8px;overflow:hidden">
-        <div style="background:${remaining<0?'var(--danger)':'linear-gradient(90deg,#1e5429,#2d7a3e)'};height:100%;width:${Math.min(100,totalAlloc/cfg.totalHours*100).toFixed(1)}%;border-radius:20px;transition:width .3s"></div>
-      </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:4px">${owners.length} مشترك · المجموع الكلي: 168 ساعة/أسبوع · مباع: ${cfg.totalHours}س · للصيانة: ${168-cfg.totalHours}س</div>
-    </div>
+    // Hours bar
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px">'
+    +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">'
+    +'<span><strong>'+totalAlloc+'س</strong> مخصصة من <strong>'+cfg.totalHours+'س</strong></span>'
+    +'<span style="color:'+(remaining>=0?'var(--green2)':'var(--danger)')+'">متبقي: '+remaining.toFixed(1)+'س</span>'
+    +'</div>'
+    +'<div style="background:#eee;border-radius:20px;height:7px;overflow:hidden">'
+    +'<div style="background:'+(remaining<0?'var(--danger)':'linear-gradient(90deg,#1e5429,#2d7a3e)')+';height:100%;width:'+Math.min(100,totalAlloc/cfg.totalHours*100).toFixed(1)+'%;border-radius:20px"></div>'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-top:3px">168 ساعة/أسبوع · مباع: '+cfg.totalHours+'س · صيانة: '+(168-cfg.totalHours)+'س · '+owners.length+' مشترك</div>'
+    +'</div>'
 
-    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-      <div class="irtab on" onclick="irTab(this,'ir-list')">📋 المشتركون (${owners.length})</div>
-      <div class="irtab" onclick="irTab(this,'ir-add')">➕ إضافة</div>
-      <div class="irtab" onclick="irTab(this,'ir-week');renderIrrWeek()">📅 الجدول</div>
-      <div class="irtab" onclick="irTab(this,'ir-notify');renderIrrNotifPanel()">🔔 الإشعارات</div>
-      <div class="irtab" onclick="irTab(this,'ir-settings');renderIrrSettings()">⚙️ الإعدادات</div>
-    </div>
+    // Tabs
+    +'<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'
+    +'<div class="irtab on" onclick="irTab(this,\'ir-list\')">📋 المشتركون ('+owners.length+')</div>'
+    +'<div class="irtab" onclick="irTab(this,\'ir-add\')">➕ إضافة</div>'
+    +'<div class="irtab" onclick="irTab(this,\'ir-timeline\');renderIrrTimeline()">📅 الجدول الكامل</div>'
+    +'<div class="irtab" onclick="irTab(this,\'ir-notify\');renderIrrNotifPanel()">🔔 الإشعارات</div>'
+    +'<div class="irtab" onclick="irTab(this,\'ir-settings\');renderIrrSettings()">⚙️ الإعدادات</div>'
+    +'</div>'
 
-    <!-- LIST -->
-    <div id="ir-list">
-      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-        <input type="text" id="ir-search" placeholder="🔍 بحث بالاسم أو الهاتف…" class="fi" style="flex:1;min-width:140px" oninput="renderIrrList()">
-        <button class="btn" style="font-size:12px;padding:6px 12px" onclick="sortIrrByOrder()">🔢 ترتيب</button>
-        <button class="btn bp" style="font-size:12px;padding:6px 12px" onclick="sendAllIrrNotif('evening_before')">📧 إشعار للكل</button>
-      </div>
-      <div id="irr-list-body"></div>
-    </div>
+    // LIST panel
+    +'<div id="ir-list">'
+    +'<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">'
+    +'<input type="text" id="ir-search" placeholder="🔍 بحث…" class="fi" style="flex:1;min-width:140px" oninput="renderIrrList()">'
+    +'<button class="btn bp" style="font-size:12px;padding:6px 12px" onclick="irrNotifyAll(\'tomorrow\')">📧 إشعار للكل</button>'
+    +'</div>'
+    +'<div id="irr-list-body"></div>'
+    +'</div>'
 
-    <!-- ADD -->
-    <div id="ir-add" style="display:none">
-      <div class="admin-section">
-        <div class="admin-header">➕ تسجيل صاحب حق ري</div>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:12px">يُنشأ من البلدية فقط — الوقت يُحسب تلقائياً حسب الترتيب</div>
+    // ADD panel
+    +'<div id="ir-add" style="display:none">'
+    +'<div class="admin-section">'
+    +'<div class="admin-header">➕ تسجيل صاحب حق ري</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:12px">الوقت يُحسب تلقائياً حسب الترتيب والدورة — لا يوجد يوم ثابت</div>'
+    +'<div style="font-size:12px;font-weight:700;color:var(--blue2);margin:10px 0 6px">👤 الشخص</div>'
+    +'<div class="fg"><div class="fl">الاسم *</div><input type="text" class="fi" id="ir-name"></div>'
+    +'<div class="fg"><div class="fl">الهاتف *</div><input type="tel" class="fi" id="ir-phone" style="direction:ltr"></div>'
+    +'<div class="fg"><div class="fl">البريد</div><input type="email" class="fi" id="ir-email" style="direction:ltr"></div>'
+    +'<div class="fg"><div class="fl">المنطقة</div><input type="text" class="fi" id="ir-area"></div>'
+    +'<div style="font-size:12px;font-weight:700;color:var(--blue2);margin:12px 0 6px">🌿 حق الري</div>'
+    +'<div class="fg"><div class="fl">اسم القطعة</div><input type="text" class="fi" id="ir-land" placeholder="بستان الزيتون"></div>'
+    +'<div class="fg"><div class="fl">رقم السند</div><input type="text" class="fi" id="ir-ref"></div>'
+    +'<div class="fg"><div class="fl">المحصول</div><input type="text" class="fi" id="ir-crop" placeholder="زيتون، كرمة..."></div>'
+    +'<div style="font-size:12px;font-weight:700;color:var(--blue2);margin:12px 0 6px">⏱️ الحصة</div>'
+    +'<div class="fg"><div class="fl">الساعات *</div>'
+    +'<div style="display:flex;gap:8px;align-items:center">'
+    +'<input type="number" class="fi" id="ir-hours" placeholder="مثال: 2.5" step="0.5" min="0.5" max="24" style="flex:1" oninput="updateIrrPreview()">'
+    +'<span id="ir-rem-badge" style="font-size:12px;padding:3px 10px;border-radius:8px;background:var(--bg2);border:1px solid var(--border);white-space:nowrap">متبقي: '+remaining.toFixed(1)+'س</span>'
+    +'</div></div>'
+    +'<div class="fg"><div class="fl">الترتيب *</div>'
+    +'<input type="number" class="fi" id="ir-order" value="'+(owners.length+1)+'" min="1" oninput="updateIrrPreview()"></div>'
+    +'<div style="background:#f0fdf4;border:1.5px solid #a8d9b4;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px">'
+    +'<div style="font-size:11px;font-weight:700;color:#1e5429;margin-bottom:5px">📅 معاينة الدور (تلقائي)</div>'
+    +'<div id="ir-preview-day" style="margin-bottom:3px">☀️ النهار: —</div>'
+    +'<div id="ir-preview-night">🌙 الليل: —</div>'
+    +'</div>'
+    +'<div class="fg"><div class="fl">ملاحظات</div><textarea class="fi" id="ir-notes" rows="2" style="resize:none"></textarea></div>'
+    +'<button class="btn bp" style="width:100%;justify-content:center;margin-top:12px" onclick="saveIrrOwner()">✓ تسجيل</button>'
+    +'<div id="ir-msg" style="margin-top:8px;text-align:center;font-size:13px;min-height:18px"></div>'
+    +'</div></div>'
 
-        <div style="font-size:12px;font-weight:700;color:var(--blue2);margin:10px 0 8px;border-bottom:1px solid var(--border);padding-bottom:4px">👤 بيانات الشخص</div>
-        <div class="fg"><div class="fl">الاسم *</div><input type="text" class="fi" id="ir-name" placeholder="اسم صاحب الحق"></div>
-        <div class="fg"><div class="fl">رقم الهاتف *</div><input type="tel" class="fi" id="ir-phone" placeholder="03xxxxxx" style="direction:ltr"></div>
-        <div class="fg"><div class="fl">البريد الإلكتروني</div><input type="email" class="fi" id="ir-email" placeholder="للإشعارات (اختياري)" style="direction:ltr"></div>
-        <div class="fg"><div class="fl">المنطقة</div><input type="text" class="fi" id="ir-area" placeholder="الحارة أو المنطقة"></div>
+    // TIMELINE panel
+    +'<div id="ir-timeline" style="display:none"><div id="irr-timeline-body"></div></div>'
 
-        <div style="font-size:12px;font-weight:700;color:var(--blue2);margin:14px 0 8px;border-bottom:1px solid var(--border);padding-bottom:4px">🌿 حق الري</div>
-        <div class="fg"><div class="fl">اسم/وصف القطعة</div><input type="text" class="fi" id="ir-land" placeholder="بستان الزيتون — قطعة 5"></div>
-        <div class="fg"><div class="fl">رقم سند الحق</div><input type="text" class="fi" id="ir-ref" placeholder="رقم وثيقة حق الري"></div>
-        <div class="fg"><div class="fl">نوع المحصول</div><input type="text" class="fi" id="ir-crop" placeholder="زيتون، كرمة، تفاح…"></div>
+    // NOTIFY panel
+    +'<div id="ir-notify" style="display:none"><div id="irr-notif-body"></div></div>'
 
-        <div style="font-size:12px;font-weight:700;color:var(--blue2);margin:14px 0 8px;border-bottom:1px solid var(--border);padding-bottom:4px">⏱️ الحصة المائية</div>
-        <div class="fg">
-          <div class="fl">عدد الساعات *</div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input type="number" class="fi" id="ir-hours" placeholder="مثال: 2.5" step="0.5" min="0.5" max="24" style="flex:1" oninput="updateIrrPreview()">
-            <span id="ir-remaining-badge" style="font-size:12px;padding:4px 10px;border-radius:8px;background:var(--bg2);border:1px solid var(--border);white-space:nowrap">متبقي: ${remaining}س</span>
-          </div>
-        </div>
-        <div class="fg">
-          <div class="fl">الترتيب في الجدول *</div>
-          <input type="number" class="fi" id="ir-order" placeholder="مثال:" oninput="updateIrrPreview()" placeholder="مثال: ${owners.length+1}" min="1" value="${owners.length+1}">
-        </div>
-        <div class="fg"><div class="fl">ملاحظات</div><textarea class="fi" id="ir-notes" rows="2" style="resize:none"></textarea></div>
+    // SETTINGS panel
+    +'<div id="ir-settings" style="display:none"><div id="irr-settings-body"></div></div>';
 
-        <!-- Auto-calculated preview -->
-        <div style="background:#f0fdf4;border:1.5px solid #a8d9b4;border-radius:10px;padding:10px 12px;margin:8px 0">
-          <div style="font-size:12px;font-weight:700;color:#1e5429;margin-bottom:6px">📅 معاينة وقت الدور (يُحسب تلقائياً)</div>
-          <div style="font-size:13px;color:#333">
-            ☀️ النهار: <span id="ir-preview-day">—</span><br>
-            🌙 الليل: <span id="ir-preview-night">—</span>
-          </div>
-        </div>
-
-        <button class="btn bp" style="width:100%;justify-content:center;margin-top:12px" onclick="saveIrrOwner()">✓ تسجيل</button>
-        <div id="ir-msg" style="margin-top:8px;text-align:center;font-size:13px;min-height:18px"></div>
-      </div>
-    </div>
-
-    <!-- WEEK SCHEDULE -->
-    <div id="ir-week" style="display:none"><div id="irr-week-body"></div></div>
-
-    <!-- NOTIFICATIONS -->
-    <div id="ir-notify" style="display:none"><div id="irr-notif-body"></div></div>
-
-    <!-- SETTINGS -->
-    <div id="ir-settings" style="display:none"><div id="irr-settings-body"></div></div>
-  `;
-
+  document.getElementById('MB').innerHTML = html_content;
   document.getElementById('OV').classList.add('open');
   renderIrrList();
 }
@@ -4554,10 +4561,12 @@ function openWaterSchedule() {
 function irTab(el, id) {
   document.querySelectorAll('.irtab').forEach(function(t){t.classList.remove('on');});
   el.classList.add('on');
-  ['ir-list','ir-add','ir-week','ir-notify','ir-settings'].forEach(function(tid){
+  ['ir-list','ir-add','ir-timeline','ir-notify','ir-settings'].forEach(function(tid){
     var e=document.getElementById(tid); if(e) e.style.display=tid===id?'block':'none';
   });
 }
+
+// ── PREVIEW while adding ──────────────────────────────────────────────────────
 
 // ── LIST ──────────────────────────────────────────────────────────────────────
 function renderIrrList() {
@@ -4567,13 +4576,12 @@ function renderIrrList() {
   var filtered=q?owners.filter(function(o){return (o.name||'').toLowerCase().includes(q)||(o.phone||'').includes(q);}):owners;
 
   if(!filtered.length){
-    el.innerHTML='<div style="text-align:center;padding:30px;color:var(--text3)">'+
-      (owners.length?'لا نتائج':'📭 لا يوجد مشتركون — أضف من ➕')+'</div>'; return;
+    el.innerHTML='<div style="text-align:center;padding:30px;color:var(--text3)">'+(owners.length?'لا نتائج':'📭 لا يوجد مشتركون بعد')+'</div>'; return;
   }
 
-  el.innerHTML = filtered.map(function(o){
-    var sch = getOwnerScheduleThisWeek(o);
-    var schNext = getOwnerScheduleNextWeek(o);
+  el.innerHTML=filtered.map(function(o){
+    var sch=getOwnerSchedule(o,0);
+    var schNext=getOwnerSchedule(o,1);
     return '<div class="ircard">'
       +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
       +'<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1e5429,#2d7a3e);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0">'+(o.order||'?')+'</div>'
@@ -4582,22 +4590,21 @@ function renderIrrList() {
       +'<div style="font-size:12px;color:var(--text3)">📞 '+(o.phone||'—')+(o.email?' · 📧 '+o.email:'')+'</div>'
       +(o.landName?'<div style="font-size:11px;color:var(--text3)">🌿 '+o.landName+(o.crop?' ('+o.crop+')':'')+'</div>':'')
       +'</div>'
-      +'<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">'
-      +'<span style="font-size:11px;font-weight:700;background:#d4edda;color:#1e5429;padding:2px 8px;border-radius:20px">💧 '+o.hours+'س</span>'
+      +'<span style="background:#d4edda;color:#1e5429;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700">💧 '+o.hours+'س</span>'
       +'</div>'
-      +'</div>'
-      // This week
+      // This cycle
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">'
-      +'<div style="padding:7px 10px;border-radius:8px;background:'+(sch.isDay?'#fff9e6':'#eef0ff')+';border:1px solid '+(sch.isDay?'#f5c842':'#6c7ae0')+'">'
-      +'<div style="font-size:10px;font-weight:700;color:'+(sch.isDay?'#7d5a00':'#3a3fa8')+'">هذا الأسبوع '+sch.label+'</div>'
-      +'<div style="font-size:13px;font-weight:700;margin-top:2px;direction:ltr">'+sch.start+' — '+sch.end+'</div>'
+      +'<div style="padding:8px 10px;border-radius:8px;background:'+(sch.isDay?'#fff9e6':'#eef0ff')+';border:1px solid '+(sch.isDay?'#f5c842':'#6c7ae0')+'">'
+      +'<div style="font-size:10px;font-weight:700;color:'+(sch.isDay?'#7d5a00':'#3a3fa8')+'">هذه الدورة '+sch.cycleLabel+'</div>'
+      +'<div style="font-size:11px;font-weight:700;margin-top:2px">'+sch.startDateStr+'</div>'
+      +'<div style="font-size:12px;direction:ltr">'+sch.startTime+' — '+sch.endTime+'</div>'
       +'</div>'
-      +'<div style="padding:7px 10px;border-radius:8px;background:var(--bg2);border:1px solid var(--border)">'
-      +'<div style="font-size:10px;font-weight:700;color:var(--text3)">الأسبوع القادم '+schNext.label+'</div>'
-      +'<div style="font-size:13px;font-weight:700;margin-top:2px;color:var(--text3);direction:ltr">'+schNext.start+' — '+schNext.end+'</div>'
+      +'<div style="padding:8px 10px;border-radius:8px;background:var(--bg2);border:1px solid var(--border)">'
+      +'<div style="font-size:10px;font-weight:700;color:var(--text3)">الدورة القادمة '+schNext.cycleLabel+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+schNext.startDateStr+'</div>'
+      +'<div style="font-size:12px;color:var(--text3);direction:ltr">'+schNext.startTime+' — '+schNext.endTime+'</div>'
       +'</div>'
       +'</div>'
-      // Actions
       +'<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">'
       +'<button class="btn" style="padding:4px 10px;font-size:12px" onclick="editIrrOwner(\''+o.id+'\')">✏️</button>'
       +(o.email?'<button class="btn bp" style="padding:4px 12px;font-size:12px" data-irrnn="'+o.id+'">📧 إشعار الآن</button>':'<span style="font-size:11px;color:var(--text3)">بدون بريد</span>')
@@ -4607,200 +4614,167 @@ function renderIrrList() {
   }).join('');
 }
 
-// ── WEEK SCHEDULE VIEW ────────────────────────────────────────────────────────
-function renderIrrWeek() {
-  var el=document.getElementById('irr-week-body'); if(!el) return;
+// ── TIMELINE (Full schedule for current cycle) ─────────────────────────────────
+function renderIrrTimeline() {
+  var el=document.getElementById('irr-timeline-body'); if(!el) return;
   var owners=getIrrOwners().sort(function(a,b){return (a.order||0)-(b.order||0);});
-  var isDay=isCurrentWeekDay();
-  var cfg=getIrrConfig();
-  var totalAlloc=getTotalAllocatedHours();
+  var cycleInfo=getCurrentCycleInfo();
 
-  var html = '<div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">'
-    +'<div style="padding:8px 14px;border-radius:10px;background:'+(isDay?'#fff9e6':'#eef0ff')+';border:1.5px solid '+(isDay?'#f5c842':'#6c7ae0')+';font-weight:700;font-size:13px">'
-    +(isDay?'☀️ هذا الأسبوع نهاري — يبدأ '+cfg.dayStart:'🌙 هذا الأسبوع ليلي — يبدأ '+cfg.nightStart)+'</div>'
-    +'<div style="padding:8px 14px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);font-size:12px">'
-    +owners.length+' مشترك · '+totalAlloc+'س من '+cfg.totalHours+'س مباعة</div>'
-    +'</div>';
+  var html='<div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">'
+    +'<div style="padding:7px 12px;border-radius:8px;background:'+(cycleInfo.isDay?'#fff9e6':'#eef0ff')+';border:1.5px solid '+(cycleInfo.isDay?'#f5c842':'#6c7ae0')+';font-size:12px;font-weight:700">'
+    +'الدورة الحالية '+(cycleInfo.isDay?'☀️ نهار':'🌙 ليل')+' — بدأت '+fmtDateAr(cycleInfo.cycleStart)+'</div>'
+    +'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:4px">';
 
-  html += '<div style="display:flex;flex-direction:column;gap:6px">';
-  owners.forEach(function(o, idx){
-    var sch=getOwnerScheduleThisWeek(o);
-    html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:'+(idx%2===0?'var(--bg2)':'#fff')+';border:1px solid var(--border);border-radius:10px">'
-      +'<div style="width:30px;height:30px;border-radius:50%;background:#1e5429;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0">'+(o.order||idx+1)+'</div>'
+  owners.forEach(function(o,i){
+    var sch=getOwnerSchedule(o,0);
+    var isActive = new Date() >= sch.startDate && new Date() <= sch.endDate;
+    html+='<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;border:1px solid '+(isActive?'#1e5429':'var(--border)')+';background:'+(isActive?'#f0fdf4':i%2===0?'var(--bg2)':'#fff')+'">'
+      +'<div style="width:28px;height:28px;border-radius:50%;background:'+(isActive?'#1e5429':'#888')+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0">'+(o.order||i+1)+'</div>'
       +'<div style="flex:1;min-width:80px">'
-      +'<div style="font-weight:700;font-size:13px">'+o.name+'</div>'
+      +'<div style="font-weight:700;font-size:13px">'+(isActive?'🟢 ':'')+''+o.name+'</div>'
       +(o.landName?'<div style="font-size:11px;color:var(--text3)">🌿 '+o.landName+'</div>':'')
       +'</div>'
-      +'<div style="text-align:left;direction:ltr">'
-      +'<div style="font-weight:700;font-size:14px">'+sch.start+' — '+sch.end+'</div>'
-      +'<div style="font-size:11px;color:var(--text3)">'+o.hours+'س</div>'
+      +'<div style="text-align:left">'
+      +'<div style="font-size:11px;color:var(--text3)">'+sch.startDateStr+'</div>'
+      +'<div style="font-weight:700;font-size:13px;direction:ltr">'+sch.startTime+' — '+sch.endTime+'</div>'
       +'</div>'
+      +'<span style="background:#d4edda;color:#1e5429;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700">'+o.hours+'س</span>'
       +'</div>';
   });
-  html += '</div>';
-  el.innerHTML = html;
+  html+='</div>';
+  el.innerHTML=html;
 }
 
 // ── NOTIFICATION PANEL ────────────────────────────────────────────────────────
 function renderIrrNotifPanel() {
   var el=document.getElementById('irr-notif-body'); if(!el) return;
-  var settings=getMergedIrrSettings();
+  var s=getMergedIrrSettings();
   var owners=getIrrOwners();
   var withEmail=owners.filter(function(o){return o.email;});
 
-  var notifBtns=Object.keys(settings.notifications).map(function(k){
-    var n=settings.notifications[k];
-    if(!n.enabled) return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);margin-bottom:8px;opacity:.5">'
-      +'<div><span>'+n.icon+'</span> <span style="font-size:13px;font-weight:700">'+n.label+'</span></div>'
-      +'<span style="font-size:11px;color:var(--text3)">معطّل</span></div>';
-    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);margin-bottom:8px">'
+  var rows=Object.keys(s.notifications).map(function(k){
+    var n=s.notifications[k];
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);margin-bottom:8px;'+(n.enabled?'':'opacity:.5')+'">'
       +'<div><div style="font-weight:700;font-size:13px">'+n.icon+' '+n.label+'</div>'
-      +'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+n.subject.replace(/{day}/g,'يوم الدور')+'</div></div>'
-      +'<button class="btn bp" style="padding:6px 14px;font-size:12px" onclick="sendAllIrrNotif(\''+k+'\')">إرسال للكل</button>'
+      +'<div style="font-size:11px;color:var(--text3)">'+n.subject+'</div></div>'
+      +(n.enabled?'<button class="btn bp" style="padding:6px 14px;font-size:12px" onclick="irrNotifyAll(\''+k+'\')">إرسال للكل</button>':'<span style="font-size:11px;color:var(--text3)">معطّل</span>')
       +'</div>';
   }).join('');
 
   el.innerHTML='<div class="admin-section">'
-    +'<div class="admin-header">📧 إرسال الإشعارات</div>'
-    +'<div style="background:#f0fdf4;border:1px solid #a8d9b4;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:13px">'
-    +'<strong>'+owners.length+'</strong> مشترك · <span style="color:var(--green2)">📧 '+withEmail.length+' لديهم بريد</span>'
-    +(owners.length-withEmail.length?' · <span style="color:var(--warn)">'+( owners.length-withEmail.length)+' بدون بريد</span>':'')
-    +'<br><span style="font-size:11px;color:var(--text3)">الإشعارات تُرسل لأصحاب الأدوار المجدولة هذا الأسبوع</span>'
-    +'</div>'
-    +notifBtns
+    +'<div class="admin-header">📧 الإشعارات</div>'
+    +'<div style="background:#f0fdf4;border:1px solid #a8d9b4;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px">'
+    +owners.length+' مشترك · 📧 '+withEmail.length+' لديهم بريد · '+(owners.length-withEmail.length)+' بدون بريد'
+    +'</div>'+rows
     +'<div id="irr-notif-result" style="margin-top:10px;text-align:center;font-size:13px;min-height:18px"></div>'
     +'</div>';
 }
 
-async function sendAllIrrNotif(type) {
-  var settings=getMergedIrrSettings();
-  var notif=settings.notifications[type];
-  if(!notif||!notif.enabled){toast('هذا النوع معطّل من الإعدادات','err');return;}
+async function irrNotifyAll(type) {
+  var s=getMergedIrrSettings(), notif=s.notifications[type];
+  if(!notif||!notif.enabled){toast('هذا النوع معطّل','err');return;}
   var result=document.getElementById('irr-notif-result');
   var owners=getIrrOwners().filter(function(o){return o.email;});
-  if(!owners.length){if(result){result.style.color='var(--danger)';result.textContent='لا يوجد مشتركون بريد';}return;}
+  if(!owners.length){if(result){result.style.color='var(--danger)';result.textContent='لا يوجد بريد';}return;}
   if(result){result.style.color='var(--text3)';result.textContent='⏳ جاري الإرسال…';}
   var BKEY='xsmtpsib-0421702005db0037488fcf8571d71affe52db33a95300e80847392294f871b55-fxFDF0zqQLSVMDAA';
   var sent=0,failed=0;
   for(var i=0;i<owners.length;i++){
-    var o=owners[i];
-    var sch=getOwnerScheduleThisWeek(o);
-    var dayName=IRR_DAYS[o.day]||'—';
-    var subject=fillTemplate(notif.subject,o,dayName,sch);
-    var bodyText=fillTemplate(notif.body,o,dayName,sch);
-    var htmlBody=buildIrrEmail(o,dayName,type,settings,bodyText,sch);
+    var o=owners[i]; var sch=getOwnerSchedule(o,0);
     try {
-      var r=await fetch('https://api.brevo.com/v3/smtp/email',{
-        method:'POST',headers:{'api-key':BKEY,'Content-Type':'application/json'},
-        body:JSON.stringify({sender:{name:settings.senderName,email:settings.senderEmail},to:[{email:o.email,name:o.name}],subject:subject,htmlContent:htmlBody})
-      });
+      var r=await fetch('https://api.brevo.com/v3/smtp/email',{method:'POST',
+        headers:{'api-key':BKEY,'Content-Type':'application/json'},
+        body:JSON.stringify({sender:{name:s.senderName,email:s.senderEmail},to:[{email:o.email,name:o.name}],
+          subject:fillIrrTemplate(notif.subject,o,sch),
+          htmlContent:buildIrrEmail(o,type,s,fillIrrTemplate(notif.body,o,sch),sch)})});
       if(r.ok||r.status===201) sent++; else failed++;
-    } catch(e){failed++;}
+    }catch(e){failed++;}
   }
-  if(result){
-    result.style.color=failed===0?'var(--green2)':'var(--warn)';
-    result.textContent='✅ أُرسل '+sent+' إشعار'+(failed?' · ❌ فشل '+failed:'');
-  }
+  if(result){result.style.color=failed===0?'var(--green2)':'var(--warn)';result.textContent='✅ '+sent+' إشعار'+(failed?' · ❌ '+failed:'');}
 }
 
-// ── NOTIFY NOW (single owner) ─────────────────────────────────────────────────
+// ── NOTIFY NOW (single) ───────────────────────────────────────────────────────
 function irrNotifyNow(id) {
   var o=getIrrOwners().find(function(x){return x.id===id;});
   if(!o||!o.email){toast('لا يملك بريداً','err');return;}
-  var s=getMergedIrrSettings();
-  var sch=getOwnerScheduleThisWeek(o);
-  var schNext=getOwnerScheduleNextWeek(o);
+  var s=getMergedIrrSettings(), sch=getOwnerSchedule(o,0), schNext=getOwnerSchedule(o,1);
   var notifKeys=Object.keys(s.notifications).filter(function(k){return s.notifications[k].enabled;});
-
   var ov=document.createElement('div');
   ov.id='irr-nn-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;direction:rtl';
-
   var btns=notifKeys.map(function(k){
     var n=s.notifications[k];
-    return '<button class="btn bp" style="justify-content:flex-start;gap:12px;margin-bottom:8px;width:100%" data-irrnn-send="'+id+'|'+k+'">'
-      +'<span style="font-size:18px;flex-shrink:0">'+n.icon+'</span>'
-      +'<div style="text-align:right"><div style="font-weight:700">'+n.label+'</div>'
-      +'<div style="font-size:11px;opacity:.8">'+n.subject.replace(/{day}/g,IRR_DAYS[o.day]||'يوم الدور')+'</div></div>'
-      +'</button>';
+    return '<button class="btn bp" style="justify-content:flex-start;gap:10px;margin-bottom:8px;width:100%" data-irrnn-send="'+id+'|'+k+'">'
+      +'<span>'+n.icon+'</span><div><div style="font-weight:700">'+n.label+'</div></div></button>';
   }).join('');
-
-  ov.innerHTML='<div style="background:#fff;border-radius:16px;padding:22px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)">'
-    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
-    +'<div style="font-size:16px;font-weight:800;color:#1e5429">📧 إشعار الآن</div>'
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;padding:22px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+    +'<div style="font-size:15px;font-weight:800;color:#1e5429">📧 إشعار الآن</div>'
     +'<button onclick="document.getElementById(\'irr-nn-ov\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999">✕</button>'
     +'</div>'
-    +'<div style="background:#f0fdf4;border:1.5px solid #a8d9b4;border-radius:10px;padding:10px 12px;margin-bottom:14px">'
+    +'<div style="background:#f0fdf4;border:1.5px solid #a8d9b4;border-radius:10px;padding:10px 12px;margin-bottom:12px">'
     +'<div style="font-weight:700;color:#1e5429">#'+o.order+' — '+o.name+'</div>'
     +'<div style="font-size:12px;color:#666;direction:ltr">'+o.email+'</div>'
-    +(o.landName?'<div style="font-size:12px;color:#555">🌿 '+o.landName+'</div>':'')
-    +'<div style="font-size:12px;font-weight:700;margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">'
-    +'<span style="background:'+(sch.isDay?'#fff9e6':'#eef0ff')+';padding:2px 8px;border-radius:8px">هذا الأسبوع: '+sch.label+' '+sch.start+'-'+sch.end+'</span>'
-    +'<span style="background:var(--bg2);padding:2px 8px;border-radius:8px">القادم: '+schNext.label+' '+schNext.start+'</span>'
+    +'<div style="font-size:12px;font-weight:700;margin-top:6px">'
+    +'<span style="background:'+(sch.isDay?'#fff9e6':'#eef0ff')+';padding:2px 8px;border-radius:6px">هذه الدورة: '+sch.cycleLabel+' '+sch.startDateStr+' '+sch.startTime+'–'+sch.endTime+'</span>'
     +'</div></div>'
-    +'<div style="font-size:13px;font-weight:700;margin-bottom:10px">نوع الإشعار:</div>'
+    +'<div style="font-size:13px;font-weight:700;margin-bottom:8px">نوع الإشعار:</div>'
     +btns
-    +'<div id="irr-nn-res" style="margin-top:8px;text-align:center;font-size:13px;min-height:18px"></div>'
+    +'<div id="irr-nn-res" style="margin-top:8px;text-align:center;font-size:13px;min-height:16px"></div>'
     +'</div>';
-
   document.body.appendChild(ov);
   ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
 }
 
-async function sendIrrNN(id, type) {
+async function sendIrrNN(id,type) {
   var o=getIrrOwners().find(function(x){return x.id===id;});
-  if(!o||!o.email) return;
-  var s=getMergedIrrSettings();
-  var notif=s.notifications[type];
+  if(!o||!o.email)return;
+  var s=getMergedIrrSettings(), notif=s.notifications[type], sch=getOwnerSchedule(o,0);
   var res=document.getElementById('irr-nn-res');
-  if(res){res.style.color='var(--text3)';res.textContent='⏳ جاري الإرسال…';}
-  var sch=getOwnerScheduleThisWeek(o);
-  var dayName=IRR_DAYS[o.day]||'—';
-  var subject=fillTemplate(notif.subject,o,dayName,sch);
-  var bodyText=fillTemplate(notif.body,o,dayName,sch);
+  if(res){res.style.color='var(--text3)';res.textContent='⏳ جاري…';}
   var BKEY='xsmtpsib-0421702005db0037488fcf8571d71affe52db33a95300e80847392294f871b55-fxFDF0zqQLSVMDAA';
   try {
-    var r=await fetch('https://api.brevo.com/v3/smtp/email',{
-      method:'POST',headers:{'api-key':BKEY,'Content-Type':'application/json'},
-      body:JSON.stringify({sender:{name:s.senderName,email:s.senderEmail},to:[{email:o.email,name:o.name}],subject:subject,htmlContent:buildIrrEmail(o,dayName,type,s,bodyText,sch)})
-    });
+    var r=await fetch('https://api.brevo.com/v3/smtp/email',{method:'POST',
+      headers:{'api-key':BKEY,'Content-Type':'application/json'},
+      body:JSON.stringify({sender:{name:s.senderName,email:s.senderEmail},to:[{email:o.email,name:o.name}],
+        subject:fillIrrTemplate(notif.subject,o,sch),
+        htmlContent:buildIrrEmail(o,type,s,fillIrrTemplate(notif.body,o,sch),sch)})});
     var ok=r.ok||r.status===201;
-    if(res){res.style.color=ok?'var(--green2)':'var(--danger)';res.textContent=ok?'✅ تم الإرسال!':'❌ فشل';}
+    if(res){res.style.color=ok?'var(--green2)':'var(--danger)';res.textContent=ok?'✅ تم!':'❌ فشل';}
     if(ok){toast('✅ إشعار لـ '+o.name);setTimeout(function(){var v=document.getElementById('irr-nn-ov');if(v)v.remove();},1500);}
-  } catch(e){if(res){res.style.color='var(--danger)';res.textContent='خطأ: '+e.message;}}
+  }catch(e){if(res){res.style.color='var(--danger)';res.textContent='خطأ: '+e.message;}}
 }
 
-// Event delegation for notify now buttons
+// Event delegation
 document.addEventListener('click',function(e){
-  var btn=e.target.closest?e.target.closest('[data-irrnn]'):null;
-  if(btn&&btn.getAttribute('data-irrnn')) irrNotifyNow(btn.getAttribute('data-irrnn'));
-  var btn2=e.target.closest?e.target.closest('[data-irrnn-send]'):null;
-  if(btn2){var parts=btn2.getAttribute('data-irrnn-send').split('|');sendIrrNN(parts[0],parts[1]);}
+  var b1=e.target.closest?e.target.closest('[data-irrnn]'):null;
+  if(b1)irrNotifyNow(b1.getAttribute('data-irrnn'));
+  var b2=e.target.closest?e.target.closest('[data-irrnn-send]'):null;
+  if(b2){var p=b2.getAttribute('data-irrnn-send').split('|');sendIrrNN(p[0],p[1]);}
 });
 
 // ── EMAIL BUILDER ─────────────────────────────────────────────────────────────
-function buildIrrEmail(o,dayName,type,settings,bodyText,sch){
+function buildIrrEmail(o,type,settings,bodyText,sch){
   var color=(settings.emailColors||{})[type]||'#1e5429';
   var notif=settings.notifications[type];
   var icon=notif?notif.icon:'💧';
-  sch=sch||getOwnerScheduleThisWeek(o);
   var bodyHtml=(bodyText||'').replace(/\n/g,'<br>');
   return '<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><style>'
     +'body{font-family:Tahoma,Arial,sans-serif;background:#f0f6f0;direction:rtl;padding:16px;margin:0}'
     +'.card{background:#fff;border-radius:16px;max-width:520px;margin:0 auto;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1)}'
     +'.hdr{background:'+color+';color:#fff;padding:18px 22px;text-align:center}'
     +'.body{padding:20px 24px;font-size:15px;line-height:1.9;color:#333}'
-    +'.infobox{background:#f0fdf4;border:2px solid #a8d9b4;border-radius:12px;padding:14px;margin:12px 0;text-align:center}'
-    +'.big{font-size:24px;font-weight:800;color:'+color+';margin:4px 0}'
+    +'.box{background:#f0fdf4;border:2px solid #a8d9b4;border-radius:12px;padding:14px;margin:12px 0;text-align:center}'
     +'.ft{background:#f8f9fb;padding:10px;font-size:11px;color:#999;text-align:center;border-top:1px solid #eee}'
     +'</style></head><body><div class="card">'
     +'<div class="hdr"><h2 style="margin:0;font-size:17px">'+icon+' نظام الري — بلدية وادي الست</h2></div>'
     +'<div class="body"><p>'+bodyHtml+'</p>'
-    +'<div class="infobox">'
-    +'<div style="font-size:13px;color:#666;margin-bottom:4px">'+(sch.isDay?'☀️ نهاري':'🌙 ليلي')+'</div>'
-    +'<div class="big">⏰ '+sch.start+' — '+sch.end+'</div>'
-    +'<div style="font-size:18px;font-weight:800;color:#1e5429;margin-top:6px">💧 '+o.hours+' ساعة</div>'
-    +(o.landName?'<div style="font-size:13px;color:#555;margin-top:6px">🌿 '+o.landName+'</div>':'')
+    +'<div class="box">'
+    +'<div style="font-size:13px;color:#666">'+sch.cycleLabel+' — '+sch.startDateStr+'</div>'
+    +'<div style="font-size:22px;font-weight:800;color:'+color+';margin:6px 0">⏰ '+sch.startTime+' — '+sch.endTime+'</div>'
+    +'<div style="font-size:18px;font-weight:800;color:#1e5429">💧 '+o.hours+' ساعة</div>'
+    +(o.landName?'<div style="font-size:12px;color:#555;margin-top:6px">🌿 '+o.landName+'</div>':'')
     +'</div></div>'
     +'<div class="ft">بلدية وادي الست · قضاء الشوف · Powered by IanTrading SAL © 2026</div>'
     +'</div></body></html>';
@@ -4809,67 +4783,64 @@ function buildIrrEmail(o,dayName,type,settings,bodyText,sch){
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
 function renderIrrSettings(){
   var el=document.getElementById('irr-settings-body'); if(!el) return;
-  var cfg=getIrrConfig();
-  var s=getMergedIrrSettings();
+  var cfg=getIrrConfig(), s=getMergedIrrSettings();
   var notifRows=Object.keys(s.notifications).map(function(k){
-    var n=s.notifications[k];
-    var c=s.emailColors[k]||'#1e5429';
+    var n=s.notifications[k],c=(s.emailColors||{})[k]||'#1e5429';
     return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">'
       +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
-      +'<span style="font-size:18px">'+n.icon+'</span>'
-      +'<div style="flex:1;font-weight:700;font-size:13px">'+n.label+'</div>'
+      +'<span>'+n.icon+'</span><div style="flex:1;font-weight:700;font-size:13px">'+n.label+'</div>'
       +'<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">'
       +'<input type="checkbox" id="isn-en-'+k+'" '+(n.enabled?'checked':'')+' style="accent-color:var(--blue);width:14px;height:14px"> مفعّل</label>'
       +'</div>'
       +'<div class="fg"><div class="fl" style="font-size:12px">الموضوع</div><input type="text" class="fi" id="isn-sub-'+k+'" value="'+n.subject+'" style="font-size:12px"></div>'
       +'<div class="fg"><div class="fl" style="font-size:12px">نص الرسالة</div><textarea class="fi" id="isn-body-'+k+'" rows="3" style="resize:none;font-size:11px">'+n.body+'</textarea></div>'
-      +'<div class="fg"><div class="fl" style="font-size:12px">لون الإيميل</div><input type="color" id="isn-color-'+k+'" value="'+c+'" style="width:44px;height:28px;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:2px"></div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-bottom:6px">المتغيرات: {name} {startDate} {startTime} {endTime} {hours} {cycle} {land}</div>'
+      +'<div class="fg"><div class="fl" style="font-size:12px">اللون</div><input type="color" id="isn-color-'+k+'" value="'+c+'" style="width:44px;height:28px;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:2px"></div>'
       +'</div>';
   }).join('');
 
   el.innerHTML='<div class="admin-section">'
     +'<div class="admin-header">⚙️ إعدادات نظام الري</div>'
-    +'<div style="font-size:12px;font-weight:700;color:var(--blue2);margin:0 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)">🕐 أوقات الدورة</div>'
+    +'<div style="font-size:12px;font-weight:700;color:var(--blue2);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)">🕐 إعدادات الدورة</div>'
     +'<div class="fg"><div class="fl">بداية النهار ☀️</div><input type="time" class="fi" id="irset-day" value="'+cfg.dayStart+'" style="direction:ltr"></div>'
     +'<div class="fg"><div class="fl">بداية الليل 🌙</div><input type="time" class="fi" id="irset-night" value="'+cfg.nightStart+'" style="direction:ltr"></div>'
     +'<div class="fg"><div class="fl">إجمالي الساعات المباعة</div><input type="number" class="fi" id="irset-total" value="'+cfg.totalHours+'" min="1" max="168" style="direction:ltr"></div>'
-    +'<div class="fg"><div class="fl">أسبوع مرجعي (نهار)</div><input type="date" class="fi" id="irset-weekref" value="'+cfg.weekRef+'" style="direction:ltr"><div style="font-size:11px;color:var(--text3);margin-top:4px">أدخل تاريخ أي إثنين من أسبوع نهاري — يُستخدم لحساب التناوب</div></div>'
+    +'<div class="fg"><div class="fl">تاريخ بدء أول دورة نهار</div>'
+    +'<input type="datetime-local" class="fi" id="irset-cyclestart" value="'+cfg.cycleStartDate+'T'+cfg.dayStart+'" style="direction:ltr">'
+    +'<div style="font-size:11px;color:var(--text3);margin-top:3px">هذا هو المرجع لحساب كل الدورات والتناوب</div></div>'
     +'<div style="font-size:12px;font-weight:700;color:var(--blue2);margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)">👤 المرسِل</div>'
-    +'<div class="fg"><div class="fl">اسم المرسِل</div><input type="text" class="fi" id="irset-sender-name" value="'+s.senderName+'"></div>'
-    +'<div class="fg"><div class="fl">بريد المرسِل</div><input type="email" class="fi" id="irset-sender-email" value="'+s.senderEmail+'" style="direction:ltr"></div>'
-    +'<div style="font-size:12px;font-weight:700;color:var(--blue2);margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)">🔔 الإشعارات الأربعة</div>'
-    +'<div style="font-size:11px;color:var(--text3);margin-bottom:10px">المتغيرات المتاحة: {name} {day} {start} {end} {hours} {cycle} {land} {phone}</div>'
+    +'<div class="fg"><div class="fl">الاسم</div><input type="text" class="fi" id="irset-sname" value="'+s.senderName+'"></div>'
+    +'<div class="fg"><div class="fl">البريد</div><input type="email" class="fi" id="irset-semail" value="'+s.senderEmail+'" style="direction:ltr"></div>'
+    +'<div style="font-size:12px;font-weight:700;color:var(--blue2);margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)">🔔 الإشعارات</div>'
     +notifRows
-    +'<button class="btn bp" style="width:100%;justify-content:center;margin-top:12px" onclick="saveIrrSettingsAll()">💾 حفظ كل الإعدادات</button>'
+    +'<button class="btn bp" style="width:100%;justify-content:center;margin-top:12px" onclick="saveIrrAll()">💾 حفظ كل الإعدادات</button>'
     +'<div id="irset-msg" style="margin-top:8px;text-align:center;font-size:13px;min-height:18px"></div>'
     +'</div>';
 }
 
-function saveIrrSettingsAll(){
+function saveIrrAll(){
   var cfg=getIrrConfig();
   cfg.dayStart=(document.getElementById('irset-day')||{value:cfg.dayStart}).value;
   cfg.nightStart=(document.getElementById('irset-night')||{value:cfg.nightStart}).value;
-  cfg.totalHours=parseFloat((document.getElementById('irset-total')||{value:cfg.totalHours}).value)||160;
-  cfg.weekRef=(document.getElementById('irset-weekref')||{value:cfg.weekRef}).value||cfg.weekRef;
+  cfg.totalHours=parseFloat((document.getElementById('irset-total')||{value:160}).value)||160;
+  var dt=(document.getElementById('irset-cyclestart')||{value:''}).value;
+  if(dt){ cfg.cycleStartDate=dt.slice(0,10); cfg.dayStart=dt.slice(11,16)||cfg.dayStart; }
   saveIrrConfig(cfg);
   var s=getMergedIrrSettings();
-  s.senderName=(document.getElementById('irset-sender-name')||{value:s.senderName}).value.trim();
-  s.senderEmail=(document.getElementById('irset-sender-email')||{value:s.senderEmail}).value.trim();
+  s.senderName=(document.getElementById('irset-sname')||{value:s.senderName}).value.trim();
+  s.senderEmail=(document.getElementById('irset-semail')||{value:s.senderEmail}).value.trim();
   Object.keys(s.notifications).forEach(function(k){
-    var en=document.getElementById('isn-en-'+k);
-    var sub=document.getElementById('isn-sub-'+k);
-    var body=document.getElementById('isn-body-'+k);
-    var color=document.getElementById('isn-color-'+k);
-    if(en) s.notifications[k].enabled=en.checked;
-    if(sub) s.notifications[k].subject=sub.value.trim();
-    if(body) s.notifications[k].body=body.value.trim();
-    if(color) s.emailColors[k]=color.value;
+    var en=document.getElementById('isn-en-'+k),sub=document.getElementById('isn-sub-'+k),
+        body=document.getElementById('isn-body-'+k),clr=document.getElementById('isn-color-'+k);
+    if(en)s.notifications[k].enabled=en.checked;
+    if(sub)s.notifications[k].subject=sub.value.trim();
+    if(body)s.notifications[k].body=body.value.trim();
+    if(clr)s.emailColors[k]=clr.value;
   });
   saveIrrSettings(s);
   var msg=document.getElementById('irset-msg');
   if(msg){msg.style.color='var(--green2)';msg.textContent='✅ تم الحفظ';}
   toast('✅ تم حفظ إعدادات الري');
-  // Refresh current view
   openWaterSchedule();
 }
 
@@ -4881,43 +4852,34 @@ function saveIrrOwner(){
   var msg=document.getElementById('ir-msg');
   if(!name){if(msg){msg.style.color='var(--danger)';msg.textContent='يرجى الاسم';}return;}
   if(!phone){if(msg){msg.style.color='var(--danger)';msg.textContent='يرجى الهاتف';}return;}
-  if(!hours){if(msg){msg.style.color='var(--danger)';msg.textContent='يرجى عدد الساعات';}return;}
+  if(!hours){if(msg){msg.style.color='var(--danger)';msg.textContent='يرجى الساعات';}return;}
   var rem=getRemainingHours()-hours;
-  if(rem<0){if(msg){msg.style.color='var(--danger)';msg.textContent='تجاوزت الساعات المتاحة! متبقي: '+getRemainingHours()+'س';}return;}
-  var owner={
-    id:'ir_'+Date.now().toString(36),
-    name,phone,
+  if(rem<-0.01){if(msg){msg.style.color='var(--danger)';msg.textContent='تجاوز! متبقي: '+getRemainingHours().toFixed(1)+'س';}return;}
+  var o={id:'ir_'+Date.now().toString(36),name,phone,
     email:(document.getElementById('ir-email')||{value:''}).value.trim(),
     area:(document.getElementById('ir-area')||{value:''}).value.trim(),
     landName:(document.getElementById('ir-land')||{value:''}).value.trim(),
     landRef:(document.getElementById('ir-ref')||{value:''}).value.trim(),
     crop:(document.getElementById('ir-crop')||{value:''}).value.trim(),
-    hours,
-    order:parseInt((document.getElementById('ir-order')||{value:1}).value)||1,
+    hours,order:parseInt((document.getElementById('ir-order')||{value:1}).value)||1,
     notes:(document.getElementById('ir-notes')||{value:''}).value.trim(),
-    createdAt:new Date().toISOString().slice(0,10)
-  };
-  var owners=getIrrOwners(); owners.push(owner); saveIrrOwners(owners);
-  if(msg){msg.style.color='var(--green2)';msg.textContent='✅ تم تسجيل '+name+' ('+hours+'س · متبقي: '+rem.toFixed(1)+'س)';}
+    createdAt:new Date().toISOString().slice(0,10)};
+  var owners=getIrrOwners(); owners.push(o); saveIrrOwners(owners);
+  if(msg){msg.style.color='var(--green2)';msg.textContent='✅ تم تسجيل '+name+' · متبقي: '+rem.toFixed(1)+'س';}
   ['ir-name','ir-phone','ir-email','ir-area','ir-land','ir-ref','ir-crop','ir-notes'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
   updateWaterBadge();
-}
-
-function sortIrrByOrder(){
-  var owners=getIrrOwners().sort(function(a,b){return (a.order||0)-(b.order||0);});
-  saveIrrOwners(owners); renderIrrList(); toast('✅ رُتّب حسب الترتيب');
 }
 
 function deleteIrrOwner(id,name){
   if(!confirm('حذف '+name+'؟'))return;
   saveIrrOwners(getIrrOwners().filter(function(o){return o.id!==id;}));
-  renderIrrList(); updateWaterBadge(); toast('🗑️ تم حذف '+name);
+  renderIrrList(); updateWaterBadge(); toast('🗑️ '+name);
 }
 
 function editIrrOwner(id){
   var o=getIrrOwners().find(function(x){return x.id===id;}); if(!o)return;
   document.getElementById('MB').innerHTML='<div>'
-    +'<div style="font-weight:700;font-size:16px;margin-bottom:12px;color:#1e5429">✏️ تعديل: '+o.name+'</div>'
+    +'<div style="font-size:16px;font-weight:800;color:#1e5429;margin-bottom:12px">✏️ تعديل: '+o.name+'</div>'
     +'<div class="admin-section">'
     +'<div class="fg"><div class="fl">الاسم</div><input type="text" class="fi" id="ire-name" value="'+(o.name||'')+'"></div>'
     +'<div class="fg"><div class="fl">الهاتف</div><input type="tel" class="fi" id="ire-phone" value="'+(o.phone||'')+'" style="direction:ltr"></div>'
@@ -4948,96 +4910,91 @@ function saveIrrEdit(id){
     order:parseInt((document.getElementById('ire-order')||{value:1}).value)||1,
     notes:(document.getElementById('ire-notes')||{value:''}).value.trim(),
   });
-  saveIrrOwners(owners);toast('✅ تم الحفظ');openWaterSchedule();
+  saveIrrOwners(owners);toast('✅ تم');openWaterSchedule();
 }
 
-// ── BADGE & DB LOAD ───────────────────────────────────────────────────────────
+// ── BADGE & DB ────────────────────────────────────────────────────────────────
 function updateWaterBadge(){
   var n=getIrrOwners().length,b=document.getElementById('water-badge');
   if(b){b.textContent=n||'';b.style.display=n?'inline':'none';}
 }
-
 async function loadWaterFromDB(){
   if(!dbR||!sb)return;
-  try {
-    var r1=await sb.from('settings').select('value').eq('key','wadi_irr_owners').single();
-    if(!r1.error&&r1.data&&r1.data.value)localStorage.setItem('wadi_irr_owners',JSON.stringify(r1.data.value));
-    var r2=await sb.from('settings').select('value').eq('key','wadi_irr_config').single();
-    if(!r2.error&&r2.data&&r2.data.value)localStorage.setItem('wadi_irr_config',JSON.stringify(r2.data.value));
-    var r3=await sb.from('settings').select('value').eq('key','wadi_irr_settings').single();
-    if(!r3.error&&r3.data&&r3.data.value)localStorage.setItem('wadi_irr_settings',JSON.stringify(r3.data.value));
+  try{
+    var keys=['wadi_irr_owners','wadi_irr_config','wadi_irr_settings'];
+    var lskeys=['wadi_irr_owners','wadi_irr_config','wadi_irr_settings'];
+    for(var i=0;i<keys.length;i++){
+      var r=await sb.from('settings').select('value').eq('key',keys[i]).single();
+      if(!r.error&&r.data&&r.data.value)localStorage.setItem(lskeys[i],JSON.stringify(r.data.value));
+    }
     updateWaterBadge();
   }catch(e){}
 }
 
-// ── WATER PORTAL: PUBLIC LOOKUP ───────────────────────────────────────────────
+// ── WATER PORTAL (PUBLIC) ─────────────────────────────────────────────────────
 function lookupWaterOwner(){
-  var phone=document.getElementById('wp-phone').value.replace(/[^0-9]/g,'').trim();
-  var err=document.getElementById('wp-err');
-  var result=document.getElementById('wp-result');
-  if(!phone||phone.length<6){err.textContent='⚠️ يرجى إدخال رقم هاتفك';return;}
-  err.textContent='';
-  result.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3)">⏳ جاري البحث…</div>';
+  var phone=(document.getElementById('wp-phone')||{value:''}).value.replace(/[^0-9]/g,'').trim();
+  var err=document.getElementById('wp-err'), result=document.getElementById('wp-result');
+  if(!phone||phone.length<6){if(err)err.textContent='⚠️ يرجى إدخال رقم هاتفك';return;}
+  if(err)err.textContent='';
+  if(result)result.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3)">⏳ جاري البحث…</div>';
   var owners=getIrrOwners();
   var norm=function(p){return(p||'').replace(/[^0-9]/g,'').replace(/^961/,'').replace(/^0/,'');};
   var inp=norm(phone);
   var matches=owners.filter(function(o){return norm(o.phone)===inp;});
   if(!matches.length){
-    result.innerHTML='<div style="background:#fdeaea;border:1px solid #f2bcbc;border-radius:12px;padding:20px;text-align:center;color:var(--danger)">'
+    if(result)result.innerHTML='<div style="background:#fdeaea;border:1px solid #f2bcbc;border-radius:12px;padding:20px;text-align:center;color:var(--danger)">'
       +'<div style="font-size:32px;margin-bottom:8px">🔒</div>'
-      +'<div style="font-size:15px;font-weight:700;margin-bottom:6px">لم يتم العثور على سجل</div>'
-      +'<div style="font-size:13px;opacity:.8">تواصل مع البلدية لتسجيل حقك</div>'
-      +'</div>'; return;
+      +'<div style="font-size:15px;font-weight:700">لم يتم العثور على سجل</div>'
+      +'<div style="font-size:13px;opacity:.8;margin-top:6px">تواصل مع البلدية لتسجيل حقك في الري</div>'
+      +'</div>';
+    return;
   }
   var html='';
   matches.forEach(function(o){
-    var sch=getOwnerScheduleThisWeek(o);
-    var schNext=getOwnerScheduleNextWeek(o);
+    var sch=getOwnerSchedule(o,0), schNext=getOwnerSchedule(o,1), schPrev=getOwnerSchedule(o,-1);
     html+='<div style="background:#fff;border:1.5px solid #1e5429;border-radius:16px;padding:20px;margin-bottom:14px">'
+      // Header
       +'<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
       +'<div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#1e5429,#2d7a3e);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px">#'+o.order+'</div>'
       +'<div><div style="font-size:17px;font-weight:800;color:#1e5429">'+o.name+'</div>'
       +(o.area?'<div style="font-size:12px;color:var(--text3)">'+o.area+'</div>':'')+'</div>'
       +'</div>'
+      // Land info
       +(o.landName?'<div style="background:#f0fdf4;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px">🌿 '+o.landName+(o.crop?' ('+o.crop+')':'')+(o.landRef?' · سند: '+o.landRef:'')+'</div>':'')
-      // This week
-      +'<div style="background:'+(sch.isDay?'linear-gradient(120deg,#e67e22,#f39c12)':'linear-gradient(120deg,#2c3e6b,#3a4fa8)')+';color:#fff;border-radius:12px;padding:16px;text-align:center;margin-bottom:8px">'
-      +'<div style="font-size:13px;opacity:.85;margin-bottom:4px">هذا الأسبوع — '+sch.label+'</div>'
-      +'<div style="font-size:22px;font-weight:800">⏰ '+sch.start+' — '+sch.end+'</div>'
+      // Current cycle
+      +'<div style="background:linear-gradient(120deg,'+(sch.isDay?'#e67e22,#f39c12':'#2c3e6b,#3a4fa8')+');color:#fff;border-radius:12px;padding:16px;text-align:center;margin-bottom:8px">'
+      +'<div style="font-size:12px;opacity:.85;margin-bottom:4px">هذه الدورة — '+sch.cycleLabel+'</div>'
+      +'<div style="font-size:14px;font-weight:700;margin-bottom:4px">'+sch.startDateStr+'</div>'
+      +'<div style="font-size:22px;font-weight:800">⏰ '+sch.startTime+' — '+sch.endTime+'</div>'
       +'<div style="font-size:20px;font-weight:800;margin-top:6px">💧 '+o.hours+' ساعة</div>'
       +'</div>'
-      // Next week
+      // Next cycle
       +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">'
-      +'<div style="font-size:12px;color:var(--text3);margin-bottom:3px">الأسبوع القادم — '+schNext.label+'</div>'
-      +'<div style="font-size:16px;font-weight:700;direction:ltr">⏰ '+schNext.start+' — '+schNext.end+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-bottom:3px">الدورة القادمة — '+schNext.cycleLabel+'</div>'
+      +'<div style="font-size:13px;font-weight:700;color:var(--text3)">'+schNext.startDateStr+'</div>'
+      +'<div style="font-size:15px;font-weight:700;direction:ltr">'+schNext.startTime+' — '+schNext.endTime+'</div>'
       +'</div>'
-      +(o.notes?'<div style="margin-top:8px;padding:8px 10px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--text3)">📝 '+o.notes+'</div>':'')
+      +(o.notes?'<div style="margin-top:8px;padding:8px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--text3)">📝 '+o.notes+'</div>':'')
       +'</div>';
   });
-  result.innerHTML=html;
+  if(result)result.innerHTML=html;
 }
 
 
 
-function updateIrrPreview() {
-  var hrs = parseFloat((document.getElementById('ir-hours')||{value:0}).value)||0;
-  var order = parseInt((document.getElementById('ir-order')||{value:1}).value)||1;
-  var cfg2 = getIrrConfig();
-  var owners2 = getIrrOwners().sort(function(a,b){return (a.order||0)-(b.order||0);});
-  var cumMin = 0;
-  for(var j=0; j<owners2.length; j++){
-    if((owners2[j].order||j+1) >= order) break;
-    cumMin += (parseFloat(owners2[j].hours)||0)*60;
-  }
-  var ds = addMinutes(cfg2.dayStart, cumMin).time;
-  var ns = addMinutes(cfg2.nightStart, cumMin).time;
-  var de2 = document.getElementById('ir-preview-day');
-  var ne2 = document.getElementById('ir-preview-night');
-  if(de2) de2.textContent = hrs>0?(ds+' — '+addHoursStr(ds,hrs)):'—';
-  if(ne2) ne2.textContent = hrs>0?(ns+' — '+addHoursStr(ns,hrs)):'—';
-  var rem = getRemainingHours() - hrs;
-  var badge = document.getElementById('ir-remaining-badge');
-  if(badge){ badge.textContent='متبقي: '+rem.toFixed(1)+'س'; badge.style.background=rem<0?'#fdeaea':'var(--bg2)'; badge.style.color=rem<0?'var(--danger)':'inherit'; }
+// ── WATER PORTAL NAVIGATION ───────────────────────────────────────────────────
+function showWaterPortal() {
+  try {
+    ['LANDING','WELCOME-CARDS','LS','CP','APP'].forEach(function(id){
+      var e=document.getElementById(id); if(e) e.style.display='none';
+    });
+    var wp=document.getElementById('WATER-PORTAL');
+    if(wp) wp.style.cssText='display:flex;flex-direction:column;min-height:100vh;background:var(--bg,#f5f7fa)';
+    var p=document.getElementById('wp-phone'), r=document.getElementById('wp-result'), er=document.getElementById('wp-err');
+    if(p) p.value=''; if(r) r.innerHTML=''; if(er) er.textContent='';
+    setTimeout(function(){ var pp=document.getElementById('wp-phone'); if(pp) pp.focus(); },200);
+  } catch(e){ console.error('showWaterPortal:',e.message); }
 }
 
 </script>
