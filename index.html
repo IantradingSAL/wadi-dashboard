@@ -4269,26 +4269,100 @@ async function loadRequiredDocsFromDB() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ── STORAGE ───────────────────────────────────────────────────────────────────
+// ── IRR OWNERS: Supabase table ───────────────────────────────────────────────
+// Cache in memory for fast access
+var _irrOwnersCache = null;
+
+async function loadIrrOwners() {
+  if (!dbR || !sb) return [];
+  try {
+    var res = await sb.from('irr_owners')
+      .select('*')
+      .eq('municipality_id', '00000000-0000-0000-0000-000000000001')
+      .order('sort_order', {ascending: true});
+    if (res.error) throw res.error;
+    // Map DB columns to JS object keys
+    _irrOwnersCache = (res.data || []).map(function(r){
+      return {
+        id: r.id, name: r.name, phone: r.phone, email: r.email||'',
+        area: r.area||'', landName: r.land_name||'', landRef: r.land_ref||'',
+        landSize: r.land_size||'', crop: r.crop||'',
+        hours: parseFloat(r.hours)||0, order: r.sort_order||1,
+        notes: r.notes||'', createdAt: r.created_at||''
+      };
+    });
+    // Also cache in localStorage for offline/portal use
+    localStorage.setItem('wadi_irr_owners', JSON.stringify(_irrOwnersCache));
+    return _irrOwnersCache;
+  } catch(e) {
+    console.log('loadIrrOwners:', e.message);
+    // Fallback to localStorage
+    try { return JSON.parse(localStorage.getItem('wadi_irr_owners')||'[]'); }
+    catch(x){ return []; }
+  }
+}
+
 function getIrrOwners() {
+  // Return cached — use loadIrrOwners() for fresh data
+  if (_irrOwnersCache) return _irrOwnersCache;
   try { return JSON.parse(localStorage.getItem('wadi_irr_owners') || '[]'); }
   catch(e) { return []; }
 }
+
+async 
+
+async function deleteIrrOwnerFromDB(id) {
+  if (!dbR || !sb) return;
+  try { await sb.from('irr_owners').delete().eq('id', id); }
+  catch(e){ console.log('deleteIrrOwner:', e.message); }
+}
+
 function saveIrrOwners(d) {
   localStorage.setItem('wadi_irr_owners', JSON.stringify(d));
   if (dbR && sb) sb.from('settings').upsert({key:'wadi_irr_owners',value:d,updated_at:new Date().toISOString()},{onConflict:'key'}).catch(function(){});
 }
+// ── IRR CONFIG: Supabase table ────────────────────────────────────────────────
+var _irrConfigCache = null;
+
+async function loadIrrConfig() {
+  if (!dbR || !sb) return getIrrConfig();
+  try {
+    var res = await sb.from('irr_config')
+      .select('*')
+      .eq('municipality_id', '00000000-0000-0000-0000-000000000001')
+      .single();
+    if (res.error) throw res.error;
+    var r = res.data;
+    _irrConfigCache = {
+      dayStart: r.day_start || '06:00',
+      nightStart: r.night_start || '18:00',
+      totalHours: r.total_hours || 160,
+      cycleStartDate: r.cycle_start_date || '2026-04-20',
+      senderName: r.sender_name || 'لجنة الري — بلدية وادي الست',
+      senderEmail: r.sender_email || 'noreply@municipality-wadi-el-sitt.org'
+    };
+    localStorage.setItem('wadi_irr_config', JSON.stringify(_irrConfigCache));
+    return _irrConfigCache;
+  } catch(e) {
+    console.log('loadIrrConfig:', e.message);
+    return getIrrConfig();
+  }
+}
+
 function getIrrConfig() {
+  if (_irrConfigCache) return _irrConfigCache;
   var def = {
-    dayStart: '06:00',      // وقت بداية النهار
-    nightStart: '18:00',    // وقت بداية الليل
-    totalHours: 160,        // إجمالي الساعات المباعة
-    cycleStartDate: '2026-04-20', // تاريخ بداية أول دورة (نهار)
+    dayStart: '06:00', nightStart: '18:00', totalHours: 160,
+    cycleStartDate: '2026-04-20',
     senderName: 'لجنة الري — بلدية وادي الست',
     senderEmail: 'noreply@municipality-wadi-el-sitt.org'
   };
-  try { return Object.assign({}, def, JSON.parse(localStorage.getItem('wadi_irr_config') || '{}')); }
+  try { return Object.assign({}, def, JSON.parse(localStorage.getItem('wadi_irr_config')||'{}')); }
   catch(e) { return def; }
 }
+
+
+
 function saveIrrConfig(d) {
   localStorage.setItem('wadi_irr_config', JSON.stringify(d));
   if (dbR && sb) sb.from('settings').upsert({key:'wadi_irr_config',value:d,updated_at:new Date().toISOString()},{onConflict:'key'}).catch(function(){});
@@ -4447,7 +4521,10 @@ function fillIrrTemplate(tpl, owner, sch) {
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN OPEN
 // ══════════════════════════════════════════════════════════════════════════════
-function openWaterSchedule() {
+async function openWaterSchedule() {
+  // Load fresh data from Supabase
+  await loadIrrOwners();
+  await loadIrrConfig();
   var cfg = getIrrConfig();
   var owners = getIrrOwners().sort(function(a,b){return (a.order||0)-(b.order||0);});
   var totalAlloc = getTotalAllocatedHours();
@@ -4872,7 +4949,10 @@ function saveIrrOwner(){
 
 function deleteIrrOwner(id,name){
   if(!confirm('حذف '+name+'؟'))return;
-  saveIrrOwners(getIrrOwners().filter(function(o){return o.id!==id;}));
+  var updated = getIrrOwners().filter(function(o){return o.id!==id;});
+  _irrOwnersCache = updated;
+  localStorage.setItem('wadi_irr_owners', JSON.stringify(updated));
+  deleteIrrOwnerFromDB(id);
   renderIrrList(); updateWaterBadge(); toast('🗑️ '+name);
 }
 
@@ -4919,17 +4999,11 @@ function updateWaterBadge(){
   if(b){b.textContent=n||'';b.style.display=n?'inline':'none';}
 }
 async function loadWaterFromDB(){
-  if(!dbR||!sb)return;
-  try{
-    var keys=['wadi_irr_owners','wadi_irr_config','wadi_irr_settings'];
-    var lskeys=['wadi_irr_owners','wadi_irr_config','wadi_irr_settings'];
-    for(var i=0;i<keys.length;i++){
-      var r=await sb.from('settings').select('value').eq('key',keys[i]).single();
-      if(!r.error&&r.data&&r.data.value)localStorage.setItem(lskeys[i],JSON.stringify(r.data.value));
-    }
-    updateWaterBadge();
-  }catch(e){}
+  await loadIrrOwners();
+  await loadIrrConfig();
+  updateWaterBadge();
 }
+
 
 // ── WATER PORTAL (PUBLIC) ─────────────────────────────────────────────────────
 function lookupWaterOwner(){
@@ -4984,16 +5058,29 @@ function lookupWaterOwner(){
 
 
 // ── WATER PORTAL NAVIGATION ───────────────────────────────────────────────────
-function showWaterPortal() {
+async function showWaterPortal() {
   try {
+    // Show portal screen
     ['LANDING','WELCOME-CARDS','LS','CP','APP'].forEach(function(id){
       var e=document.getElementById(id); if(e) e.style.display='none';
     });
     var wp=document.getElementById('WATER-PORTAL');
     if(wp) wp.style.cssText='display:flex;flex-direction:column;min-height:100vh;background:var(--bg,#f5f7fa)';
+    // Clear inputs
     var p=document.getElementById('wp-phone'), r=document.getElementById('wp-result'), er=document.getElementById('wp-err');
-    if(p) p.value=''; if(r) r.innerHTML=''; if(er) er.textContent='';
-    setTimeout(function(){ var pp=document.getElementById('wp-phone'); if(pp) pp.focus(); },200);
+    if(p) p.value=''; if(er) er.textContent='';
+    // Show loading
+    if(r) r.innerHTML='<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">⏳ جاري تحميل البيانات…</div>';
+    // Load water data from Supabase irr_owners table (public — no login needed)
+    try {
+      if(typeof sb !== 'undefined') {
+        await loadIrrOwners();
+        await loadIrrConfig();
+      }
+    } catch(ex){ console.log('Water portal load:', ex.message); }
+    // Clear result after load
+    if(r) r.innerHTML='';
+    setTimeout(function(){ var pp=document.getElementById('wp-phone'); if(pp) pp.focus(); },100);
   } catch(e){ console.error('showWaterPortal:',e.message); }
 }
 
