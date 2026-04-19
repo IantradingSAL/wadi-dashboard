@@ -317,9 +317,7 @@ body { background: var(--bg); min-height:100vh; }
       <div style="display:flex;align-items:center;gap:6px;margin-top:5px;margin-bottom:2px;font-size:12px;color:var(--green2)">📧 سيتم إرسال إشعار إلكتروني إلى بريدك لتأكيد استلام طلبك</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:13px">
         <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">نوع الطلب *</div>
-          <select id="c-type" class="fi" style="appearance:none;-webkit-appearance:none" onchange="showRequiredDocs(this.value)">
-            ${(typeof getCats==='function'?getCats():[{id:'complaint',icon:'⚠️',label:'شكوى'},{id:'welfare',icon:'🤝',label:'رعاية اجتماعية'},{id:'permit',icon:'🏗️',label:'ترخيص'},{id:'inquiry',icon:'❓',label:'استفسار'}]).map(function(c){return '<option value="'+c.id+'">'+c.icon+' '+c.label+'</option>';}).join('')}
-            </select></div>
+          <select id="c-type" class="fi" style="appearance:none;-webkit-appearance:none" onchange="showRequiredDocs(this.value)"></select></div>
       <div id="required-docs-box" style="display:none;margin:4px 0 12px;border-radius:10px;overflow:hidden;font-size:13px"></div>
         <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">العنوان</div>
           <input type="text" id="c-addr" class="fi" placeholder="حارة، منطقة…"></div>
@@ -421,6 +419,20 @@ window.addEventListener('DOMContentLoaded', async function() {
   if (cp) cp.style.display = 'flex';
   
   await loadCats();
+  // Populate type select (can't use template literals in static HTML)
+  (function(){
+    var sel = document.getElementById('c-type');
+    if (!sel) return;
+    var cats = typeof WADI_CATS_DEFAULT !== 'undefined' ? WADI_CATS_DEFAULT : [
+      {id:'complaint',icon:'⚠️',label:'شكوى'},
+      {id:'welfare',icon:'🤝',label:'رعاية اجتماعية'},
+      {id:'permit',icon:'🏗️',label:'ترخيص'},
+      {id:'inquiry',icon:'❓',label:'استفسار'},
+      {id:'ifada',icon:'📜',label:'إفادة عقارية'}
+    ];
+    try { var stored = localStorage.getItem('wadi_cats'); if(stored) cats = JSON.parse(stored); } catch(e){}
+    sel.innerHTML = cats.map(function(c){ return '<option value="'+c.id+'">'+c.icon+' '+c.label+'</option>'; }).join('');
+  })();
   setupCitizenPortal();
 });
 

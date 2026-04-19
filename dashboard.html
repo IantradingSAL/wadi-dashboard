@@ -4534,7 +4534,6 @@ async function openWaterSchedule() {
   if(!mt||!mb||!ov){alert('Error: MT/MB/OV not found');return;}
   mt.textContent='💧 دورة الري';
   mb.innerHTML='<div style="text-align:center;padding:40px;color:#888"><div style="font-size:36px">💧</div><div style="margin-top:12px">جاري التحميل…</div></div>';
-  ov.style.cssText='display:flex !important;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;align-items:flex-start;justify-content:flex-start;';
   ov.classList.add('open');
   try{await loadIrrOwners();}catch(e){console.warn('loadOwners',e.message);}
   try{await loadIrrConfig();}catch(e){console.warn('loadConfig',e.message);}
