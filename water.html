@@ -62,10 +62,13 @@ function fmtDateAr(d){
   return days[d.getDay()]+' '+d.toLocaleDateString('ar-LB');
 }
 function getCycleInfo(){
-  var cfg=_config;
-  var owners=_owners.slice().sort(function(a,b){return a.sort_order-b.sort_order;});
+  var cfg=_config||{};
+  var owners=_owners.slice().sort(function(a,b){return (a.sort_order||0)-(b.sort_order||0);});
   var totalMins=owners.reduce(function(s,o){return s+(parseFloat(o.hours)||0)*60;},0);
-  if(totalMins<=0) totalMins=(cfg.total_hours||160)*60;
+  // Use configured total hours even if owners don't fill all 160h yet
+  var configuredMins=(parseInt(cfg.total_hours)||160)*60;
+  // Cycle length = configured total (not sum of current owners)
+  totalMins=configuredMins;
   var cs=new Date(cfg.cycle_start_date||'2026-04-20');
   cs.setHours(parseInt((cfg.day_start||'06:00').split(':')[0]),parseInt((cfg.day_start||'06:00').split(':')[1]),0,0);
   var now=new Date();
@@ -99,12 +102,51 @@ function getOwnerSched(owner,offset){
 // ── INIT ──────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async function(){
   sb=window.supabase.createClient(SB_URL,SB_KEY,{realtime:{enabled:false}});
+
+  // Try irr_owners table first, fallback to settings
   try{
     var r1=await sb.from('irr_owners').select('*').eq('municipality_id',MUN_ID).order('sort_order');
-    if(!r1.error) _owners=r1.data||[];
+    if(!r1.error && r1.data && r1.data.length>0){
+      _owners = r1.data;
+    } else {
+      // Fallback: load from settings table (old storage)
+      var rs=await sb.from('settings').select('value').eq('key','wadi_irr_owners').single();
+      if(!rs.error && rs.data && rs.data.value){
+        var arr = Array.isArray(rs.data.value) ? rs.data.value : [];
+        // Map old format to new format
+        _owners = arr.map(function(o){
+          return {
+            id:o.id, name:o.name, phone:o.phone, email:o.email||'',
+            area:o.area||'', land_name:o.landName||o.land_name||'',
+            land_ref:o.landRef||o.land_ref||'', crop:o.crop||'',
+            hours:parseFloat(o.hours)||0,
+            sort_order:parseInt(o.order||o.sort_order)||1,
+            notes:o.notes||''
+          };
+        });
+      }
+    }
+  }catch(e){ console.log('irr_owners load:',e.message); }
+
+  // Try irr_config table first, fallback to settings
+  try{
     var r2=await sb.from('irr_config').select('*').eq('municipality_id',MUN_ID).single();
-    if(!r2.error&&r2.data) _config=r2.data;
-  }catch(e){console.log('Load error:',e.message);}
+    if(!r2.error && r2.data){
+      _config=r2.data;
+    } else {
+      var rc=await sb.from('settings').select('value').eq('key','wadi_irr_config').single();
+      if(!rc.error && rc.data && rc.data.value){
+        var old=rc.data.value;
+        _config={
+          day_start: old.dayStart||'06:00',
+          night_start: old.nightStart||'18:00',
+          total_hours: old.totalHours||160,
+          cycle_start_date: old.cycleStartDate||'2026-04-20'
+        };
+      }
+    }
+  }catch(e){ console.log('irr_config load:',e.message); }
+
   document.getElementById('loading-msg').style.display='none';
   document.getElementById('lookup-card').style.display='block';
   setTimeout(function(){var p=document.getElementById('wp-phone');if(p)p.focus();},200);
@@ -120,11 +162,14 @@ function lookupWaterOwner(){
   var inp=norm(phone);
   var matches=_owners.filter(function(o){return norm(o.phone)===inp;});
   if(!matches.length){
-    result.innerHTML='<div class="card" style="text-align:center;color:#e74c3c">'
+    var noOwnersMsg = _owners.length===0
+      ? '<div style="font-size:12px;background:#fff9e6;border:1px solid #f5c842;border-radius:8px;padding:8px 12px;margin-top:10px;color:#7d5a00">⚠️ لم يُسجَّل أي مشترك حتى الآن في النظام — يرجى التواصل مع البلدية</div>'
+      : '';
+    result.innerHTML='<div class="card" style="text-align:center">'
       +'<div style="font-size:36px;margin-bottom:10px">🔒</div>'
-      +'<div style="font-size:16px;font-weight:700;margin-bottom:6px">لم يتم العثور على سجل</div>'
-      +'<div style="font-size:13px;color:var(--text3)">تواصل مع البلدية لتسجيل حقك في الري</div>'
-      +((_owners.length===0)?'<div style="font-size:12px;color:#aaa;margin-top:8px">⚠️ لم يُسجَّل أي مشترك بعد</div>':'')
+      +'<div style="font-size:16px;font-weight:700;margin-bottom:6px;color:#e74c3c">لم يتم العثور على سجل</div>'
+      +'<div style="font-size:13px;color:var(--text3)">تأكد من رقم هاتفك أو تواصل مع البلدية لتسجيل حقك في الري</div>'
+      +noOwnersMsg
       +'</div>';
     return;
   }
