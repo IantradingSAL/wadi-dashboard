@@ -10,7 +10,7 @@
 --text:#1a1a2e;--text2:#444;--text3:#888;--border:#e0e6ef;--bg:#f5f7fa;--font:'Tahoma',Arial,sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:var(--font);direction:rtl;background:var(--bg);min-height:100vh;display:flex;flex-direction:column;color:var(--text);}
-.header{background:linear-gradient(120deg,#1e5429,#2d7a3e);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:12px;}
+.header{background:linear-gradient(120deg,#0f4d82,#1a6eb5);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:12px;}
 .header img{height:38px;}
 .header-text h1{font-size:16px;font-weight:800;}
 .header-text p{font-size:11px;opacity:.7;}
@@ -20,8 +20,8 @@ body{font-family:var(--font);direction:rtl;background:var(--bg);min-height:100vh
 .fi{width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-family:var(--font);font-size:15px;outline:none;background:#fff;color:var(--text);direction:ltr;text-align:center;}
 .fi:focus{border-color:#1e5429;}
 .btn{display:flex;align-items:center;justify-content:center;gap:7px;padding:12px 18px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:none;font-family:var(--font);}
-.btn-green{background:#1e5429;color:#fff;width:100%;}
-.btn-green:hover{background:#2d7a3e;}
+.btn-green{background:#1a6eb5;color:#fff;width:100%;}
+.btn-green:hover{background:#0f4d82;}
 </style>
 </head>
 <body>
@@ -69,8 +69,10 @@ function getCycleInfo(){
   var configuredMins=(parseInt(cfg.total_hours)||160)*60;
   // Cycle length = configured total (not sum of current owners)
   totalMins=configuredMins;
-  var cs=new Date(cfg.cycle_start_date||'2026-04-20');
-  cs.setHours(parseInt((cfg.day_start||'06:00').split(':')[0]),parseInt((cfg.day_start||'06:00').split(':')[1]),0,0);
+  var csd = (cfg.cycle_start_date||'2026-04-20').toString().slice(0,10);
+  var ds = (cfg.day_start||'06:00').toString();
+  var cs=new Date(csd);
+  cs.setHours(parseInt(ds.split(':')[0]||6),parseInt(ds.split(':')[1]||0),0,0);
   var now=new Date();
   var elapsed=Math.max(0,now-cs);
   var cycleMs=totalMins*60000;
@@ -103,49 +105,55 @@ function getOwnerSched(owner,offset){
 window.addEventListener('DOMContentLoaded', async function(){
   sb=window.supabase.createClient(SB_URL,SB_KEY,{realtime:{enabled:false}});
 
-  // Try irr_owners table first, fallback to settings
+  // Load owners: try irr_owners table → fallback to settings → fallback to localStorage
   try{
-    var r1=await sb.from('irr_owners').select('*').eq('municipality_id',MUN_ID).order('sort_order');
-    if(!r1.error && r1.data && r1.data.length>0){
-      _owners = r1.data;
-    } else {
-      // Fallback: load from settings table (old storage)
-      var rs=await sb.from('settings').select('value').eq('key','wadi_irr_owners').single();
-      if(!rs.error && rs.data && rs.data.value){
-        var arr = Array.isArray(rs.data.value) ? rs.data.value : [];
-        // Map old format to new format
-        _owners = arr.map(function(o){
-          return {
-            id:o.id, name:o.name, phone:o.phone, email:o.email||'',
-            area:o.area||'', land_name:o.landName||o.land_name||'',
-            land_ref:o.landRef||o.land_ref||'', crop:o.crop||'',
-            hours:parseFloat(o.hours)||0,
-            sort_order:parseInt(o.order||o.sort_order)||1,
-            notes:o.notes||''
-          };
-        });
+    var r1=await sb.from('irr_owners').select('*').eq('municipality_id',MUN_ID).order('sort_order',{ascending:true});
+    if(!r1.error && r1.data){
+      var tableOwners = r1.data.map(function(r){
+        return {id:r.id,name:r.name,phone:r.phone,email:r.email||'',
+          area:r.area||'',land_name:r.land_name||r.landName||'',
+          land_ref:r.land_ref||r.landRef||'',crop:r.crop||'',
+          hours:parseFloat(r.hours)||0,sort_order:parseInt(r.sort_order||r.order)||1,notes:r.notes||''};
+      });
+      if(tableOwners.length>0){
+        _owners=tableOwners;
+      } else {
+        // Table empty — try settings
+        throw new Error('table empty');
       }
-    }
-  }catch(e){ console.log('irr_owners load:',e.message); }
+    } else throw r1.error||new Error('table error');
+  }catch(e){
+    console.log('irr_owners table:',e.message,'— trying settings fallback');
+    try{
+      var rs=await sb.from('settings').select('value').eq('key','wadi_irr_owners').single();
+      if(!rs.error&&rs.data&&rs.data.value){
+        var arr=Array.isArray(rs.data.value)?rs.data.value:[];
+        _owners=arr.map(function(o){
+          return {id:o.id,name:o.name,phone:o.phone,email:o.email||'',
+            area:o.area||'',land_name:o.landName||o.land_name||'',
+            land_ref:o.landRef||o.land_ref||'',crop:o.crop||'',
+            hours:parseFloat(o.hours)||0,sort_order:parseInt(o.order||o.sort_order)||1,notes:o.notes||''};
+        });
+        console.log('Loaded '+_owners.length+' owners from settings fallback');
+      }
+    }catch(e2){console.log('settings fallback failed:',e2.message);}
+  }
 
-  // Try irr_config table first, fallback to settings
+  // Load config: try irr_config table → fallback to settings
   try{
     var r2=await sb.from('irr_config').select('*').eq('municipality_id',MUN_ID).single();
-    if(!r2.error && r2.data){
-      _config=r2.data;
-    } else {
+    if(!r2.error&&r2.data) _config=r2.data;
+    else throw r2.error||new Error('no config');
+  }catch(e){
+    try{
       var rc=await sb.from('settings').select('value').eq('key','wadi_irr_config').single();
-      if(!rc.error && rc.data && rc.data.value){
-        var old=rc.data.value;
-        _config={
-          day_start: old.dayStart||'06:00',
-          night_start: old.nightStart||'18:00',
-          total_hours: old.totalHours||160,
-          cycle_start_date: old.cycleStartDate||'2026-04-20'
-        };
+      if(!rc.error&&rc.data&&rc.data.value){
+        var c=rc.data.value;
+        _config={day_start:c.dayStart||'06:00',night_start:c.nightStart||'18:00',
+          total_hours:c.totalHours||160,cycle_start_date:c.cycleStartDate||'2026-04-20'};
       }
-    }
-  }catch(e){ console.log('irr_config load:',e.message); }
+    }catch(e2){}
+  }
 
   document.getElementById('loading-msg').style.display='none';
   document.getElementById('lookup-card').style.display='block';
