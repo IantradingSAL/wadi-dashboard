@@ -337,7 +337,8 @@ const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const TL={complaint:'شكوى',welfare:'رعاية اجتماعية',permit:'ترخيص',inquiry:'استفسار'};
-function getTLabel(id){try{var c=getCats().find(function(x){return x.id===id;});if(c)return c.icon+' '+c.label;}catch(e){}return TL[id]||id;}
+function getTLabel(id){try{var c=getCats().find(function(x){return x.id===id;});if(c)return c.icon+' '+c.label;}catch(e){}return TL[id
+  ['f_water','نظام دورة الري 💧']]||id;}
 
 const SL={new:'جديد','in-progress':'قيد المعالجة',review:'مراجعة','pending-approval':'ينتظر الموافقة',resolved:'منجز',closed:'مغلق'};
 const PL={high:'عالية',medium:'متوسطة',low:'منخفضة'};
@@ -407,7 +408,7 @@ function applyRoleVisibility(){
   show('#nav-activity',R.activity,'flex');
   show('#nav-audit',R.audit,'flex');
   show('#nav-wa',R.wa,'flex');
-  show('#nav-water',(R.water||R.admin||R.mayor),'flex');
+  show('#nav-water',(R.water||R.admin||R.mayor||userRole==='water_admin'),'flex');
   show('#nav-cit-msgs',R.admin||R.activity,'flex');
   show('.feature-export',R.export,'inline-flex');
   document.querySelectorAll('[onclick="printFiltered()"]').forEach(el=>el.style.display=R.print?'inline-flex':'none');
@@ -951,6 +952,7 @@ function openDetail(id){
       <button class="btn bg" style="flex:1;justify-content:center" onclick="copyCaseSummary('${id}')">📋 نسخ الملخص</button>
       <button class="btn bg" style="flex:1;justify-content:center" onclick="closeM()">إغلاق</button>
       <button class="btn bg" style="flex:1;justify-content:center" onclick="printCase('${id}')">🖨️ طباعة</button>
+      ${c.email?`<button class="btn" style="flex:1;justify-content:center;background:#eef5ff;color:#1a6eb5;border-color:#bbd6f5" onclick="notifyNow('${id}')">📧 إشعار الآن</button>`:''}  
       ${R.del?`<button class="btn bd2" style="flex:1;justify-content:center" onclick="cd('${id}')">🗑 حذف</button>`:''}
     </div>`;
   document.getElementById('OV').classList.add('open');
@@ -1507,7 +1509,7 @@ function mc(e){if(e.target===document.getElementById('OV'))closeM();}
   </div>
 
 <!-- WATER PORTAL SECTION -->
-<div id="WATER-PORTAL" style="display:none;flex-direction:column;min-height:100vh;background:var(--bg)">
+<div id="WATER-PORTAL" style="display:none;background:var(--bg);min-height:100vh;flex-direction:column">
   <!-- Header -->
   <div style="background:linear-gradient(120deg,#1e5429,#2d7a3e);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:12px">
     <button onclick="showLanding()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center">←</button>
@@ -2303,6 +2305,9 @@ window.BUILTIN_ROLES = {
     notifs:['new_case','status_change','approval_needed']},
   mayor:   {label:'👑 رئيس البلدية',    color:'#6535a8', bg:'#ede8f8',
     perms:[], notifs:[]},
+  water_admin: {label:'💧 رئيس لجنة الري', color:'#1e5429', bg:'#d4edda',
+    perms:['view_all','f_water'],
+    notifs:[]},
 };
 // Mayor gets all lazily
 function _mayorPerms() { return Object.values(window.ALL_PERMS).flat().map(function(p){return p.id;}); }
@@ -4498,8 +4503,8 @@ function renderIrrList() {
       +'<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">'
       +'<button class="btn" style="padding:5px 12px;font-size:12px" onclick="editIrrOwner(\''+o.id+'\')">✏️ تعديل</button>'
       +(o.email
-        ?'<button class="btn" style="padding:5px 12px;font-size:12px;background:#eef5ff;color:#1a6eb5;border-color:#bbd6f5" onclick="sendIrrSingle(\''+o.id+'\',\'evening_before\')">📧 إشعار غداً</button>'
-        :'<span style="font-size:11px;color:var(--text3);padding:5px 0">بدون بريد</span>')
+        ?('<button class="btn bp" style="padding:5px 14px;font-size:12px" data-irrnn="'+o.id+'">'+'📧 إشعار الآن</button>')
+        :'<span style="font-size:11px;color:var(--text3);padding:5px 0">📵 بدون بريد</span>')
       +'<button class="btn" style="padding:5px 12px;font-size:12px;color:var(--danger)" onclick="deleteIrrOwner(\''+o.id+'\',\''+o.name+'\')">🗑️</button>'
       +'</div>'
       +'</div>';
@@ -4837,13 +4842,16 @@ async function loadWaterFromDB() {
 
 // ── WATER PORTAL (Public - phone lookup) ─────────────────────────────────────
 function showWaterPortal() {
-  document.getElementById('LANDING').style.display = 'none';
-  var wp = document.getElementById('WATER-PORTAL');
-  if (wp) { wp.style.display = 'flex'; wp.style.flexDirection = 'column'; }
-  document.getElementById('wp-phone').value = '';
-  document.getElementById('wp-result').innerHTML = '';
-  document.getElementById('wp-err').textContent = '';
-  setTimeout(function(){ document.getElementById('wp-phone').focus(); }, 150);
+  try {
+    ['LANDING','LS','CP','APP'].forEach(function(id){
+      var e=document.getElementById(id); if(e) e.style.display='none';
+    });
+    var wp=document.getElementById('WATER-PORTAL');
+    if(wp) wp.style.cssText='display:flex !important;flex-direction:column;min-height:100vh;background:var(--bg,#f5f7fa)';
+    var p=document.getElementById('wp-phone'), r=document.getElementById('wp-result'), er=document.getElementById('wp-err');
+    if(p) p.value=''; if(r) r.innerHTML=''; if(er) er.textContent='';
+    setTimeout(function(){ var pp=document.getElementById('wp-phone'); if(pp) pp.focus(); },200);
+  } catch(e){ console.error('showWaterPortal:',e.message); }
 }
 
 function lookupWaterOwner() {
@@ -4914,6 +4922,169 @@ function lookupWaterOwner() {
 
   result.innerHTML = html;
 }
+
+
+
+// ── NOTIFY NOW (Admin manual trigger) ─────────────────────────────────────────
+async function notifyNow(id) {
+  var c = cases.find(function(x){ return String(x.id) === String(id); });
+  if (!c) { toast('الطلب غير موجود', 'err'); return; }
+  if (!c.email) { toast('المواطن لا يملك بريداً', 'err'); return; }
+
+  var statusLabel = SL[c.status] || c.status;
+  var overlay = document.createElement('div');
+  overlay.id = 'notifynow-ov';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML =
+    '<div style="background:#fff;border-radius:16px;padding:24px;max-width:400px;width:100%;direction:rtl;box-shadow:0 20px 60px rgba(0,0,0,.3)">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+    + '<div style="font-size:16px;font-weight:800;color:var(--blue2)">📧 إشعار الآن</div>'
+    + '<button onclick="document.getElementById(\'notifynow-ov\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999">✕</button>'
+    + '</div>'
+    + '<div style="font-size:13px;color:var(--text3);margin-bottom:14px">إرسال فوري لـ <strong style="color:var(--text)">' + c.name + '</strong><br><span style="direction:ltr">' + c.email + '</span></div>'
+    + '<div style="display:flex;flex-direction:column;gap:8px">'
+    + '<button class="btn bp" style="justify-content:flex-start;gap:12px" onclick="sendNow(\'' + id + '\',\'status\')">'
+    + '<span>🔄</span><div><div style="font-weight:700">تحديث الحالة</div><div style="font-size:11px;opacity:.8">الحالة الحالية: ' + statusLabel + '</div></div></button>'
+    + '<button class="btn bp" style="justify-content:flex-start;gap:12px;background:#1e5429;border-color:#1e5429" onclick="sendNow(\'' + id + '\',\'reply\')">'
+    + '<span>📢</span><div><div style="font-weight:700">رد البلدية</div><div style="font-size:11px;opacity:.8">' + (c.public_note ? 'إرسال الرد الموجود' : 'لا يوجد رد بعد') + '</div></div></button>'
+    + '<button class="btn" style="justify-content:flex-start;gap:12px" onclick="sendNow(\'' + id + '\',\'reminder\')">'
+    + '<span>🔔</span><div><div style="font-weight:700">تذكير عام</div><div style="font-size:11px;color:var(--text3)">طلبكم قيد المعالجة</div></div></button>'
+    + '</div>'
+    + '<div id="nn-result" style="margin-top:10px;text-align:center;font-size:13px;min-height:18px"></div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+}
+
+async function sendNow(id, type) {
+  var c = cases.find(function(x){ return String(x.id)===String(id); });
+  if(!c||!c.email) return;
+  var res = document.getElementById('nn-result');
+  if(res){ res.style.color='var(--text3)'; res.textContent='⏳ جاري الإرسال…'; }
+  var BKEY = 'xsmtpsib-0421702005db0037488fcf8571d71affe52db33a95300e80847392294f871b55-fxFDF0zqQLSVMDAA';
+  var statusAr = SL[c.status]||c.status;
+  var typeAr = (typeof getTLabel==='function') ? getTLabel(c.type) : (TL[c.type]||c.type);
+  var typeLabel = {status:'تحديث الحالة',reply:'رد البلدية',reminder:'تذكير'}[type];
+  var colors = {status:'#1a6eb5', reply:'#1e5429', reminder:'#6535a8'};
+  var color = colors[type]||'#1a6eb5';
+  var subjects = {
+    status:   '[بلدية وادي الست] تحديث طلبكم #'+c.id+' — '+statusAr,
+    reply:    '[بلدية وادي الست] رد البلدية على طلبكم #'+c.id,
+    reminder: '[بلدية وادي الست] تذكير — طلبكم #'+c.id+' قيد المعالجة'
+  };
+  var contents = {
+    status: '<p>تم تحديث حالة طلبكم رقم <strong>#'+c.id+'</strong> إلى:</p><div style="background:#daeaf8;color:#0f4d82;padding:10px 18px;border-radius:10px;font-size:20px;font-weight:800;display:inline-block;margin:10px 0">'+statusAr+'</div>',
+    reply:  '<p>أرسلت البلدية رداً على طلبكم رقم <strong>#'+c.id+'</strong>:</p>'+(c.public_note?'<div style="background:#f0f8ea;border:2px solid #a8d9b4;border-radius:10px;padding:14px;font-size:14px;color:#1a4a2a;line-height:1.8">'+c.public_note+'</div>':'<p style="color:#888">لا يوجد رد حتى الآن</p>'),
+    reminder:'<p>طلبكم رقم <strong>#'+c.id+'</strong> قيد المعالجة لدى فريق البلدية.<br>سنتواصل معكم قريباً.</p>'
+  };
+  var html = '<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><style>body{font-family:Tahoma,Arial,sans-serif;background:#f0f2f7;direction:rtl;padding:16px;margin:0}.card{background:#fff;border-radius:14px;max-width:520px;margin:0 auto;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1)}.hdr{background:'+color+';color:#fff;padding:18px 22px;text-align:center}.body{padding:20px 24px;font-size:15px;line-height:1.9;color:#333}.ft{background:#f8f9fb;padding:10px;font-size:11px;color:#999;text-align:center;border-top:1px solid #eee}</style></head><body><div class="card"><div class="hdr"><h2 style="margin:0;font-size:17px">🏛 بلدية وادي الست</h2></div><div class="body"><p>السيد/ة <strong>'+c.name+'</strong>،</p>'+contents[type]+'<div style="background:#f8f9fb;border-radius:8px;padding:10px 14px;margin:12px 0;font-size:13px"><div>طلب #'+c.id+'</div><div>النوع: '+typeAr+'</div></div></div><div class="ft">بلدية وادي الست · قضاء الشوف · Powered by IanTrading SAL © 2026</div></div></body></html>';
+  try {
+    var r = await fetch('https://api.brevo.com/v3/smtp/email',{
+      method:'POST',headers:{'api-key':BKEY,'Content-Type':'application/json'},
+      body:JSON.stringify({sender:{name:'بلدية وادي الست',email:'noreply@municipality-wadi-el-sitt.org'},to:[{email:c.email,name:c.name}],subject:subjects[type],htmlContent:html})
+    });
+    var ok=r.ok||r.status===201;
+    if(res){ res.style.color=ok?'var(--green2)':'var(--danger)'; res.textContent=ok?'✅ تم الإرسال!':'❌ فشل الإرسال'; }
+    if(ok){
+      toast('✅ أُرسل الإشعار لـ '+c.name);
+      var today=new Date().toISOString().slice(0,10);
+      var tl=Array.from(c.timeline||[]);
+      tl.push({a:'📧 إشعار يدوي: '+typeLabel,by:UN||'موظف',d:today,cls:''});
+      uf(id,'timeline',tl,UN||'موظف');
+      setTimeout(function(){var o=document.getElementById('notifynow-ov');if(o)o.remove();},1500);
+    }
+  } catch(e){ if(res){res.style.color='var(--danger)';res.textContent='خطأ: '+e.message;} }
+}
+
+
+
+// ── WATER: NOTIFY NOW ────────────────────────────────────────────────────────
+function irrNotifyNow(id) {
+  var o = getIrrOwners ? getIrrOwners().find(function(x){return x.id===id;}) : null;
+  if(!o){ toast('سجل غير موجود','err'); return; }
+  if(!o.email){ toast('لا يملك بريداً إلكترونياً','err'); return; }
+  var s = getMergedIrrSettings ? getMergedIrrSettings() : getIrrDefaultSettings();
+  var dayName = IRR_DAYS[o.day];
+  var end = irrAddHours(o.startTime, o.hours);
+  var notifKeys = Object.keys(s.notifications).filter(function(k){return s.notifications[k].enabled;});
+
+  var ov = document.createElement('div');
+  ov.id = 'irr-nn-ov';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;direction:rtl';
+
+  var btns = notifKeys.map(function(k){
+    var n = s.notifications[k];
+    return '<button class="btn bp" style="justify-content:flex-start;gap:12px;margin-bottom:8px;width:100%;text-align:right" '
+      + 'onclick="sendIrrNN(\''+id+'\',\''+k+'\')">'
+      + '<span style="font-size:18px;flex-shrink:0">'+n.icon+'</span>'
+      + '<div>'
+      + '<div style="font-weight:700">'+n.label+'</div>'
+      + '<div style="font-size:11px;opacity:.8">'+n.subject.replace(/\{day\}/g,dayName)+'</div>'
+      + '</div></button>';
+  }).join('');
+
+  ov.innerHTML =
+    '<div style="background:#fff;border-radius:16px;padding:22px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+    +'<div style="font-size:16px;font-weight:800;color:#1e5429">📧 إشعار الآن</div>'
+    +'<button onclick="document.getElementById(\'irr-nn-ov\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999">✕</button>'
+    +'</div>'
+    +'<div style="background:#f0fdf4;border:1.5px solid #a8d9b4;border-radius:10px;padding:10px 12px;margin-bottom:14px">'
+    +'<div style="font-weight:700;color:#1e5429;font-size:14px">'+o.name+'</div>'
+    +'<div style="color:#666;font-size:12px;direction:ltr">'+o.email+'</div>'
+    +(o.landName?'<div style="color:#555;font-size:12px;margin-top:2px">🌿 '+o.landName+'</div>':'')
+    +'<div style="color:#1a6eb5;font-size:12px;margin-top:4px;font-weight:700">📅 '+dayName+' · ⏰ '+o.startTime+' — '+end+' · 💧 '+o.hours+'س</div>'
+    +'</div>'
+    +'<div style="font-size:13px;font-weight:700;margin-bottom:10px">نوع الإشعار:</div>'
+    +btns
+    +'<div id="irr-nn-res" style="margin-top:8px;text-align:center;font-size:13px;min-height:18px"></div>'
+    +'</div>';
+
+  document.body.appendChild(ov);
+  ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
+}
+
+async function sendIrrNN(id, type) {
+  var o = getIrrOwners ? getIrrOwners().find(function(x){return x.id===id;}) : null;
+  if(!o||!o.email) return;
+  var s = getMergedIrrSettings ? getMergedIrrSettings() : getIrrDefaultSettings();
+  var notif = s.notifications[type];
+  var res = document.getElementById('irr-nn-res');
+  if(res){ res.style.color='var(--text3)'; res.textContent='⏳ جاري الإرسال…'; }
+  var dayName = IRR_DAYS[o.day];
+  var subject = fillTemplate(notif.subject, o, dayName);
+  var bodyText = fillTemplate(notif.body, o, dayName);
+  var BKEY = 'xsmtpsib-0421702005db0037488fcf8571d71affe52db33a95300e80847392294f871b55-fxFDF0zqQLSVMDAA';
+  try {
+    var r = await fetch('https://api.brevo.com/v3/smtp/email',{
+      method:'POST', headers:{'api-key':BKEY,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        sender:{name:s.senderName,email:s.senderEmail},
+        to:[{email:o.email,name:o.name}],
+        subject:subject,
+        htmlContent:buildIrrEmail(o, dayName, type, s, bodyText)
+      })
+    });
+    var ok = r.ok||r.status===201;
+    if(res){ res.style.color=ok?'var(--green2)':'var(--danger)'; res.textContent=ok?'✅ تم الإرسال!':'❌ فشل'; }
+    if(ok){
+      toast('✅ إشعار أُرسل لـ '+o.name);
+      setTimeout(function(){ var v=document.getElementById('irr-nn-ov'); if(v) v.remove(); },1500);
+    }
+  } catch(e){
+    if(res){ res.style.color='var(--danger)'; res.textContent='خطأ: '+e.message; }
+  }
+}
+
+
+
+// Event delegation for irrNotifyNow buttons
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest ? e.target.closest('[data-irrnn]') : null;
+  if (btn && btn.getAttribute('data-irrnn')) {
+    irrNotifyNow(btn.getAttribute('data-irrnn'));
+  }
+});
 
 </script>
 <div style="position:fixed;bottom:0;left:0;right:0;background:rgba(15,77,130,0.95);color:rgba(255,255,255,0.6);text-align:center;padding:8px;font-size:12px;z-index:9999;pointer-events:none;direction:ltr">Powered by <strong style="color:#fff">IanTrading SAL</strong> &nbsp;·&nbsp; All rights reserved © 2026</div>
