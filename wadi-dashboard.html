@@ -4565,130 +4565,77 @@ function fillIrrTemplate(tpl, owner, sch) {
 // MAIN OPEN
 // ══════════════════════════════════════════════════════════════════════════════
 async function openWaterSchedule() {
-  // Show modal immediately with loading
-  document.getElementById('MT').textContent = '💧 نظام دورة الري';
-  document.getElementById('MB').innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3)"><div style="font-size:32px;margin-bottom:12px">⏳</div>جاري تحميل البيانات…</div>';
-  document.getElementById('OV').classList.add('open');
-  
-  try {
-  // Load fresh data from Supabase (with error handling)
-  try { await loadIrrOwners(); } catch(e){ console.log('openWater loadOwners:',e.message); }
-  try { await loadIrrConfig(); } catch(e){ console.log('openWater loadConfig:',e.message); }
-  var cfg = getIrrConfig();
-  var owners = getIrrOwners().sort(function(a,b){return (a.order||0)-(b.order||0);});
-  var totalAlloc = getTotalAllocatedHours();
-  var remaining = getRemainingHours();
-  var cycleInfo = getCurrentCycleInfo();
-
-  var nextCycleStart = cycleInfo.cycleEnd;
-  var nextIsDay = !cycleInfo.isDay;
-
-  document.getElementById('MT').textContent = '💧 نظام دورة الري';
-  var html_content = '<style>'
-    +'.irtab{padding:8px 13px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--bg2);color:var(--text2);white-space:nowrap}'
-    +'.irtab.on{background:#1a6eb5;color:#fff;border-color:#1a6eb5}'
-    +'.ircard{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px}'
-    +'</style>'
-
-    // Current cycle banner
-    +'<div style="background:linear-gradient(120deg,'+(cycleInfo.isDay?'#e67e22,#f39c12':'#2c3e6b,#3a4fa8')+');color:#fff;border-radius:12px;padding:12px 16px;margin-bottom:12px">'
-    +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
-    +'<div>'
-    +'<div style="font-size:14px;font-weight:800">الدورة '+(cycleInfo.isDay?'☀️ النهارية':'🌙 الليلية')+' رقم '+cycleInfo.cycleNum+'</div>'
-    +'<div style="font-size:11px;opacity:.85;margin-top:2px">'
-    +'بدأت: '+fmtDateAr(cycleInfo.cycleStart)+' '+fmtTime(cycleInfo.cycleStart)
-    +' | تنتهي: '+fmtDateAr(cycleInfo.cycleEnd)+' '+fmtTime(cycleInfo.cycleEnd)
-    +'</div>'
-    +'</div>'
-    +'<div style="text-align:center;background:rgba(255,255,255,.15);border-radius:8px;padding:6px 12px">'
-    +'<div style="font-size:18px;font-weight:800">'+totalAlloc+'/'+cfg.totalHours+'</div>'
-    +'<div style="font-size:10px;opacity:.8">ساعة مخصصة</div>'
-    +'</div>'
-    +'</div>'
-    +'<div style="font-size:11px;opacity:.8;margin-top:6px">الدورة القادمة: '+(nextIsDay?'☀️ نهار':'🌙 ليل')+' — تبدأ '+fmtDateAr(nextCycleStart)+' '+fmtTime(nextCycleStart)+'</div>'
-    +'</div>'
-
-    // Hours bar
-    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px">'
-    +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">'
-    +'<span><strong>'+totalAlloc+'س</strong> مخصصة من <strong>'+cfg.totalHours+'س</strong></span>'
-    +'<span style="color:'+(remaining>=0?'var(--green2)':'var(--danger)')+'">متبقي: '+remaining.toFixed(1)+'س</span>'
-    +'</div>'
-    +'<div style="background:#eee;border-radius:20px;height:7px;overflow:hidden">'
-    +'<div style="background:'+(remaining<0?'var(--danger)':'linear-gradient(90deg,#1e5429,#2d7a3e)')+';height:100%;width:'+Math.min(100,totalAlloc/cfg.totalHours*100).toFixed(1)+'%;border-radius:20px"></div>'
-    +'</div>'
-    +'<div style="font-size:11px;color:var(--text3);margin-top:3px">168 ساعة/أسبوع · مباع: '+cfg.totalHours+'س · صيانة: '+(168-cfg.totalHours)+'س · '+owners.length+' مشترك</div>'
-    +'</div>'
-
-    // Tabs
-    +'<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'
-    +'<div class="irtab on" onclick="irTab(this,\'ir-list\')">📋 المشتركون ('+owners.length+')</div>'
-    +'<div class="irtab" onclick="irTab(this,\'ir-add\')">➕ إضافة</div>'
-    +'<div class="irtab" onclick="irTab(this,\'ir-timeline\');renderIrrTimeline()">📅 الجدول الكامل</div>'
-    +'<div class="irtab" onclick="irTab(this,\'ir-notify\');renderIrrNotifPanel()">🔔 الإشعارات</div>'
-    +'<div class="irtab" onclick="irTab(this,\'ir-settings\');renderIrrSettings()">⚙️ الإعدادات</div>'
-    +'</div>'
-
-    // LIST panel
-    +'<div id="ir-list">'
-    +'<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">'
-    +'<input type="text" id="ir-search" placeholder="🔍 بحث…" class="fi" style="flex:1;min-width:140px" oninput="renderIrrList()">'
-    +'<button class="btn bp" style="font-size:12px;padding:6px 12px" onclick="irrNotifyAll(\'tomorrow\')">📧 إشعار للكل</button>'
-    +'</div>'
-    +'<div id="irr-list-body"></div>'
-    +'</div>'
-
-    // ADD panel
-    +'<div id="ir-add" style="display:none">'
-    +'<div class="admin-section">'
-    +'<div class="admin-header">➕ تسجيل صاحب حق ري</div>'
-    +'<div style="font-size:12px;color:var(--text3);margin-bottom:12px">الوقت يُحسب تلقائياً حسب الترتيب والدورة — لا يوجد يوم ثابت</div>'
-    +'<div style="font-size:12px;font-weight:700;color:var(--blue2);margin:10px 0 6px">👤 الشخص</div>'
-    +'<div class="fg"><div class="fl">الاسم *</div><input type="text" class="fi" id="ir-name"></div>'
-    +'<div class="fg"><div class="fl">الهاتف *</div><input type="tel" class="fi" id="ir-phone" style="direction:ltr"></div>'
-    +'<div class="fg"><div class="fl">البريد</div><input type="email" class="fi" id="ir-email" style="direction:ltr"></div>'
-    +'<div class="fg"><div class="fl">المنطقة</div><input type="text" class="fi" id="ir-area"></div>'
-    +'<div style="font-size:12px;font-weight:700;color:var(--blue2);margin:12px 0 6px">🌿 حق الري</div>'
-    +'<div class="fg"><div class="fl">اسم القطعة</div><input type="text" class="fi" id="ir-land" placeholder="بستان الزيتون"></div>'
-    +'<div class="fg"><div class="fl">رقم السند</div><input type="text" class="fi" id="ir-ref"></div>'
-    +'<div class="fg"><div class="fl">المحصول</div><input type="text" class="fi" id="ir-crop" placeholder="زيتون، كرمة..."></div>'
-    +'<div style="font-size:12px;font-weight:700;color:var(--blue2);margin:12px 0 6px">⏱️ الحصة</div>'
-    +'<div class="fg"><div class="fl">الساعات *</div>'
-    +'<div style="display:flex;gap:8px;align-items:center">'
-    +'<input type="number" class="fi" id="ir-hours" placeholder="مثال: 2.5" step="0.5" min="0.5" max="24" style="flex:1" oninput="updateIrrPreview()">'
-    +'<span id="ir-rem-badge" style="font-size:12px;padding:3px 10px;border-radius:8px;background:var(--bg2);border:1px solid var(--border);white-space:nowrap">متبقي: '+remaining.toFixed(1)+'س</span>'
-    +'</div></div>'
-    +'<div class="fg"><div class="fl">الترتيب *</div>'
-    +'<input type="number" class="fi" id="ir-order" value="'+(owners.length+1)+'" min="1" oninput="updateIrrPreview()"></div>'
-    +'<div style="background:#f0fdf4;border:1.5px solid #a8d9b4;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px">'
-    +'<div style="font-size:11px;font-weight:700;color:#1e5429;margin-bottom:5px">📅 معاينة الدور (تلقائي)</div>'
-    +'<div id="ir-preview-day" style="margin-bottom:3px">☀️ النهار: —</div>'
-    +'<div id="ir-preview-night">🌙 الليل: —</div>'
-    +'</div>'
-    +'<div class="fg"><div class="fl">ملاحظات</div><textarea class="fi" id="ir-notes" rows="2" style="resize:none"></textarea></div>'
-    +'<button class="btn bp" style="width:100%;justify-content:center;margin-top:12px" onclick="saveIrrOwner()">✓ تسجيل</button>'
-    +'<div id="ir-msg" style="margin-top:8px;text-align:center;font-size:13px;min-height:18px"></div>'
-    +'</div></div>'
-
-    // TIMELINE panel
-    +'<div id="ir-timeline" style="display:none"><div id="irr-timeline-body"></div></div>'
-
-    // NOTIFY panel
-    +'<div id="ir-notify" style="display:none"><div id="irr-notif-body"></div></div>'
-
-    // SETTINGS panel
-    +'<div id="ir-settings" style="display:none"><div id="irr-settings-body"></div></div>';
-
-  document.getElementById('MB').innerHTML = html_content;
-  document.getElementById('OV').classList.add('open');
-  renderIrrList();
-  } catch(err) {
-    console.error('openWaterSchedule error:', err);
-    document.getElementById('MB').innerHTML = '<div style="text-align:center;padding:30px;color:var(--danger)">'
-      + '<div style="font-size:28px;margin-bottom:10px">⚠️</div>'
-      + '<div style="font-weight:700;margin-bottom:8px">خطأ في تحميل نظام الري</div>'
-      + '<div style="font-size:13px;color:var(--text3)">' + (err.message||'خطأ غير معروف') + '</div>'
-      + '</div>';
+  var mt=document.getElementById('MT');
+  var mb=document.getElementById('MB');
+  var ov=document.getElementById('OV');
+  if(!mt||!mb||!ov){alert('Error: MT/MB/OV not found');return;}
+  mt.textContent='💧 دورة الري';
+  mb.innerHTML='<div style="text-align:center;padding:40px;color:#888"><div style="font-size:36px">💧</div><div style="margin-top:12px">جاري التحميل…</div></div>';
+  ov.style.display='flex';
+  ov.classList.add('open');
+  try{await loadIrrOwners();}catch(e){console.warn('loadOwners',e.message);}
+  try{await loadIrrConfig();}catch(e){console.warn('loadConfig',e.message);}
+  try{
+    var cfg=getIrrConfig();
+    var owners=getIrrOwners().sort(function(a,b){return(a.order||0)-(b.order||0);});
+    var totalAlloc=owners.reduce(function(s,o){return s+(parseFloat(o.hours)||0);},0);
+    var remaining=(cfg.totalHours||160)-totalAlloc;
+    var ci;
+    try{ci=getCurrentCycleInfo();}
+    catch(e){ci={cycleNum:1,isDay:true,cycleStart:new Date(),cycleEnd:new Date(Date.now()+576000000),totalMinutes:9600};}
+    var cColor=ci.isDay?'linear-gradient(120deg,#e67e22,#f39c12)':'linear-gradient(120deg,#2c3e6b,#3a4fa8)';
+    var cLabel=ci.isDay?'\u2600\ufe0f \u0646\u0647\u0627\u0631\u064a':'\uD83C\uDF19 \u0644\u064a\u0644\u064a';
+    var nLabel=ci.isDay?'\uD83C\uDF19 \u0644\u064a\u0644':'\u2600\ufe0f \u0646\u0647\u0627\u0631';
+    var sDate=function(d){try{return fmtDateAr(d);}catch(e){return '--';}};
+    var sTime=function(d){try{return fmtTime(d);}catch(e){return '--';}};
+    var h='';
+    h+='<style>.irtab{padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--bg2);color:var(--text2)}.irtab.on{background:#1a6eb5;color:#fff;border-color:#1a6eb5}.ircard{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px}</style>';
+    h+='<div style="background:'+cColor+';color:#fff;border-radius:12px;padding:12px 16px;margin-bottom:12px">';
+    h+='<div style="font-weight:800;font-size:14px">\u0627\u0644\u062f\u0648\u0631\u0629 '+cLabel+' \u0631\u0642\u0645 '+ci.cycleNum+'</div>';
+    h+='<div style="font-size:11px;opacity:.85;margin-top:3px">\u0628\u062f\u0623\u062a: '+sDate(ci.cycleStart)+' '+sTime(ci.cycleStart)+' | \u062a\u0646\u062a\u0647\u064a: '+sDate(ci.cycleEnd)+' '+sTime(ci.cycleEnd)+'</div>';
+    h+='<div style="font-size:11px;opacity:.8;margin-top:2px">\u0627\u0644\u0642\u0627\u062f\u0645\u0629: '+nLabel+'</div></div>';
+    h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px">';
+    h+='<div style="display:flex;justify-content:space-between;margin-bottom:4px">';
+    h+='<span><strong>'+totalAlloc+'\u0633</strong> \u0645\u0646 <strong>'+(cfg.totalHours||160)+'\u0633</strong></span>';
+    h+='<span style="color:'+(remaining>=0?'var(--green2)':'var(--danger)')+'">'+'\u0645\u062a\u0628\u0642\u064a: '+remaining.toFixed(1)+'\u0633</span></div>';
+    h+='<div style="background:#eee;border-radius:20px;height:6px;overflow:hidden"><div style="background:'+(remaining<0?'var(--danger)':'linear-gradient(90deg,#1e5429,#2d7a3e)')+';height:100%;width:'+Math.min(100,totalAlloc/(cfg.totalHours||160)*100).toFixed(1)+'%;border-radius:20px"></div></div>';
+    h+='<div style="font-size:11px;color:var(--text3);margin-top:3px">'+owners.length+' \u0645\u0634\u062a\u0631\u0643</div></div>';
+    h+='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">';
+    h+='<div class="irtab on" data-tab="ir-list" data-fn="">&#128203; \u0627\u0644\u0645\u0634\u062a\u0631\u0643\u0648\u0646 ('+owners.length+')</div>';
+    h+='<div class="irtab" data-tab="ir-add" data-fn="">&#10133; \u0625\u0636\u0627\u0641\u0629</div>';
+    h+='<div class="irtab" data-tab="ir-timeline" data-fn="renderIrrTimeline()">&#128197; \u0627\u0644\u062c\u062f\u0648\u0644</div>';
+    h+='<div class="irtab" data-tab="ir-notify" data-fn="renderIrrNotifPanel()">&#128276; \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062a</div>';
+    h+='<div class="irtab" data-tab="ir-settings" data-fn="renderIrrSettings()">&#9881;&#65039; \u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a</div>';
+    h+='</div>';
+    h+='<div id="ir-list">';
+    h+='<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">';
+    h+='<input type="text" id="ir-search" placeholder="&#128269; \u0628\u062d\u062b\u2026" class="fi" style="flex:1" oninput="renderIrrList()">';
+    h+='<button class="btn bp" style="font-size:12px;padding:6px 12px" onclick="irrNotifyAll(\'tomorrow\')">&#128231; \u0625\u0634\u0639\u0627\u0631 \u0644\u0644\u0643\u0644</button>';
+    h+='</div><div id="irr-list-body"></div></div>';
+    h+='<div id="ir-add" style="display:none">';
+    h+='<div class="admin-section"><div class="admin-header">&#10133; \u062a\u0633\u062c\u064a\u0644 \u0635\u0627\u062d\u0628 \u062d\u0642 \u0631\u064a</div>';
+    h+='<div class="fg"><div class="fl">\u0627\u0644\u0627\u0633\u0645 *</div><input type="text" class="fi" id="ir-name"></div>';
+    h+='<div class="fg"><div class="fl">\u0627\u0644\u0647\u0627\u062a\u0641 *</div><input type="tel" class="fi" id="ir-phone" style="direction:ltr"></div>';
+    h+='<div class="fg"><div class="fl">\u0627\u0644\u0628\u0631\u064a\u062f</div><input type="email" class="fi" id="ir-email" style="direction:ltr"></div>';
+    h+='<div class="fg"><div class="fl">\u0627\u0644\u0645\u0646\u0637\u0642\u0629</div><input type="text" class="fi" id="ir-area"></div>';
+    h+='<div class="fg"><div class="fl">\u0627\u0633\u0645 \u0627\u0644\u0642\u0637\u0639\u0629</div><input type="text" class="fi" id="ir-land"></div>';
+    h+='<div class="fg"><div class="fl">\u0631\u0642\u0645 \u0627\u0644\u0633\u0646\u062f</div><input type="text" class="fi" id="ir-ref"></div>';
+    h+='<div class="fg"><div class="fl">\u0627\u0644\u0645\u062d\u0635\u0648\u0644</div><input type="text" class="fi" id="ir-crop"></div>';
+    h+='<div class="fg"><div class="fl">\u0627\u0644\u0633\u0627\u0639\u0627\u062a *</div><input type="number" class="fi" id="ir-hours" step="0.5" min="0.5" max="24" oninput="updateIrrPreview()"></div>';
+    h+='<div class="fg"><div class="fl">\u0627\u0644\u062a\u0631\u062a\u064a\u0628 *</div><input type="number" class="fi" id="ir-order" value="'+(owners.length+1)+'"></div>';
+    h+='<div style="background:#f0fdf4;border:1.5px solid #a8d9b4;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px"><div style="font-size:11px;font-weight:700;color:#1e5429;margin-bottom:4px">&#128197; \u0645\u0639\u0627\u064a\u0646\u0629</div>';
+    h+='<div id="ir-preview-day">&#9728;&#65039; \u2014</div><div id="ir-preview-night">&#127769; \u2014</div></div>';
+    h+='<div class="fg"><div class="fl">\u0645\u0644\u0627\u062d\u0638\u0627\u062a</div><textarea class="fi" id="ir-notes" rows="2" style="resize:none"></textarea></div>';
+    h+='<button class="btn bp" style="width:100%;justify-content:center;margin-top:12px" onclick="saveIrrOwner()">\u2713 \u062a\u0633\u062c\u064a\u0644</button>';
+    h+='<div id="ir-msg" style="margin-top:8px;text-align:center;font-size:13px;min-height:18px"></div></div></div>';
+    h+='<div id="ir-timeline" style="display:none"><div id="irr-timeline-body"></div></div>';
+    h+='<div id="ir-notify" style="display:none"><div id="irr-notif-body"></div></div>';
+    h+='<div id="ir-settings" style="display:none"><div id="irr-settings-body"></div></div>';
+    mb.innerHTML=h;
+    renderIrrList();
+  }catch(err){
+    console.error('openWaterSchedule error:',err);
+    mb.innerHTML='<div style="text-align:center;padding:30px;color:var(--danger)"><div style="font-size:28px">&#9888;</div><div style="font-weight:700;margin:8px 0">\u062e\u0637\u0623</div><div style="font-size:12px;direction:ltr">'+(err&&err.message||'')+' </div></div>';
   }
 }
 
@@ -5308,6 +5255,18 @@ async function saveColorSettings() {
   toast('✅ تم تطبيق الألوان الجديدة');
   setTimeout(function(){closeM();}, 1500);
 }
+
+
+
+document.addEventListener('click',function(e){
+  var el=e.target.closest?e.target.closest('[data-tab]'):null;
+  if(el&&el.classList.contains('irtab')){
+    var tid=el.getAttribute('data-tab');
+    var fn=el.getAttribute('data-fn');
+    irTab(el,tid);
+    if(fn)try{eval(fn);}catch(x){}
+  }
+});
 
 </script>
 <div style="position:fixed;bottom:0;left:0;right:0;background:rgba(15,77,130,0.95);color:rgba(255,255,255,0.6);text-align:center;padding:8px;font-size:12px;z-index:9999;pointer-events:none;direction:ltr">Powered by <strong style="color:#fff">IanTrading SAL</strong> &nbsp;·&nbsp; All rights reserved © 2026</div>
