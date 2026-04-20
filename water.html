@@ -23,6 +23,17 @@ body{font-family:var(--font);direction:rtl;background:var(--bg);min-height:100vh
 .btn-green{background:#1a6eb5;color:#fff;width:100%;}
 .btn-green:hover{background:#0f4d82;}
 </style>
+<style>
+.help-btn{position:fixed;bottom:70px;left:20px;width:44px;height:44px;background:#0891b2;color:#fff;border-radius:50%;border:none;font-size:20px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(8,145,178,.4);z-index:1000;transition:transform .15s;font-family:inherit}
+.help-btn:hover{transform:scale(1.1)}
+.help-section{margin-bottom:16px}
+.help-section h3{color:#0891b2;margin:0 0 8px;font-size:15px}
+.help-section h4{color:#0369a1;margin:12px 0 6px;font-size:14px;border-right:3px solid #0891b2;padding-right:8px}
+.help-section p{margin:0 0 6px;font-size:13px;color:#444;line-height:1.7}
+.help-section ul{margin:4px 0 8px 0;padding-right:20px}
+.help-section ul li{font-size:13px;color:#555;margin-bottom:4px}
+.help-note{background:#e0f2fe;border:1px solid #bae6fd;border-radius:8px;padding:10px 12px}
+</style>
 </head>
 <body>
 <div class="header">
@@ -40,7 +51,7 @@ body{font-family:var(--font);direction:rtl;background:var(--bg);min-height:100vh
   <div id="lookup-card" class="card" style="display:none">
     <div style="font-size:16px;font-weight:800;color:#1e5429;margin-bottom:6px;text-align:center">🔍 استعلام عن دورة الري</div>
     <div style="font-size:13px;color:var(--text3);margin-bottom:16px;text-align:center">أدخل رقم هاتفك المسجّل لدى البلدية</div>
-    <input type="tel" class="fi" id="wp-phone" placeholder="03xxxxxx" onkeydown="if(event.key==='Enter')lookupWaterOwner()">
+    <input type="tel" class="fi" id="wp-phone" placeholder="03 123456" onkeydown="if(event.key==='Enter')lookupWaterOwner()">
     <div id="wp-err" style="color:#e74c3c;font-size:13px;margin-top:8px;min-height:18px;text-align:center"></div>
     <button class="btn btn-green" onclick="lookupWaterOwner()" style="margin-top:10px">🔍 بحث عن دوري</button>
   </div>
@@ -104,6 +115,13 @@ function getOwnerSched(owner,offset){
 // ── INIT ──────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async function(){
   sb=window.supabase.createClient(SB_URL,SB_KEY,{realtime:{enabled:false}});
+  // Safety timeout: always show UI after 4 seconds regardless of DB state
+  var safetyTimer = setTimeout(function(){
+    var lm=document.getElementById('loading-msg');
+    var lc=document.getElementById('lookup-card');
+    if(lm) lm.style.display='none';
+    if(lc) lc.style.display='block';
+  }, 4000);
 
   // Load owners: try irr_owners table → fallback to settings → fallback to localStorage
   try{
@@ -155,6 +173,7 @@ window.addEventListener('DOMContentLoaded', async function(){
     }catch(e2){}
   }
 
+  clearTimeout(safetyTimer);
   document.getElementById('loading-msg').style.display='none';
   document.getElementById('lookup-card').style.display='block';
   setTimeout(function(){var p=document.getElementById('wp-phone');if(p)p.focus();},200);
@@ -209,5 +228,76 @@ function lookupWaterOwner(){
   result.innerHTML=html;
 }
 </script>
+
+<script>
+function openHelp(page) {
+  const docs = {
+    water: {
+      title: '📖 دليل بوابة الري',
+      content: `
+        <div class="help-section">
+          <h3>💧 بوابة الري — لأصحاب حقوق الري</h3>
+          <p>هذه الصفحة تتيح لأصحاب حقوق الري الاطلاع على جدول دورتهم دون الحاجة لحساب.</p>
+        </div>
+        <div class="help-section">
+          <h4>🔍 كيفية الاستعلام</h4>
+          <ul>
+            <li>أدخل رقم هاتفك المسجل لدى لجنة الري</li>
+            <li>التنسيق: 03 123456 أو 03123456</li>
+            <li>اضغط Enter أو زر البحث</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h4>📅 فهم جدول الدورات</h4>
+          <ul>
+            <li>☀️ <b>دورة النهار</b>: تبدأ الساعة 06:00 صباحاً</li>
+            <li>🌙 <b>دورة الليل</b>: تبدأ الساعة 18:00 مساءً</li>
+            <li>كل دورة لها ترتيب محدد — أنت تعرف رقم دورك من لجنة الري</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h4>📧 الإشعارات التلقائية</h4>
+          <p>إذا كان بريدك الإلكتروني مسجلاً، ستصلك إشعارات:</p>
+          <ul>
+            <li>قبل يوم من دورك</li>
+            <li>صباح يوم الدور</li>
+            <li>ساعة قبل البدء</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h4>⚠️ مشاكل شائعة</h4>
+          <ul>
+            <li><b>رقم غير موجود</b>: تأكد من التنسيق أو تواصل مع البلدية لتسجيل رقمك</li>
+            <li><b>تغيير في الموعد</b>: راجع الصفحة يوم الدور — قد يتغير الجدول</li>
+            <li><b>مشكلة في المياه</b>: قدّم شكوى ري من بوابة المواطن</li>
+          </ul>
+        </div>
+        <div class="help-section help-note">
+          <b>📞 للتواصل مع لجنة الري:</b> اتصل بمكتب البلدية
+        </div>
+      `
+    }
+  };
+  const doc = docs[page]; if(!doc) return;
+  let modal = document.getElementById('help-modal-water');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'help-modal-water';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;direction:rtl';
+    modal.innerHTML = '<div style="background:#fff;border-radius:20px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #eee;position:sticky;top:0;background:#fff;border-radius:20px 20px 0 0;z-index:1">' +
+      '<div id="help-title-water" style="font-size:16px;font-weight:800;color:#0891b2"></div>' +
+      '<button onclick="document.getElementById('help-modal-water').remove()" style="background:#f0f9ff;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>' +
+      '</div><div id="help-body-water" style="padding:20px"></div></div>';
+    modal.addEventListener('click', function(e){ if(e.target===modal) modal.remove(); });
+    document.body.appendChild(modal);
+  }
+  document.getElementById('help-title-water').textContent = doc.title;
+  document.getElementById('help-body-water').innerHTML = doc.content;
+  modal.style.display = 'flex';
+}
+</script>
+<button class="help-btn" onclick="openHelp('water')" title="مساعدة">?</button>
+
 </body>
 </html>
