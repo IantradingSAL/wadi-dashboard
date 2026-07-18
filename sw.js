@@ -3,7 +3,7 @@
 // FIXED: GitHub Pages subdirectory handling — notifications open correctly
 // ═══════════════════════════════════════════════════════════════════════════
 
-const CACHE_NAME   = 'wadi-elsit-v16';
+const CACHE_NAME   = 'wadi-elsit-v17';
 const RUNTIME_NAME = 'wadi-elsit-runtime-v3';
 
 // ★ KEY FIX: derive scope dynamically (handles /wadi-el-sit-main-gate/ subpath)
