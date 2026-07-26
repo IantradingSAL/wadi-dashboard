@@ -931,6 +931,14 @@ function bfCloseDocs(){document.getElementById('bf-docs-ov').style.display='none
 
 // ── 🗂️ CASE DETAIL ──
 let bfCaseId=null;
+async function bfSaveKarar(){
+  const v=((document.getElementById('bf-case-karar')||{}).value||'').trim()||null;
+  const{error}=await sb.from('baladieh_finance').update({karar_number:v}).eq('id',bfCaseId);
+  if(error){toast('⚠️ '+error.message,'err');return;}
+  toast(v?('✓ حُفظ رقم القرار '+v):'✓ أُزيل رقم القرار');
+  await bfLoad();
+  bfOpenCase(bfCaseId);
+}
 function bfOpenCase(id){
   const e=bfEntries.find(x=>String(x.id)===String(id));
   if(!e)return;
@@ -948,7 +956,7 @@ function bfOpenCase(id){
     +dr('التاريخ','<span style="direction:ltr;unicode-bidi:embed">'+e.entry_date.split('-').reverse().join('/')+'</span>')
     +dr('الفئة',e.category)
     +dr('طريقة الدفع',bfPay(e))
-    +dr('📌 رقم القرار',e.karar_number)
+    +'<div style="display:flex;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px dashed #eef0f4"><div style="color:#8a8f9c;font-weight:700;font-size:13.5px;white-space:nowrap">📌 رقم القرار</div><input type="text" id="bf-case-karar" class="fi" style="flex:1;margin:0;padding:6px 10px;font-size:13px;direction:rtl" placeholder="لم يُحدَّد — اكتبه هنا" value="'+String(e.karar_number||'').replace(/"/g,'&quot;')+'"><button class="bf-share-btn" style="width:auto;flex:0 0 auto;margin:0;padding:6px 12px;font-size:12px;justify-content:center" onclick="bfSaveKarar()">💾 حفظ</button></div>'
     +dr('البيان',e.description)
     +dr(e.entry_type==='income'?'الدافع':'المستفيد',e.person)
     +dr(e.entry_type==='income'?'المستلم':'المسلّم',e.handled_by)
