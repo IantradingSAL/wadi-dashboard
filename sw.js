@@ -3,7 +3,7 @@
 // FIXED: GitHub Pages subdirectory handling — notifications open correctly
 // ═══════════════════════════════════════════════════════════════════════════
 
-const CACHE_NAME   = 'wadi-elsit-v18';
+const CACHE_NAME   = 'wadi-elsit-v42';
 const RUNTIME_NAME = 'wadi-elsit-runtime-v3';
 
 // ★ KEY FIX: derive scope dynamically (handles /wadi-el-sit-main-gate/ subpath)
@@ -20,6 +20,8 @@ const APP_SHELL = [
   './water.html',
   './dashboard.html',
   './sandouk.html',
+  './mrs.html',
+  './mrs-update.html',
   './news.html',
   './news-detail.html',
   './manifest.json',
@@ -65,7 +67,7 @@ self.addEventListener('fetch', (event) => {
 
   if (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html')) {
     event.respondWith(
-      fetch(req).then(resp => {
+      fetch(req, { cache: 'no-store' }).then(resp => {
         const clone = resp.clone();
         caches.open(CACHE_NAME).then(c => c.put(req, clone));
         return resp;
